@@ -8,15 +8,15 @@
 
 # Based on the code of https://gitlab.geant.org/edugain/edugain-contacts
 
-import requests
-from xml.etree import ElementTree as ET
 import csv
 import sys
+from xml.etree import ElementTree as ET
+
+import requests
 
 # production
 xml_req = requests.get('https://mds.edugain.org/edugain-v1.xml')
 root = ET.fromstring(xml_req.content)
-
 
 # local
 # root = ET.parse('./edugain-v1.xml')
@@ -38,25 +38,27 @@ entities = root.findall('./md:EntityDescriptor', ns)
 
 for entity in entities:
     sirtfi = False
-    sec_contacts = False
 
-    sec_contact_els = entity.findall('./md:ContactPerson[@remd:contactType="http://refeds.org/metadata/contactType/security"]', ns) + \
-        entity.findall(
-            './md:ContactPerson[@icmd:contactType="http://id.incommon.org/metadata/contactType/security"]', ns)
+    sec_contact_els = entity.findall(
+        './md:ContactPerson[@remd:contactType="http://refeds.org/metadata/contactType/security"]', ns) + \
+                      entity.findall(
+                          './md:ContactPerson[@icmd:contactType="http://id.incommon.org/metadata/contactType/security"]',
+                          ns)
 
     for ec in entity.findall(
-            './md:Extensions/mdattr:EntityAttributes/saml:Attribute[@Name="urn:oasis:names:tc:SAML:attribute:assurance-certification"]/saml:AttributeValue', ns):
+            './md:Extensions/mdattr:EntityAttributes/saml:Attribute[@Name="urn:oasis:names:tc:SAML:attribute:assurance-certification"]/saml:AttributeValue',
+            ns):
         if ec.text == "https://refeds.org/sirtfi":
             sirtfi = True
 
-    if (sec_contact_els and not sirtfi):
+    if sec_contact_els and not sirtfi:
 
         ent_id = (entity.find('.').attrib['entityID'])
 
         registration_authority = ''
         registration_info = entity.find(
             './md:Extensions/mdrpi:RegistrationInfo', ns)
-        if registration_info == None:
+        if registration_info is None:
             continue
         else:
             registration_authority = registration_info.attrib['registrationAuthority'].strip(
@@ -66,9 +68,10 @@ for entity in entities:
 
         if entity.find('./md:SPSSODescriptor', ns):
             ent = "SP"
-
-        if entity.find('./md:IDPSSODescriptor', ns):
+        elif entity.find('./md:IDPSSODescriptor', ns):
             ent = "IdP"
+        else:
+            ent = None
 
         entities_list.append([registration_authority, ent, orgname, ent_id])
 
