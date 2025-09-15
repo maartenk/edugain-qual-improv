@@ -15,7 +15,7 @@ from xml.etree import ElementTree as ET
 import requests
 
 # production
-xml_req = requests.get('https://mds.edugain.org/edugain-v1.xml')
+xml_req = requests.get('https://mds.edugain.org/edugain-v2.xml')
 root = ET.fromstring(xml_req.content)
 
 # local
