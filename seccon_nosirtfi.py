@@ -53,7 +53,9 @@ def download_metadata(url: str, timeout: int = REQUEST_TIMEOUT) -> bytes:
         sys.exit(1)
 
 
-def parse_metadata(xml_content: Optional[bytes], local_file: Optional[str] = None) -> ET.Element:
+def parse_metadata(
+    xml_content: Optional[bytes], local_file: Optional[str] = None
+) -> ET.Element:
     """Parse XML metadata content or local file."""
     try:
         if local_file:
@@ -70,55 +72,71 @@ def analyze_entities(root: ET.Element) -> List[List[Union[str, None]]]:
     entities_list = []
     entities = root.findall("./md:EntityDescriptor", NAMESPACES)
 
-    for entity in entities:
-        sirtfi = False
+    # Pre-compile XPath expressions for performance
+    sec_contact_refeds = './md:ContactPerson[@remd:contactType="http://refeds.org/metadata/contactType/security"]'
+    sec_contact_incommon = './md:ContactPerson[@icmd:contactType="http://id.incommon.org/metadata/contactType/security"]'
+    sirtfi_xpath = './md:Extensions/mdattr:EntityAttributes/saml:Attribute[@Name="urn:oasis:names:tc:SAML:attribute:assurance-certification"]/saml:AttributeValue'
+    reg_info_xpath = "./md:Extensions/mdrpi:RegistrationInfo"
+    org_name_xpath = "./md:Organization/md:OrganizationDisplayName"
+    sp_descriptor_xpath = "./md:SPSSODescriptor"
+    idp_descriptor_xpath = "./md:IDPSSODescriptor"
 
-        # Find security contact elements
-        sec_contact_els = entity.findall(
-            './md:ContactPerson[@remd:contactType="http://refeds.org/metadata/contactType/security"]',
-            NAMESPACES,
-        ) + entity.findall(
-            './md:ContactPerson[@icmd:contactType="http://id.incommon.org/metadata/contactType/security"]',
-            NAMESPACES,
+    sirtfi_value = "https://refeds.org/sirtfi"
+
+    for entity in entities:
+        # Early exit if no entityID
+        ent_id = entity.attrib.get("entityID")
+        if not ent_id:
+            continue
+
+        # Find security contact elements (optimized)
+        sec_contact_els = entity.findall(sec_contact_refeds, NAMESPACES)
+        if not sec_contact_els:
+            sec_contact_els = entity.findall(sec_contact_incommon, NAMESPACES)
+
+        # Skip if no security contacts
+        if not sec_contact_els:
+            continue
+
+        # Check for SIRTFI Entity Category (optimized with early exit)
+        sirtfi = any(
+            ec.text == sirtfi_value
+            for ec in entity.findall(sirtfi_xpath, NAMESPACES)
+            if ec.text
         )
 
-        # Check for SIRTFI Entity Category
-        for ec in entity.findall(
-            './md:Extensions/mdattr:EntityAttributes/saml:Attribute[@Name="urn:oasis:names:tc:SAML:attribute:assurance-certification"]/saml:AttributeValue',
-            NAMESPACES,
-        ):
-            if ec.text == "https://refeds.org/sirtfi":
-                sirtfi = True
+        # Skip if has SIRTFI certification
+        if sirtfi:
+            continue
 
-        # Process entities with security contacts but no SIRTFI
-        if sec_contact_els and not sirtfi:
-            ent_id = entity.attrib["entityID"]
+        # Get registration authority (required field)
+        registration_info = entity.find(reg_info_xpath, NAMESPACES)
+        if registration_info is None:
+            continue
 
-            # Get registration authority
-            registration_authority = ""
-            registration_info = entity.find("./md:Extensions/mdrpi:RegistrationInfo", NAMESPACES)
-            if registration_info is None:
-                continue
-            else:
-                registration_authority = registration_info.attrib["registrationAuthority"].strip()
+        registration_authority = registration_info.attrib.get(
+            "registrationAuthority", ""
+        ).strip()
+        if not registration_authority:
+            continue
 
-            # Get organization name with null safety
-            orgname_elem = entity.find("./md:Organization/md:OrganizationDisplayName", NAMESPACES)
-            orgname = (
-                orgname_elem.text.strip()
-                if orgname_elem is not None and orgname_elem.text
-                else "Unknown"
-            )
+        # Get organization name with null safety
+        orgname_elem = entity.find(org_name_xpath, NAMESPACES)
+        orgname = (
+            orgname_elem.text.strip()
+            if orgname_elem is not None and orgname_elem.text
+            else "Unknown"
+        )
 
-            # Determine entity type
-            if entity.find("./md:SPSSODescriptor", NAMESPACES) is not None:
-                ent = "SP"
-            elif entity.find("./md:IDPSSODescriptor", NAMESPACES) is not None:
-                ent = "IdP"
-            else:
-                ent = None
+        # Determine entity type (optimized)
+        if entity.find(sp_descriptor_xpath, NAMESPACES) is not None:
+            ent_type = "SP"
+        elif entity.find(idp_descriptor_xpath, NAMESPACES) is not None:
+            ent_type = "IdP"
+        else:
+            ent_type = None
 
-            entities_list.append([registration_authority, ent, orgname, ent_id])
+        entities_list.append([registration_authority, ent_type, orgname, ent_id])
 
     return entities_list
 
@@ -128,9 +146,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Analyze eduGAIN metadata for entities with security contacts but no SIRTFI certification"
     )
-    parser.add_argument("--local-file", help="Use local XML file instead of downloading")
-    parser.add_argument("--no-headers", action="store_true", help="Omit CSV headers from output")
-    parser.add_argument("--url", default=EDUGAIN_METADATA_URL, help="Custom metadata URL")
+    parser.add_argument(
+        "--local-file", help="Use local XML file instead of downloading"
+    )
+    parser.add_argument(
+        "--no-headers", action="store_true", help="Omit CSV headers from output"
+    )
+    parser.add_argument(
+        "--url", default=EDUGAIN_METADATA_URL, help="Custom metadata URL"
+    )
     args = parser.parse_args()
 
     # Get metadata
@@ -146,7 +170,9 @@ def main() -> None:
     # Output results
     writer = csv.writer(sys.stdout)
     if not args.no_headers:
-        writer.writerow(["RegistrationAuthority", "EntityType", "OrganizationName", "EntityID"])
+        writer.writerow(
+            ["RegistrationAuthority", "EntityType", "OrganizationName", "EntityID"]
+        )
     writer.writerows(entities_list)
 
 

@@ -19,7 +19,8 @@
       "Bash(gh run watch:*)",
       "Bash(black:*)",
       "Bash(isort:*)",
-      "Bash(flake8:*)"
+      "Bash(flake8:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

@@ -12,9 +12,90 @@ import unittest
 from unittest.mock import MagicMock, patch
 from xml.etree import ElementTree as ET
 
+import pytest
 import requests
 
 import seccon_nosirtfi
+
+# Test data constants for performance
+SAMPLE_XML_CONTENT = b"<xml>test content</xml>"
+MOCK_ENTITY_ID = "https://example.org/sp"
+MOCK_REG_AUTHORITY = "https://example.org"
+MOCK_ORG_NAME = "Example Organization"
+
+# Reusable XML templates for efficient test data generation
+XML_TEMPLATE_WITH_SIRTFI = """<?xml version="1.0" encoding="UTF-8"?>
+<md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+                       xmlns:mdattr="urn:oasis:names:tc:SAML:metadata:attribute"
+                       xmlns:mdrpi="urn:oasis:names:tc:SAML:metadata:rpi"
+                       xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
+                       xmlns:remd="http://refeds.org/metadata"
+                       xmlns:icmd="http://id.incommon.org/metadata">
+    <md:EntityDescriptor entityID="{entity_id}">
+        <md:Extensions>
+            <mdrpi:RegistrationInfo registrationAuthority="{reg_authority}"/>
+            <mdattr:EntityAttributes>
+                <saml:Attribute Name="urn:oasis:names:tc:SAML:attribute:assurance-certification">
+                    <saml:AttributeValue>https://refeds.org/sirtfi</saml:AttributeValue>
+                </saml:Attribute>
+            </mdattr:EntityAttributes>
+        </md:Extensions>
+        <md:ContactPerson remd:contactType="http://refeds.org/metadata/contactType/security">
+            <md:EmailAddress>security@example.org</md:EmailAddress>
+        </md:ContactPerson>
+        <md:Organization>
+            <md:OrganizationDisplayName>{org_name}</md:OrganizationDisplayName>
+        </md:Organization>
+        <md:SPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"/>
+    </md:EntityDescriptor>
+</md:EntitiesDescriptor>"""
+
+XML_TEMPLATE_NO_SIRTFI = """<?xml version="1.0" encoding="UTF-8"?>
+<md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+                       xmlns:mdrpi="urn:oasis:names:tc:SAML:metadata:rpi"
+                       xmlns:remd="http://refeds.org/metadata">
+    <md:EntityDescriptor entityID="{entity_id}">
+        <md:Extensions>
+            <mdrpi:RegistrationInfo registrationAuthority="{reg_authority}"/>
+        </md:Extensions>
+        <md:ContactPerson remd:contactType="http://refeds.org/metadata/contactType/security">
+            <md:EmailAddress>security@example.org</md:EmailAddress>
+        </md:ContactPerson>
+        <md:Organization>
+            <md:OrganizationDisplayName>{org_name}</md:OrganizationDisplayName>
+        </md:Organization>
+        <md:SPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"/>
+    </md:EntityDescriptor>
+</md:EntitiesDescriptor>"""
+
+
+@pytest.fixture
+def mock_response():
+    """Create a reusable mock response."""
+    response = MagicMock()
+    response.content = SAMPLE_XML_CONTENT
+    response.raise_for_status.return_value = None
+    return response
+
+
+@pytest.fixture
+def sample_xml_with_sirtfi():
+    """Generate sample XML with SIRTFI certification."""
+    return XML_TEMPLATE_WITH_SIRTFI.format(
+        entity_id=MOCK_ENTITY_ID,
+        reg_authority=MOCK_REG_AUTHORITY,
+        org_name=MOCK_ORG_NAME,
+    )
+
+
+@pytest.fixture
+def sample_xml_no_sirtfi():
+    """Generate sample XML without SIRTFI certification."""
+    return XML_TEMPLATE_NO_SIRTFI.format(
+        entity_id=MOCK_ENTITY_ID,
+        reg_authority=MOCK_REG_AUTHORITY,
+        org_name=MOCK_ORG_NAME,
+    )
 
 
 class TestDownloadMetadata(unittest.TestCase):
@@ -24,7 +105,7 @@ class TestDownloadMetadata(unittest.TestCase):
     def test_successful_download(self, mock_get: MagicMock) -> None:
         """Test successful metadata download."""
         mock_response = MagicMock()
-        mock_response.content = b"<xml>test content</xml>"
+        mock_response.content = SAMPLE_XML_CONTENT
         mock_response.raise_for_status.return_value = None
         mock_get.return_value = mock_response
 
@@ -32,11 +113,13 @@ class TestDownloadMetadata(unittest.TestCase):
 
         mock_get.assert_called_once_with("http://example.com/metadata.xml", timeout=30)
         mock_response.raise_for_status.assert_called_once()
-        self.assertEqual(result, b"<xml>test content</xml>")
+        self.assertEqual(result, SAMPLE_XML_CONTENT)
 
     @patch("seccon_nosirtfi.requests.get")
     @patch("sys.exit")
-    def test_download_request_exception(self, mock_exit: MagicMock, mock_get: MagicMock) -> None:
+    def test_download_request_exception(
+        self, mock_exit: MagicMock, mock_get: MagicMock
+    ) -> None:
         """Test request exception during download."""
         mock_get.side_effect = requests.exceptions.RequestException("Connection error")
 
@@ -48,10 +131,14 @@ class TestDownloadMetadata(unittest.TestCase):
 
     @patch("seccon_nosirtfi.requests.get")
     @patch("sys.exit")
-    def test_download_http_error(self, mock_exit: MagicMock, mock_get: MagicMock) -> None:
+    def test_download_http_error(
+        self, mock_exit: MagicMock, mock_get: MagicMock
+    ) -> None:
         """Test HTTP error during download."""
         mock_response = MagicMock()
-        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("404 Not Found")
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "404 Not Found"
+        )
         mock_get.return_value = mock_response
 
         with patch("sys.stderr", new_callable=io.StringIO) as mock_stderr:
@@ -234,7 +321,9 @@ class TestAnalyzeEntities(unittest.TestCase):
         root = ET.Element("{urn:oasis:names:tc:SAML:2.0:metadata}EntitiesDescriptor")
 
         sp_entity = self.create_test_entity("https://example.org/sp", entity_type="SP")
-        idp_entity = self.create_test_entity("https://example.org/idp", entity_type="IdP")
+        idp_entity = self.create_test_entity(
+            "https://example.org/idp", entity_type="IdP"
+        )
 
         root.append(sp_entity)
         root.append(idp_entity)
@@ -354,7 +443,9 @@ class TestCommandLineInterface(unittest.TestCase):
         mock_analyze.assert_called_once()
 
         output = mock_stdout.getvalue()
-        self.assertIn("RegistrationAuthority,EntityType,OrganizationName,EntityID", output)
+        self.assertIn(
+            "RegistrationAuthority,EntityType,OrganizationName,EntityID", output
+        )
         self.assertIn("https://example.org,SP,Test Org,https://example.org/sp", output)
 
     @patch("seccon_nosirtfi.parse_metadata")
@@ -396,7 +487,9 @@ class TestCommandLineInterface(unittest.TestCase):
             seccon_nosirtfi.main()
 
         output = mock_stdout.getvalue()
-        self.assertNotIn("RegistrationAuthority,EntityType,OrganizationName,EntityID", output)
+        self.assertNotIn(
+            "RegistrationAuthority,EntityType,OrganizationName,EntityID", output
+        )
         self.assertIn("https://example.org,SP,Test Org,https://example.org/sp", output)
 
     @patch("seccon_nosirtfi.download_metadata")
@@ -411,7 +504,8 @@ class TestCommandLineInterface(unittest.TestCase):
         mock_analyze.return_value = []
 
         with patch(
-            "sys.argv", ["seccon_nosirtfi.py", "--url", "https://custom.example.com/metadata.xml"]
+            "sys.argv",
+            ["seccon_nosirtfi.py", "--url", "https://custom.example.com/metadata.xml"],
         ):
             seccon_nosirtfi.main()
 
@@ -424,12 +518,16 @@ class TestArgumentParser(unittest.TestCase):
     def test_argument_parser_defaults(self) -> None:
         """Test argument parser with default values."""
         parser = argparse.ArgumentParser()
-        parser.add_argument("--local-file", help="Use local XML file instead of downloading")
+        parser.add_argument(
+            "--local-file", help="Use local XML file instead of downloading"
+        )
         parser.add_argument(
             "--no-headers", action="store_true", help="Omit CSV headers from output"
         )
         parser.add_argument(
-            "--url", default=seccon_nosirtfi.EDUGAIN_METADATA_URL, help="Custom metadata URL"
+            "--url",
+            default=seccon_nosirtfi.EDUGAIN_METADATA_URL,
+            help="Custom metadata URL",
         )
 
         args = parser.parse_args([])
@@ -441,12 +539,16 @@ class TestArgumentParser(unittest.TestCase):
     def test_argument_parser_all_args(self) -> None:
         """Test argument parser with all arguments provided."""
         parser = argparse.ArgumentParser()
-        parser.add_argument("--local-file", help="Use local XML file instead of downloading")
+        parser.add_argument(
+            "--local-file", help="Use local XML file instead of downloading"
+        )
         parser.add_argument(
             "--no-headers", action="store_true", help="Omit CSV headers from output"
         )
         parser.add_argument(
-            "--url", default=seccon_nosirtfi.EDUGAIN_METADATA_URL, help="Custom metadata URL"
+            "--url",
+            default=seccon_nosirtfi.EDUGAIN_METADATA_URL,
+            help="Custom metadata URL",
         )
 
         args = parser.parse_args(
@@ -464,7 +566,8 @@ class TestConstants(unittest.TestCase):
     def test_constants(self) -> None:
         """Test that constants are properly defined."""
         self.assertEqual(
-            seccon_nosirtfi.EDUGAIN_METADATA_URL, "https://mds.edugain.org/edugain-v2.xml"
+            seccon_nosirtfi.EDUGAIN_METADATA_URL,
+            "https://mds.edugain.org/edugain-v2.xml",
         )
         self.assertEqual(seccon_nosirtfi.REQUEST_TIMEOUT, 30)
         self.assertIsInstance(seccon_nosirtfi.NAMESPACES, dict)
