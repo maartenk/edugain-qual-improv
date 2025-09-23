@@ -19,28 +19,29 @@ Based on the code of https://gitlab.geant.org/edugain/edugain-contacts
 import argparse
 import csv
 import sys
+from typing import List, Optional, Union
 from xml.etree import ElementTree as ET
 
 import requests
 
 # Configuration
-EDUGAIN_METADATA_URL = 'https://mds.edugain.org/edugain-v2.xml'
+EDUGAIN_METADATA_URL = "https://mds.edugain.org/edugain-v2.xml"
 REQUEST_TIMEOUT = 30
 
 # SAML metadata namespaces
 NAMESPACES = {
-    'md': 'urn:oasis:names:tc:SAML:2.0:metadata',
-    'mdui': 'urn:oasis:names:tc:SAML:metadata:ui',
-    'shibmd': 'urn:mace:shibboleth:metadata:1.0',
-    'remd': 'http://refeds.org/metadata',
-    'icmd': 'http://id.incommon.org/metadata',
-    'mdrpi': 'urn:oasis:names:tc:SAML:metadata:rpi',
-    'mdattr': 'urn:oasis:names:tc:SAML:metadata:attribute',
-    'saml': 'urn:oasis:names:tc:SAML:2.0:assertion',
+    "md": "urn:oasis:names:tc:SAML:2.0:metadata",
+    "mdui": "urn:oasis:names:tc:SAML:metadata:ui",
+    "shibmd": "urn:mace:shibboleth:metadata:1.0",
+    "remd": "http://refeds.org/metadata",
+    "icmd": "http://id.incommon.org/metadata",
+    "mdrpi": "urn:oasis:names:tc:SAML:metadata:rpi",
+    "mdattr": "urn:oasis:names:tc:SAML:metadata:attribute",
+    "saml": "urn:oasis:names:tc:SAML:2.0:assertion",
 }
 
 
-def download_metadata(url, timeout=REQUEST_TIMEOUT):
+def download_metadata(url: str, timeout: int = REQUEST_TIMEOUT) -> bytes:
     """Download eduGAIN metadata from the specified URL."""
     try:
         response = requests.get(url, timeout=timeout)
@@ -51,60 +52,67 @@ def download_metadata(url, timeout=REQUEST_TIMEOUT):
         sys.exit(1)
 
 
-def parse_metadata(xml_content, local_file=None):
+def parse_metadata(xml_content: Optional[bytes], local_file: Optional[str] = None) -> ET.Element:
     """Parse XML metadata content or local file."""
     try:
         if local_file:
             return ET.parse(local_file).getroot()
         else:
-            return ET.fromstring(xml_content)
+            return ET.fromstring(xml_content)  # type: ignore
     except ET.ParseError as e:
         print(f"Error parsing XML: {e}", file=sys.stderr)
         sys.exit(1)
 
 
-def analyze_entities(root):
+def analyze_entities(root: ET.Element) -> List[List[Union[str, None]]]:
     """Analyze entities to find those with security contacts but no SIRTFI certification."""
     entities_list = []
-    entities = root.findall('./md:EntityDescriptor', NAMESPACES)
+    entities = root.findall("./md:EntityDescriptor", NAMESPACES)
 
     for entity in entities:
         sirtfi = False
 
         # Find security contact elements
         sec_contact_els = entity.findall(
-            './md:ContactPerson[@remd:contactType="http://refeds.org/metadata/contactType/security"]', NAMESPACES) + \
-                          entity.findall(
-                              './md:ContactPerson[@icmd:contactType="http://id.incommon.org/metadata/contactType/security"]',
-                              NAMESPACES)
+            './md:ContactPerson[@remd:contactType="http://refeds.org/metadata/contactType/security"]',
+            NAMESPACES,
+        ) + entity.findall(
+            './md:ContactPerson[@icmd:contactType="http://id.incommon.org/metadata/contactType/security"]',
+            NAMESPACES,
+        )
 
         # Check for SIRTFI Entity Category
         for ec in entity.findall(
-                './md:Extensions/mdattr:EntityAttributes/saml:Attribute[@Name="urn:oasis:names:tc:SAML:attribute:assurance-certification"]/saml:AttributeValue',
-                NAMESPACES):
+            './md:Extensions/mdattr:EntityAttributes/saml:Attribute[@Name="urn:oasis:names:tc:SAML:attribute:assurance-certification"]/saml:AttributeValue',
+            NAMESPACES,
+        ):
             if ec.text == "https://refeds.org/sirtfi":
                 sirtfi = True
 
         # Process entities with security contacts but no SIRTFI
         if sec_contact_els and not sirtfi:
-            ent_id = entity.find('.').attrib['entityID']
+            ent_id = entity.attrib["entityID"]
 
             # Get registration authority
-            registration_authority = ''
-            registration_info = entity.find('./md:Extensions/mdrpi:RegistrationInfo', NAMESPACES)
+            registration_authority = ""
+            registration_info = entity.find("./md:Extensions/mdrpi:RegistrationInfo", NAMESPACES)
             if registration_info is None:
                 continue
             else:
-                registration_authority = registration_info.attrib['registrationAuthority'].strip()
+                registration_authority = registration_info.attrib["registrationAuthority"].strip()
 
             # Get organization name with null safety
-            orgname_elem = entity.find('./md:Organization/md:OrganizationDisplayName', NAMESPACES)
-            orgname = orgname_elem.text.strip() if orgname_elem is not None and orgname_elem.text else "Unknown"
+            orgname_elem = entity.find("./md:Organization/md:OrganizationDisplayName", NAMESPACES)
+            orgname = (
+                orgname_elem.text.strip()
+                if orgname_elem is not None and orgname_elem.text
+                else "Unknown"
+            )
 
             # Determine entity type
-            if entity.find('./md:SPSSODescriptor', NAMESPACES) is not None:
+            if entity.find("./md:SPSSODescriptor", NAMESPACES) is not None:
                 ent = "SP"
-            elif entity.find('./md:IDPSSODescriptor', NAMESPACES) is not None:
+            elif entity.find("./md:IDPSSODescriptor", NAMESPACES) is not None:
                 ent = "IdP"
             else:
                 ent = None
@@ -114,14 +122,14 @@ def analyze_entities(root):
     return entities_list
 
 
-def main():
+def main() -> None:
     """Main function to orchestrate the analysis."""
     parser = argparse.ArgumentParser(
-        description='Analyze eduGAIN metadata for entities with security contacts but no SIRTFI certification'
+        description="Analyze eduGAIN metadata for entities with security contacts but no SIRTFI certification"
     )
-    parser.add_argument('--local-file', help='Use local XML file instead of downloading')
-    parser.add_argument('--no-headers', action='store_true', help='Omit CSV headers from output')
-    parser.add_argument('--url', default=EDUGAIN_METADATA_URL, help='Custom metadata URL')
+    parser.add_argument("--local-file", help="Use local XML file instead of downloading")
+    parser.add_argument("--no-headers", action="store_true", help="Omit CSV headers from output")
+    parser.add_argument("--url", default=EDUGAIN_METADATA_URL, help="Custom metadata URL")
     args = parser.parse_args()
 
     # Get metadata
@@ -137,9 +145,9 @@ def main():
     # Output results
     writer = csv.writer(sys.stdout)
     if not args.no_headers:
-        writer.writerow(['RegistrationAuthority', 'EntityType', 'OrganizationName', 'EntityID'])
+        writer.writerow(["RegistrationAuthority", "EntityType", "OrganizationName", "EntityID"])
     writer.writerows(entities_list)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

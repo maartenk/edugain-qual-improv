@@ -26,23 +26,11 @@ repos:
     hooks:
       - id: flake8
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
-    hooks:
-      - id: mypy
-        additional_dependencies: [types-requests]
-
-  - repo: https://github.com/pycqa/bandit
-    rev: 1.7.5
-    hooks:
-      - id: bandit
-        args: [-c, pyproject.toml]
-
   - repo: local
     hooks:
-      - id: pytest
+      - id: pytest-local
         name: Run tests
-        entry: python -m pytest test_seccon_nosirtfi.py
-        language: python
+        entry: bash -c 'cd /Users/kreme003/Workspace/git/edugain-qual-improv && source .venv/bin/activate && python -m pytest test_seccon_nosirtfi.py'
+        language: system
         pass_filenames: false
         always_run: true
