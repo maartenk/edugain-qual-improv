@@ -46,7 +46,8 @@ def download_metadata(url: str, timeout: int = REQUEST_TIMEOUT) -> bytes:
     try:
         response = requests.get(url, timeout=timeout)
         response.raise_for_status()
-        return response.content
+        content: bytes = response.content
+        return content
     except requests.exceptions.RequestException as e:
         print(f"Error downloading metadata from {url}: {e}", file=sys.stderr)
         sys.exit(1)

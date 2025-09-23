@@ -7,7 +7,15 @@
       "Bash(pip install:*)",
       "Bash(python:*)",
       "Bash(git checkout:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(git stash:*)",
+      "Bash(gh workflow:*)",
+      "Bash(gh api:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(mypy:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
