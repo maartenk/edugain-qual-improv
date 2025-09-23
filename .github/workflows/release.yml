@@ -1,0 +1,109 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  test-before-release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run full test suite
+      run: |
+        python -m pytest test_seccon_nosirtfi.py -v --cov=seccon_nosirtfi --cov-report=term
+
+    - name: Test script functionality
+      run: |
+        python seccon_nosirtfi.py --help
+        echo "Script functionality verified"
+
+  create-release:
+    needs: test-before-release
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Create distribution package
+      run: |
+        mkdir -p dist
+        cp seccon_nosirtfi.py dist/
+        cp requirements.txt dist/
+        cp README.md dist/
+        cp -r .github dist/ || true
+
+        # Create a tarball
+        tar -czf edugain-qual-improv-${{ github.ref_name }}.tar.gz -C dist .
+
+        # Create a zip file
+        cd dist && zip -r ../edugain-qual-improv-${{ github.ref_name }}.zip . && cd ..
+
+    - name: Generate changelog
+      run: |
+        echo "# Changelog for ${{ github.ref_name }}" > CHANGELOG.md
+        echo "" >> CHANGELOG.md
+        echo "## Changes" >> CHANGELOG.md
+        git log --pretty=format:"- %s" $(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")..HEAD >> CHANGELOG.md || echo "- Initial release" >> CHANGELOG.md
+
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
+        body_path: CHANGELOG.md
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./edugain-qual-improv-${{ github.ref_name }}.tar.gz
+        asset_name: edugain-qual-improv-${{ github.ref_name }}.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload ZIP Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./edugain-qual-improv-${{ github.ref_name }}.zip
+        asset_name: edugain-qual-improv-${{ github.ref_name }}.zip
+        asset_content_type: application/zip
