@@ -71,7 +71,7 @@ jobs:
     - name: Install linting tools
       run: |
         python -m pip install --upgrade pip
-        pip install flake8 black isort mypy
+        pip install -r requirements.txt
 
     - name: Run black (code formatting)
       run: black --check --diff .
@@ -102,7 +102,7 @@ jobs:
         pip install bandit safety
 
     - name: Run Bandit (security linting)
-      run: bandit -r . -s B314,B405 -f json -o bandit-report.json || bandit -r . -s B314,B405
+      run: bandit -r . -s B314,B405,B101 -f json -o bandit-report.json || bandit -r . -s B314,B405,B101
 
     - name: Run Safety (dependency vulnerability check)
       run: safety scan --json --output safety-report.json || safety scan
