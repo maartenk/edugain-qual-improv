@@ -74,6 +74,8 @@ def parse_metadata(
 def analyze_privacy_security(root: ET.Element) -> Tuple[List[List[str]], dict]:
     """
     Analyze entities for privacy statement URLs and security contacts.
+    Privacy statements are only analyzed for SPs (not IdPs).
+    Security contacts are analyzed for both IdPs and SPs.
 
     Returns:
         Tuple of (entity_data_list, summary_stats)
@@ -81,12 +83,18 @@ def analyze_privacy_security(root: ET.Element) -> Tuple[List[List[str]], dict]:
     entities_list = []
     stats = {
         "total_entities": 0,
-        "has_privacy": 0,
-        "has_security": 0,
-        "has_both": 0,
-        "missing_privacy": 0,
-        "missing_security": 0,
-        "missing_both": 0,
+        "total_sps": 0,
+        "total_idps": 0,
+        "sps_has_privacy": 0,
+        "sps_missing_privacy": 0,
+        "idps_has_security": 0,
+        "sps_has_security": 0,
+        "idps_missing_security": 0,
+        "sps_missing_security": 0,
+        "total_has_security": 0,
+        "total_missing_security": 0,
+        "sps_has_both": 0,
+        "sps_missing_both": 0,
     }
 
     entities = root.findall("./md:EntityDescriptor", NAMESPACES)
@@ -108,10 +116,31 @@ def analyze_privacy_security(root: ET.Element) -> Tuple[List[List[str]], dict]:
         if not ent_id:
             continue
 
-        # Check for privacy statement URL
-        privacy_elem = entity.find(privacy_xpath, NAMESPACES)
-        has_privacy = privacy_elem is not None and privacy_elem.text is not None
-        privacy_url = privacy_elem.text.strip() if has_privacy else ""
+        # Determine entity type first
+        is_sp = entity.find(sp_descriptor_xpath, NAMESPACES) is not None
+        is_idp = entity.find(idp_descriptor_xpath, NAMESPACES) is not None
+
+        if is_sp:
+            ent_type = "SP"
+            stats["total_sps"] += 1
+        elif is_idp:
+            ent_type = "IdP"
+            stats["total_idps"] += 1
+        else:
+            ent_type = "Unknown"
+
+        # Check for privacy statement URL (only for SPs)
+        has_privacy = False
+        privacy_url = ""
+        if is_sp:
+            privacy_elem = entity.find(privacy_xpath, NAMESPACES)
+            has_privacy = privacy_elem is not None and privacy_elem.text is not None
+            privacy_url = privacy_elem.text.strip() if has_privacy else ""
+
+            if has_privacy:
+                stats["sps_has_privacy"] += 1
+            else:
+                stats["sps_missing_privacy"] += 1
 
         # Check for security contact (both REFEDS and InCommon types)
         sec_contact_refeds_elem = entity.find(sec_contact_refeds, NAMESPACES)
@@ -120,21 +149,26 @@ def analyze_privacy_security(root: ET.Element) -> Tuple[List[List[str]], dict]:
             sec_contact_refeds_elem is not None or sec_contact_incommon_elem is not None
         )
 
-        # Update statistics
-        if has_privacy:
-            stats["has_privacy"] += 1
-        else:
-            stats["missing_privacy"] += 1
-
+        # Update security contact statistics by entity type
         if has_security:
-            stats["has_security"] += 1
+            stats["total_has_security"] += 1
+            if is_sp:
+                stats["sps_has_security"] += 1
+            elif is_idp:
+                stats["idps_has_security"] += 1
         else:
-            stats["missing_security"] += 1
+            stats["total_missing_security"] += 1
+            if is_sp:
+                stats["sps_missing_security"] += 1
+            elif is_idp:
+                stats["idps_missing_security"] += 1
 
-        if has_privacy and has_security:
-            stats["has_both"] += 1
-        elif not has_privacy and not has_security:
-            stats["missing_both"] += 1
+        # Update combined statistics (only for SPs since privacy is SP-only)
+        if is_sp:
+            if has_privacy and has_security:
+                stats["sps_has_both"] += 1
+            elif not has_privacy and not has_security:
+                stats["sps_missing_both"] += 1
 
         # Get registration authority
         registration_info = entity.find(reg_info_xpath, NAMESPACES)
@@ -151,14 +185,6 @@ def analyze_privacy_security(root: ET.Element) -> Tuple[List[List[str]], dict]:
             if orgname_elem is not None and orgname_elem.text
             else "Unknown"
         )
-
-        # Determine entity type
-        if entity.find(sp_descriptor_xpath, NAMESPACES) is not None:
-            ent_type = "SP"
-        elif entity.find(idp_descriptor_xpath, NAMESPACES) is not None:
-            ent_type = "IdP"
-        else:
-            ent_type = "Unknown"
 
         # Add entity data
         entities_list.append(
@@ -193,6 +219,9 @@ def filter_entities(
 def print_summary(stats: dict) -> None:
     """Print summary statistics with positive framing."""
     total = stats["total_entities"]
+    total_sps = stats["total_sps"]
+    total_idps = stats["total_idps"]
+
     if total == 0:
         print("No entities found in metadata.", file=sys.stderr)
         return
@@ -201,81 +230,114 @@ def print_summary(stats: dict) -> None:
         "\n=== eduGAIN Privacy Statement and Security Contact Coverage ===",
         file=sys.stderr,
     )
-    print(f"Total entities analyzed: {total}", file=sys.stderr)
-    print("", file=sys.stderr)
-
-    # Privacy statement statistics - positive framing
-    privacy_pct = (stats["has_privacy"] / total) * 100
-    missing_privacy_pct = (stats["missing_privacy"] / total) * 100
-    print("📊 Privacy Statement URL Coverage:", file=sys.stderr)
     print(
-        f"  ✅ HAVE privacy statements: {stats['has_privacy']} out of {total} ({privacy_pct:.1f}%)",
-        file=sys.stderr,
-    )
-    print(
-        f"  ❌ Missing privacy statements: {stats['missing_privacy']} out of {total} ({missing_privacy_pct:.1f}%)",
+        f"Total entities analyzed: {total} (SPs: {total_sps}, IdPs: {total_idps})",
         file=sys.stderr,
     )
     print("", file=sys.stderr)
 
-    # Security contact statistics - positive framing
-    security_pct = (stats["has_security"] / total) * 100
-    missing_security_pct = (stats["missing_security"] / total) * 100
+    # Privacy statement statistics - SP only
+    if total_sps > 0:
+        sp_privacy_pct = (stats["sps_has_privacy"] / total_sps) * 100
+        sp_missing_privacy_pct = (stats["sps_missing_privacy"] / total_sps) * 100
+        print("📊 Privacy Statement URL Coverage (SPs only):", file=sys.stderr)
+        print(
+            f"  ✅ SPs with privacy statements: {stats['sps_has_privacy']} out of {total_sps} ({sp_privacy_pct:.1f}%)",
+            file=sys.stderr,
+        )
+        print(
+            f"  ❌ SPs missing privacy statements: {stats['sps_missing_privacy']} out of {total_sps} ({sp_missing_privacy_pct:.1f}%)",
+            file=sys.stderr,
+        )
+        print("", file=sys.stderr)
+
+    # Security contact statistics - split by entity type
+    total_security_pct = (stats["total_has_security"] / total) * 100
+    total_missing_security_pct = (stats["total_missing_security"] / total) * 100
     print("🔒 Security Contact Coverage:", file=sys.stderr)
     print(
-        f"  ✅ HAVE security contacts: {stats['has_security']} out of {total} ({security_pct:.1f}%)",
+        f"  ✅ Total entities with security contacts: {stats['total_has_security']} out of {total} ({total_security_pct:.1f}%)",
         file=sys.stderr,
     )
     print(
-        f"  ❌ Missing security contacts: {stats['missing_security']} out of {total} ({missing_security_pct:.1f}%)",
+        f"  ❌ Total entities missing security contacts: {stats['total_missing_security']} out of {total} ({total_missing_security_pct:.1f}%)",
         file=sys.stderr,
     )
+
+    # Split security stats by entity type
+    if total_sps > 0:
+        sp_security_pct = (stats["sps_has_security"] / total_sps) * 100
+        print(
+            f"    📊 SPs: {stats['sps_has_security']} with / {stats['sps_missing_security']} without ({sp_security_pct:.1f}% coverage)",
+            file=sys.stderr,
+        )
+
+    if total_idps > 0:
+        idp_security_pct = (stats["idps_has_security"] / total_idps) * 100
+        print(
+            f"    📊 IdPs: {stats['idps_has_security']} with / {stats['idps_missing_security']} without ({idp_security_pct:.1f}% coverage)",
+            file=sys.stderr,
+        )
+
     print("", file=sys.stderr)
 
-    # Combined statistics - positive framing
-    both_pct = (stats["has_both"] / total) * 100
-    missing_both_pct = (stats["missing_both"] / total) * 100
-    has_at_least_one = total - stats["missing_both"]
-    at_least_one_pct = (has_at_least_one / total) * 100
+    # Combined statistics - SP only (since privacy is SP-only)
+    if total_sps > 0:
+        sp_both_pct = (stats["sps_has_both"] / total_sps) * 100
+        sp_missing_both_pct = (stats["sps_missing_both"] / total_sps) * 100
+        sp_has_at_least_one = total_sps - stats["sps_missing_both"]
+        sp_at_least_one_pct = (sp_has_at_least_one / total_sps) * 100
 
-    print("📈 Combined Coverage Summary:", file=sys.stderr)
-    print(
-        f"  🌟 HAVE BOTH (fully compliant): {stats['has_both']} out of {total} ({both_pct:.1f}%)",
-        file=sys.stderr,
-    )
-    print(
-        f"  ⚡ HAVE AT LEAST ONE: {has_at_least_one} out of {total} ({at_least_one_pct:.1f}%)",
-        file=sys.stderr,
-    )
-    print(
-        f"  ❌ Missing both: {stats['missing_both']} out of {total} ({missing_both_pct:.1f}%)",
-        file=sys.stderr,
-    )
-    print("", file=sys.stderr)
+        print("📈 Combined Coverage Summary (SPs only):", file=sys.stderr)
+        print(
+            f"  🌟 SPs with BOTH (fully compliant): {stats['sps_has_both']} out of {total_sps} ({sp_both_pct:.1f}%)",
+            file=sys.stderr,
+        )
+        print(
+            f"  ⚡ SPs with AT LEAST ONE: {sp_has_at_least_one} out of {total_sps} ({sp_at_least_one_pct:.1f}%)",
+            file=sys.stderr,
+        )
+        print(
+            f"  ❌ SPs missing both: {stats['sps_missing_both']} out of {total_sps} ({sp_missing_both_pct:.1f}%)",
+            file=sys.stderr,
+        )
+        print("", file=sys.stderr)
 
-    # Improvement potential
+    # Key insights for both entity types
     print("💡 Key Insights:", file=sys.stderr)
-    if privacy_pct > security_pct:
-        better_metric = "privacy statements"
-        better_pct = privacy_pct
-        weaker_pct = security_pct
-    else:
-        better_metric = "security contacts"
-        better_pct = security_pct
-        weaker_pct = privacy_pct
 
-    print(
-        f"  • {better_metric.title()} are better covered ({better_pct:.1f}% vs {weaker_pct:.1f}%)",
-        file=sys.stderr,
-    )
-    print(
-        f"  • {(100-missing_both_pct):.1f}% of entities provide at least basic compliance",
-        file=sys.stderr,
-    )
-    print(
-        f"  • {both_pct:.1f}% achieve full compliance with both requirements",
-        file=sys.stderr,
-    )
+    # SP insights
+    if total_sps > 0:
+        if sp_privacy_pct > sp_security_pct:
+            print(
+                f"  • Privacy statements are better covered among SPs ({sp_privacy_pct:.1f}% vs {sp_security_pct:.1f}%)",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"  • Security contacts are better covered among SPs ({sp_security_pct:.1f}% vs {sp_privacy_pct:.1f}%)",
+                file=sys.stderr,
+            )
+        print(
+            f"  • {sp_at_least_one_pct:.1f}% of SPs provide at least basic compliance",
+            file=sys.stderr,
+        )
+        print(
+            f"  • {sp_both_pct:.1f}% of SPs achieve full compliance with both requirements",
+            file=sys.stderr,
+        )
+
+    # IdP insights
+    if total_idps > 0:
+        print(
+            f"  • {idp_security_pct:.1f}% of IdPs have security contacts (IdPs don't use privacy statements)",
+            file=sys.stderr,
+        )
+        print(
+            f"  • Security contact coverage is higher for SPs ({sp_security_pct:.1f}%) than IdPs ({idp_security_pct:.1f}%)",
+            file=sys.stderr,
+        )
+
     print("", file=sys.stderr)
 
 

@@ -63,7 +63,10 @@ python privacy_security_analysis.py --url CUSTOM_URL
 python privacy_security_analysis.py --missing-both > entities_missing_both.csv
 
 # Output format: RegistrationAuthority,EntityType,OrganizationName,EntityID,HasPrivacyStatement,PrivacyStatementURL,HasSecurityContact
-# Summary shows statistics like: "4127 out of 10044 (~41.1%)" for privacy statements
+# Summary shows separate statistics for SPs and IdPs:
+# - Privacy statements: Only analyzed for SPs (e.g., "2681 out of 3849 SPs (69.7%)")
+# - Security contacts: Analyzed for both SPs and IdPs with separate percentages
+# - Combined statistics: Only shown for SPs since IdPs don't use privacy statements
 ```
 
 ## Architecture
@@ -77,12 +80,12 @@ python privacy_security_analysis.py --missing-both > entities_missing_both.csv
   - Outputs CSV format to stdout with optional headers
   - Supports command-line arguments for flexibility
 
-- **privacy_security_analysis.py**: Analyzes entities for privacy statement URLs and security contacts
+- **privacy_security_analysis.py**: Analyzes entities for privacy statement URLs and security contacts with entity type differentiation
   - Downloads and parses eduGAIN metadata using the same infrastructure as seccon_nosirtfi.py
-  - Identifies entities missing privacy statement URLs (`mdui:PrivacyStatementURL`)
-  - Identifies entities missing security contacts (`remd:contactType="http://refeds.org/metadata/contactType/security"`)
-  - Provides comprehensive statistics and filtering options
-  - Outputs detailed CSV reports with summary statistics to stderr
+  - Identifies SPs missing privacy statement URLs (`mdui:PrivacyStatementURL`) - privacy statements only apply to SPs
+  - Identifies both SPs and IdPs missing security contacts (`remd:contactType="http://refeds.org/metadata/contactType/security"`)
+  - Provides comprehensive statistics split by entity type (SP vs IdP) with separate coverage percentages
+  - Outputs detailed CSV reports with summary statistics to stderr showing SP-only privacy stats and split security contact stats
 
 ### Data Processing Flow
 1. Command-line argument parsing for configuration options

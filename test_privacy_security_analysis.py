@@ -242,10 +242,13 @@ class TestAnalyzePrivacySecurity:
 
         # Check stats
         assert stats["total_entities"] == 1
-        assert stats["has_privacy"] == 1
-        assert stats["has_security"] == 1
-        assert stats["has_both"] == 1
-        assert stats["missing_both"] == 0
+        assert stats["total_sps"] == 1
+        assert stats["total_idps"] == 0
+        assert stats["sps_has_privacy"] == 1
+        assert stats["sps_has_security"] == 1
+        assert stats["total_has_security"] == 1
+        assert stats["sps_has_both"] == 1
+        assert stats["sps_missing_both"] == 0
 
     def test_entity_missing_privacy_statement(self, entities_descriptor, xml_builder):
         """Test entity missing privacy statement."""
@@ -262,8 +265,9 @@ class TestAnalyzePrivacySecurity:
         assert entity_data[5] == ""  # privacy URL (empty)
         assert entity_data[6] == "Yes"  # has security
 
-        assert stats["missing_privacy"] == 1
-        assert stats["has_security"] == 1
+        assert stats["sps_missing_privacy"] == 1
+        assert stats["sps_has_security"] == 1
+        assert stats["total_has_security"] == 1
 
     def test_entity_missing_security_contact(self, entities_descriptor, xml_builder):
         """Test entity missing security contact."""
@@ -279,8 +283,9 @@ class TestAnalyzePrivacySecurity:
         assert entity_data[4] == "Yes"  # has privacy
         assert entity_data[6] == "No"  # has security
 
-        assert stats["has_privacy"] == 1
-        assert stats["missing_security"] == 1
+        assert stats["sps_has_privacy"] == 1
+        assert stats["sps_missing_security"] == 1
+        assert stats["total_missing_security"] == 1
 
     def test_entity_missing_both(self, entities_descriptor, xml_builder):
         """Test entity missing both privacy statement and security contact."""
@@ -297,10 +302,11 @@ class TestAnalyzePrivacySecurity:
         assert entity_data[5] == ""  # privacy URL (empty)
         assert entity_data[6] == "No"  # has security
 
-        assert stats["missing_privacy"] == 1
-        assert stats["missing_security"] == 1
-        assert stats["missing_both"] == 1
-        assert stats["has_both"] == 0
+        assert stats["sps_missing_privacy"] == 1
+        assert stats["sps_missing_security"] == 1
+        assert stats["total_missing_security"] == 1
+        assert stats["sps_missing_both"] == 1
+        assert stats["sps_has_both"] == 0
 
     @pytest.mark.parametrize(
         "entity_type,expected_type",
@@ -373,12 +379,121 @@ class TestAnalyzePrivacySecurity:
 
         assert len(entities_list) == 4
         assert stats["total_entities"] == 4
-        assert stats["has_privacy"] == 2
-        assert stats["missing_privacy"] == 2
-        assert stats["has_security"] == 2
-        assert stats["missing_security"] == 2
-        assert stats["has_both"] == 1
-        assert stats["missing_both"] == 1
+        assert stats["total_sps"] == 4  # All entities are SPs in this test
+        assert stats["sps_has_privacy"] == 2
+        assert stats["sps_missing_privacy"] == 2
+        assert stats["total_has_security"] == 2
+        assert stats["total_missing_security"] == 2
+        assert stats["sps_has_security"] == 2
+        assert stats["sps_missing_security"] == 2
+        assert stats["sps_has_both"] == 1
+        assert stats["sps_missing_both"] == 1
+
+    def test_idp_vs_sp_privacy_handling(self, entities_descriptor, xml_builder):
+        """Test that privacy statements are only analyzed for SPs, not IdPs."""
+        # Create an IdP with a privacy statement element (should be ignored)
+        idp_entity = xml_builder(
+            entity_id="https://idp.example.org",
+            entity_type="IdP",
+            has_privacy_statement=True,  # This should be ignored for IdPs
+            has_security_contact=True,
+        )
+
+        # Create an SP with a privacy statement
+        sp_entity = xml_builder(
+            entity_id="https://sp.example.org",
+            entity_type="SP",
+            has_privacy_statement=True,
+            has_security_contact=True,
+        )
+
+        entities_descriptor.extend([idp_entity, sp_entity])
+
+        entities_list, stats = privacy_security_analysis.analyze_privacy_security(
+            entities_descriptor
+        )
+
+        assert len(entities_list) == 2
+        assert stats["total_entities"] == 2
+        assert stats["total_sps"] == 1
+        assert stats["total_idps"] == 1
+
+        # Privacy statistics should only count the SP
+        assert stats["sps_has_privacy"] == 1
+        assert stats["sps_missing_privacy"] == 0
+
+        # Security statistics should count both
+        assert stats["total_has_security"] == 2
+        assert stats["sps_has_security"] == 1
+        assert stats["idps_has_security"] == 1
+
+        # Verify entity data
+        idp_data = next(e for e in entities_list if e[1] == "IdP")
+        sp_data = next(e for e in entities_list if e[1] == "SP")
+
+        # IdP should show "No" for privacy (not analyzed)
+        assert idp_data[4] == "No"  # HasPrivacyStatement
+        assert idp_data[5] == ""    # PrivacyStatementURL
+        assert idp_data[6] == "Yes" # HasSecurityContact
+
+        # SP should show "Yes" for privacy
+        assert sp_data[4] == "Yes"  # HasPrivacyStatement
+        assert sp_data[5] != ""     # PrivacyStatementURL
+        assert sp_data[6] == "Yes"  # HasSecurityContact
+
+    def test_security_contact_split_statistics(self, entities_descriptor, xml_builder):
+        """Test security contact statistics are properly split between SPs and IdPs."""
+        # Create 2 SPs: 1 with, 1 without security contact
+        sp1 = xml_builder(
+            entity_id="https://sp1.example.org",
+            entity_type="SP",
+            has_security_contact=True,
+        )
+        sp2 = xml_builder(
+            entity_id="https://sp2.example.org",
+            entity_type="SP",
+            has_security_contact=False,
+        )
+
+        # Create 3 IdPs: 1 with, 2 without security contact
+        idp1 = xml_builder(
+            entity_id="https://idp1.example.org",
+            entity_type="IdP",
+            has_security_contact=True,
+        )
+        idp2 = xml_builder(
+            entity_id="https://idp2.example.org",
+            entity_type="IdP",
+            has_security_contact=False,
+        )
+        idp3 = xml_builder(
+            entity_id="https://idp3.example.org",
+            entity_type="IdP",
+            has_security_contact=False,
+        )
+
+        entities_descriptor.extend([sp1, sp2, idp1, idp2, idp3])
+
+        entities_list, stats = privacy_security_analysis.analyze_privacy_security(
+            entities_descriptor
+        )
+
+        assert len(entities_list) == 5
+        assert stats["total_entities"] == 5
+        assert stats["total_sps"] == 2
+        assert stats["total_idps"] == 3
+
+        # Overall security statistics
+        assert stats["total_has_security"] == 2  # sp1 + idp1
+        assert stats["total_missing_security"] == 3  # sp2 + idp2 + idp3
+
+        # SP security statistics
+        assert stats["sps_has_security"] == 1  # sp1
+        assert stats["sps_missing_security"] == 1  # sp2
+
+        # IdP security statistics
+        assert stats["idps_has_security"] == 1  # idp1
+        assert stats["idps_missing_security"] == 2  # idp2 + idp3
 
 
 class TestFilterEntities:
@@ -472,34 +587,46 @@ class TestPrintSummary:
         """Test summary printing with sample data."""
         stats = {
             "total_entities": 100,
-            "has_privacy": 60,
-            "missing_privacy": 40,
-            "has_security": 70,
-            "missing_security": 30,
-            "has_both": 50,
-            "missing_both": 10,
+            "total_sps": 60,
+            "total_idps": 40,
+            "sps_has_privacy": 36,
+            "sps_missing_privacy": 24,
+            "total_has_security": 70,
+            "total_missing_security": 30,
+            "sps_has_security": 42,
+            "sps_missing_security": 18,
+            "idps_has_security": 28,
+            "idps_missing_security": 12,
+            "sps_has_both": 30,
+            "sps_missing_both": 6,
         }
 
         with patch("sys.stderr", new_callable=io.StringIO) as mock_stderr:
             privacy_security_analysis.print_summary(stats)
 
         output = mock_stderr.getvalue()
-        assert "Total entities analyzed: 100" in output
-        assert "Privacy Statement URL Coverage:" in output
-        assert "HAVE privacy statements: 60 out of 100 (60.0%)" in output
-        assert "Missing privacy statements: 40 out of 100 (40.0%)" in output
+        assert "Total entities analyzed: 100 (SPs: 60, IdPs: 40)" in output
+        assert "Privacy Statement URL Coverage (SPs only):" in output
+        assert "SPs with privacy statements: 36 out of 60 (60.0%)" in output
+        assert "SPs missing privacy statements: 24 out of 60 (40.0%)" in output
         assert "Security Contact Coverage:" in output
-        assert "HAVE security contacts: 70 out of 100 (70.0%)" in output
-        assert "Missing security contacts: 30 out of 100 (30.0%)" in output
-        assert "HAVE BOTH (fully compliant): 50 out of 100 (50.0%)" in output
-        assert "HAVE AT LEAST ONE: 90 out of 100 (90.0%)" in output
-        assert "Missing both: 10 out of 100 (10.0%)" in output
+        assert "Total entities with security contacts: 70 out of 100 (70.0%)" in output
+        assert "Total entities missing security contacts: 30 out of 100 (30.0%)" in output
+        assert "SPs: 42 with / 18 without (70.0% coverage)" in output
+        assert "IdPs: 28 with / 12 without (70.0% coverage)" in output
+        assert "Combined Coverage Summary (SPs only):" in output
+        assert "SPs with BOTH (fully compliant): 30 out of 60 (50.0%)" in output
+        assert "SPs with AT LEAST ONE: 54 out of 60 (90.0%)" in output
+        assert "SPs missing both: 6 out of 60 (10.0%)" in output
         assert "Key Insights:" in output
-        assert "Security Contacts are better covered (70.0% vs 60.0%)" in output
 
     def test_print_summary_no_entities(self):
         """Test summary printing with no entities."""
-        stats = {"total_entities": 0}
+        stats = {
+            "total_entities": 0,
+            "total_sps": 0,
+            "total_idps": 0,
+        }
 
         with patch("sys.stderr", new_callable=io.StringIO) as mock_stderr:
             privacy_security_analysis.print_summary(stats)
@@ -534,7 +661,7 @@ class TestMainFunction:
                     "Yes",
                 ]
             ],
-            {"total_entities": 1, "has_privacy": 1, "has_security": 1},
+            {"total_entities": 1, "total_sps": 1, "total_idps": 0, "sps_has_privacy": 1, "total_has_security": 1},
         )
 
         with (
