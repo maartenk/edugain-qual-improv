@@ -154,3 +154,11 @@ cython_debug/
 pyvenv.cfg
 .venv
 pip-selfcheck.json
+
+# Project-specific
+.claude/
+*.xml
+*.gz
+metadata_cache/
+output/
+results/
