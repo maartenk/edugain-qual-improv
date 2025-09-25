@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This repository contains tools for eduGAIN quality improvement:
 
 - **`seccon_nosirtfi.py`**: Analyzes eduGAIN metadata to identify entities with security contacts but without SIRTFI Entity Category certification
-- **`privacy_security_analysis.py`**: Analyzes eduGAIN metadata to identify entities missing privacy statement URLs and/or security contacts
+- **`privacy_security_analysis.py`**: Advanced analysis tool with federation mapping, caching, and flexible output formats for privacy statements and security contacts
 
 ## Setup and Installation
 
@@ -20,7 +20,8 @@ python3 -m venv .venv
 source .venv/bin/activate
 
 # Install dependencies
-pip install -r requirements.txt
+# Production: pip install -r requirements-runtime.txt
+# Development: pip install -r requirements.txt
 ```
 
 ### Running the Main Script
@@ -44,29 +45,35 @@ python seccon_nosirtfi.py > entities_without_sirtfi.csv
 
 ### Running the Privacy/Security Analysis Script
 ```bash
-# Basic usage - full analysis with summary statistics
+# Default behavior - show summary statistics only (no CSV output)
 python privacy_security_analysis.py
 
-# Show only summary statistics (no CSV output)
-python privacy_security_analysis.py --summary-only
+# Export detailed CSV lists of entities (single-purpose commands)
+python privacy_security_analysis.py --list-all-entities
+python privacy_security_analysis.py --list-missing-privacy
+python privacy_security_analysis.py --list-missing-security
+python privacy_security_analysis.py --list-missing-both
 
-# Filter for specific missing elements
-python privacy_security_analysis.py --missing-privacy   # Only entities without privacy statements
-python privacy_security_analysis.py --missing-security  # Only entities without security contacts
-python privacy_security_analysis.py --missing-both      # Only entities missing both
+# Export markdown report with federation breakdown
+python privacy_security_analysis.py --federation-summary > report.md
 
-# Use local file or custom URL
+# Export federation statistics as CSV
+python privacy_security_analysis.py --federation-csv > federations.csv
+
+# Use local metadata file or custom URL
 python privacy_security_analysis.py --local-file metadata.xml
 python privacy_security_analysis.py --url CUSTOM_URL
 
 # Save filtered results
-python privacy_security_analysis.py --missing-both > entities_missing_both.csv
+python privacy_security_analysis.py --list-missing-both > critical_entities.csv
 
-# Output format: RegistrationAuthority,EntityType,OrganizationName,EntityID,HasPrivacyStatement,PrivacyStatementURL,HasSecurityContact
+# Output format: Federation,EntityType,OrganizationName,EntityID,HasPrivacyStatement,PrivacyStatementURL,HasSecurityContact
+# Note: Federation names are automatically mapped from registration authorities via eduGAIN API
 # Summary shows separate statistics for SPs and IdPs:
 # - Privacy statements: Only analyzed for SPs (e.g., "2681 out of 3849 SPs (69.7%)")
 # - Security contacts: Analyzed for both SPs and IdPs with separate percentages
 # - Combined statistics: Only shown for SPs since IdPs don't use privacy statements
+# - Federation breakdown: Shows friendly federation names instead of URLs
 ```
 
 ## Architecture
@@ -80,29 +87,34 @@ python privacy_security_analysis.py --missing-both > entities_missing_both.csv
   - Outputs CSV format to stdout with optional headers
   - Supports command-line arguments for flexibility
 
-- **privacy_security_analysis.py**: Analyzes entities for privacy statement URLs and security contacts with entity type differentiation
-  - Downloads and parses eduGAIN metadata using the same infrastructure as seccon_nosirtfi.py
-  - Identifies SPs missing privacy statement URLs (`mdui:PrivacyStatementURL`) - privacy statements only apply to SPs
-  - Identifies both SPs and IdPs missing security contacts (`remd:contactType="http://refeds.org/metadata/contactType/security"`)
-  - Provides comprehensive statistics split by entity type (SP vs IdP) with separate coverage percentages
-  - Outputs detailed CSV reports with summary statistics to stderr showing SP-only privacy stats and split security contact stats
+- **privacy_security_analysis.py**: Advanced analysis tool with federation mapping, caching, and flexible output formats
+  - **Smart Caching**: Metadata cached locally (12h expiry), federation names cached (30d expiry)
+  - **Federation Mapping**: Uses eduGAIN API to map registration authorities to friendly names
+  - **Default Behavior**: Shows summary statistics only (no CSV unless explicitly requested)
+  - **Single-Purpose Commands**: `--list-missing-both`, `--list-missing-privacy`, `--federation-summary`
+  - **Multiple Output Formats**: Summary statistics, detailed CSV exports, markdown reports
+  - **Entity Type Differentiation**: Privacy statements analyzed for SPs only, security contacts for both
+  - **Comprehensive Statistics**: Split by entity type with federation-level breakdowns
 
-### Data Processing Flow
-1. Command-line argument parsing for configuration options
-2. HTTP GET request to eduGAIN metadata endpoint (with timeout and error handling)
-3. XML parsing with namespace-aware ElementTree (with error handling)
-4. Entity iteration looking for:
+### Data Processing Flow (privacy_security_analysis.py)
+1. **Initialization**: Command-line argument parsing and configuration
+2. **Federation Mapping**: Load cached federation names or fetch from eduGAIN API
+3. **Metadata Acquisition**: Use cached metadata or download from eduGAIN endpoint
+4. **XML Parsing**: Namespace-aware ElementTree parsing with comprehensive error handling
+5. **Entity Analysis**: Iterate through entities extracting:
    - Security contact elements (REFEDS or InCommon types)
-   - SIRTFI Entity Category absence
-   - Registration authority information
-   - Entity type (SP/IdP) determination
-5. CSV output generation with optional headers
+   - Privacy statement URLs (SPs only)
+   - Registration authority → federation name mapping
+   - Entity type determination (SP/IdP)
+6. **Output Generation**: Summary statistics, CSV exports, or markdown reports based on user selection
 
-### Key Functions
-- `download_metadata()`: Handles HTTP requests with timeout and error handling
-- `parse_metadata()`: Parses XML content or local files with error handling
-- `analyze_entities()`: Core analysis logic for identifying target entities
-- `main()`: Command-line interface and orchestration
+### Key Functions (privacy_security_analysis.py)
+- `get_metadata()`: Smart metadata acquisition with caching and 12-hour expiry
+- `get_federation_mapping()`: Federation name mapping with API integration and 30-day cache
+- `analyze_privacy_security()`: Core analysis with federation name mapping
+- `print_federation_summary()`: Markdown report generation with federation names
+- `export_federation_csv()`: CSV export of federation-level statistics
+- `map_registration_authority()`: Registration authority → federation name conversion
 
 ### Known Issues
 - Broken pipe error when piping output to `head` (normal behavior)
@@ -121,3 +133,70 @@ python privacy_security_analysis.py --missing-both > entities_missing_both.csv
 - Code is modularized with separate functions for downloading, parsing, and analysis
 - Comprehensive error handling for network failures and XML parsing errors
 - Null-safe handling for optional metadata elements
+
+### Testing Structure
+
+Tests are organized following Python best practices:
+
+```
+tests/
+├── __init__.py
+├── test_privacy_security_analysis.py    # 30 comprehensive tests
+└── test_seccon_nosirtfi.py              # 24 comprehensive tests
+```
+
+Run tests with:
+```bash
+# Basic test run (coverage enabled by default via pyproject.toml)
+pytest
+
+# Run specific test files
+pytest tests/test_seccon_nosirtfi.py -v
+pytest tests/test_privacy_security_analysis.py -v
+
+# Generate HTML coverage report
+pytest --cov-report=html
+
+# Run tests without coverage (for faster development)
+pytest --no-cov
+
+# Run with verbose output and show missing coverage lines
+pytest -v --cov-report=term-missing
+```
+
+Test coverage: 96%+ on both scripts with comprehensive federation-level testing.
+
+### Coverage Configuration
+- HTML reports generated in `htmlcov/` directory
+- XML reports for CI/CD integration
+- Coverage automatically uploaded to Codecov on CI runs
+- Configured to exclude test files and common boilerplate patterns
+
+### New Features (Recent Updates)
+
+#### Federation Name Mapping
+- Automatic federation name resolution via eduGAIN API (`https://technical.edugain.org/api/v2/federations`)
+- Shows "InCommon" instead of "https://incommon.org" in all outputs
+- 30-day cache for federation names (`.edugain_federations_cache.json`)
+- Graceful fallback to registration authority URLs if API is unavailable
+
+#### Smart Caching System
+- **Metadata Cache**: 12-hour expiry (`.edugain_metadata_cache.xml`)
+- **Federation Cache**: 30-day expiry (`.edugain_federations_cache.json`)
+- Automatic cache management with status messages
+- Significant performance improvement for repeated analysis
+
+#### Single-Purpose Commands
+- Clean command structure replacing complex argument combinations
+- `--list-missing-both`: Export entities missing both privacy and security
+- `--list-missing-privacy`: Export entities missing privacy statements
+- `--list-missing-security`: Export entities missing security contacts
+- `--list-all-entities`: Export complete entity analysis
+- `--federation-summary`: Markdown report with federation breakdown
+- `--federation-csv`: CSV export of federation statistics
+
+#### Enhanced Output Formats
+- Markdown reports with federation-level analysis
+- CSV exports with federation statistics
+- Summary-only default behavior (no CSV unless requested)
+- Federation names in all outputs for improved readability

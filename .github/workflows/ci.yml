@@ -25,7 +25,9 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
-        cache-dependency-path: 'requirements.txt'
+        cache-dependency-path: |
+          requirements.txt
+          requirements-runtime.txt
 
     - name: Install dependencies
       run: |
@@ -34,24 +36,26 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        python -m pytest \
-          test_seccon_nosirtfi.py \
-          test_privacy_security_analysis.py \
-          --cov=seccon_nosirtfi \
-          --cov=privacy_security_analysis \
-          --cov-report=xml \
-          --cov-report=term \
-          -v
+        pytest tests/ -v --cov=privacy_security_analysis --cov=seccon_nosirtfi --cov-report=term-missing --cov-report=xml
 
     - name: Upload coverage to Codecov
-      if: matrix.python-version == '3.13'
       uses: codecov/codecov-action@v4
       with:
         file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
         fail_ci_if_error: false
-        token: ${{ secrets.CODECOV_TOKEN }}
 
     - name: Test script functionality
       run: |
         python seccon_nosirtfi.py --help
         python privacy_security_analysis.py --help
+
+    - name: Test runtime-only requirements
+      run: |
+        python -m venv runtime_test
+        source runtime_test/bin/activate
+        pip install -r requirements-runtime.txt
+        python -c "import privacy_security_analysis; import seccon_nosirtfi; print('✅ Runtime requirements work')"
+        deactivate
+        rm -rf runtime_test

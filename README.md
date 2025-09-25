@@ -11,7 +11,12 @@ Python tools for analyzing eduGAIN federation metadata quality and security comp
 
 ### Key Features
 - 🔍 **Security Contact Analysis**: Identify entities with security contacts lacking SIRTFI certification
-- 🔒 **Privacy Statement Monitoring**: Track entities missing privacy statement URLs
+- 🔒 **Privacy Statement Monitoring**: Track entities missing privacy statement URLs with SP/IdP differentiation
+- 🌍 **Federation Name Mapping**: Automatic mapping from registration authorities to friendly federation names via eduGAIN API
+- 💾 **Smart Caching**: Metadata cached locally (12-hour expiry), federation names cached (30-day expiry)
+- 📊 **Multiple Output Formats**: Summary statistics, detailed CSV exports, and markdown reports
+- 🎯 **Single-Purpose Commands**: Clean command structure with no complex argument combinations
+- 📈 **Comprehensive Reporting**: Split statistics for SPs vs IdPs with compliance metrics
 
 ## 🚀 Quick Start
 ```bash
@@ -24,6 +29,10 @@ python3 -m venv .venv
 source .venv/bin/activate
 
 # Install dependencies
+# For production use:
+pip install -r requirements-runtime.txt
+
+# For development (adds testing + code formatting):
 pip install -r requirements.txt
 
 # Run analysis tools
@@ -50,19 +59,26 @@ python seccon_nosirtfi.py --local-file metadata.xml --no-headers
 
 ### Privacy & Security Analysis (privacy_security_analysis.py)
 ```bash
-# Full analysis with summary statistics
+# Default: Show summary statistics only
 python privacy_security_analysis.py
 
-# Show only summary (no CSV output)
-python privacy_security_analysis.py --summary-only
+# Export detailed CSV lists of entities
+python privacy_security_analysis.py --list-all-entities
+python privacy_security_analysis.py --list-missing-privacy
+python privacy_security_analysis.py --list-missing-security
+python privacy_security_analysis.py --list-missing-both
 
-# Filter for specific issues
-python privacy_security_analysis.py --missing-privacy
-python privacy_security_analysis.py --missing-security
-python privacy_security_analysis.py --missing-both
+# Export markdown report with federation breakdown
+python privacy_security_analysis.py --federation-summary > report.md
+
+# Export federation statistics as CSV
+python privacy_security_analysis.py --federation-csv > federations.csv
+
+# Use local metadata file
+python privacy_security_analysis.py --local-file metadata.xml
 
 # Save filtered results
-python privacy_security_analysis.py --missing-both > critical_entities.csv
+python privacy_security_analysis.py --list-missing-both > critical_entities.csv
 ```
 
 
@@ -77,21 +93,80 @@ https://aaf.edu.au,IdP,University of Example,urn:mace:aaf.edu.au:idp:example.edu
 
 ### Privacy/Security Analysis Output
 ```csv
-RegistrationAuthority,EntityType,OrganizationName,EntityID,HasPrivacyStatement,PrivacyStatementURL,HasSecurityContact
-https://example.org,SP,Example Service,https://sp.example.org,True,https://example.org/privacy,False
-https://university.edu,IdP,Example University,https://idp.university.edu,False,,True
+Federation,EntityType,OrganizationName,EntityID,HasPrivacyStatement,PrivacyStatementURL,HasSecurityContact
+InCommon,SP,Example Service,https://sp.example.org,Yes,https://example.org/privacy,No
+DFN-AAI,IdP,Example University,https://idp.university.edu,No,,Yes
+MAREN,SP,University of Malawi,https://sp.unima.ac.mw,No,,No
 ```
 
 ### Summary Statistics
 ```
-Privacy Statement Analysis:
-- 4127 out of 10044 entities (~41.1%) have privacy statements
-- 5917 entities missing privacy statements
+=== eduGAIN Privacy Statement and Security Contact Coverage ===
+Total entities analyzed: 10044 (SPs: 3849, IdPs: 6193)
 
-Security Contact Analysis:
-- 2156 out of 10044 entities (~21.5%) have security contacts
-- 7888 entities missing security contacts
+📊 Privacy Statement URL Coverage (SPs only):
+  ✅ SPs with privacy statements: 2681 out of 3849 (69.7%)
+  ❌ SPs missing privacy statements: 1168 out of 3849 (30.3%)
+
+🔒 Security Contact Coverage:
+  ✅ Total entities with security contacts: 4422 out of 10044 (44.0%)
+  ❌ Total entities missing security contacts: 5622 out of 10044 (56.0%)
+    📊 SPs: 2254 with / 1595 without (58.6% coverage)
+    📊 IdPs: 2168 with / 4025 without (35.0% coverage)
+
+📈 Combined Coverage Summary (SPs only):
+  🌟 SPs with BOTH (fully compliant): 2167 out of 3849 (56.3%)
+  ⚡ SPs with AT LEAST ONE: 2768 out of 3849 (71.9%)
+  ❌ SPs missing both: 1081 out of 3849 (28.1%)
 ```
+
+### Federation-Level Markdown Report
+```markdown
+# 📊 eduGAIN Quality Analysis Report
+
+**Analysis Date:** 2025-09-25 21:08:02 UTC
+**Total Entities Analyzed:** 10,046 (3,850 SPs, 6,194 IdPs)
+
+## 🌍 Federation-Level Summary
+
+### 📍 **InCommon**
+- **Total Entities:** 2,431 (1,851 SPs, 580 IdPs)
+- **SP Privacy Coverage:** 🟢 1,851/1,851 (100.0%)
+- **Security Contact Coverage:** 🟢 2,431/2,431 (100.0%)
+  - SPs: 1,851/1,851 (100.0%), IdPs: 580/580 (100.0%)
+- **SP Full Compliance:** 🟢 1,851/1,851 (100.0%)
+
+### 📍 **UK federation**
+- **Total Entities:** 1,476 (780 SPs, 696 IdPs)
+- **SP Privacy Coverage:** 🔴 100/780 (12.8%)
+- **Security Contact Coverage:** 🔴 116/1,476 (7.9%)
+  - SPs: 55/780 (7.1%), IdPs: 61/696 (8.8%)
+- **SP Full Compliance:** 🔴 12/780 (1.5%)
+```
+
+## 💾 Caching & Performance
+
+The tools implement smart caching to improve performance and reduce API load:
+
+### Metadata Caching
+- **Automatic**: eduGAIN metadata (84MB) cached locally as `.edugain_metadata_cache.xml`
+- **Expiry**: 12-hour refresh policy
+- **Benefits**: Faster analysis, reduced network usage, offline capability
+
+### Federation Name Mapping
+- **Automatic**: Federation names fetched from eduGAIN API and cached as `.edugain_federations_cache.json`
+- **Expiry**: 30-day refresh policy
+- **Benefits**: Shows "InCommon" instead of "https://incommon.org" in all outputs
+- **Smart Integration**: Friendly names appear in all CSV exports and markdown reports
+
+### Cache Status Messages
+```
+Using cached metadata (2.5 hours old)
+Using cached federation names (85 federations)
+Downloading fresh metadata from eduGAIN (cache expired)
+```
+
+Caches are automatically managed - no manual intervention needed!
 
 ## 👩‍💻 Development
 
@@ -104,15 +179,24 @@ cd edugain-qual-improv
 # Setup virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
+
+# Install development dependencies
 pip install -r requirements.txt
 
 # Run tests
-pytest test_seccon_nosirtfi.py test_privacy_security_analysis.py -v --cov=seccon_nosirtfi --cov=privacy_security_analysis
+pytest
+
+# Format code
+black .
 ```
 
 ## 🔒 Testing & Quality
 
-Tests are automatically run for Python 3.11, 3.12, and 3.13 with code coverage reporting.
+- **54 comprehensive tests** covering all functionality
+- **96%+ code coverage** on both scripts
+- **Tests organized** in `tests/` directory following Python best practices
+- **Automated CI/CD** testing on Python 3.11, 3.12, and 3.13
+- **Federation-level testing** including new `--federation-summary` functionality
 
 ## 🏗️ Architecture
 
@@ -127,40 +211,58 @@ Main script that downloads eduGAIN metadata XML aggregate and parses it:
 - Supports command-line arguments for flexibility
 
 #### privacy_security_analysis.py
-Analyzes entities for privacy statement URLs and security contacts:
-- Downloads and parses eduGAIN metadata using the same infrastructure as seccon_nosirtfi.py
-- Identifies entities missing privacy statement URLs (`mdui:PrivacyStatementURL`)
-- Identifies entities missing security contacts (`remd:contactType="http://refeds.org/metadata/contactType/security"`)
-- Provides comprehensive statistics and filtering options
-- Outputs detailed CSV reports with summary statistics to stderr
+Advanced analysis tool with federation mapping, caching, and flexible output formats:
+- **Smart Caching**: Metadata cached locally (12h expiry), federation names cached (30d expiry)
+- **Federation Mapping**: Uses eduGAIN API to map registration authorities to friendly names
+- **Default Behavior**: Shows summary statistics only (no CSV unless explicitly requested)
+- **Single-Purpose Commands**: `--list-missing-both`, `--list-missing-privacy`, `--federation-summary`
+- **Multiple Output Formats**: Summary statistics, detailed CSV exports, markdown reports
+- **Entity Type Differentiation**: Privacy statements analyzed for SPs only, security contacts for both
+- **Comprehensive Statistics**: Split by entity type with federation-level breakdowns
 
 ### Data Processing Flow
-1. Command-line argument parsing for configuration options
-2. HTTP GET request to eduGAIN metadata endpoint (with timeout and error handling)
-3. XML parsing with namespace-aware ElementTree (with error handling)
-4. Entity iteration looking for:
+1. **Initialization**: Command-line argument parsing and configuration
+2. **Federation Mapping**: Load cached federation names or fetch from eduGAIN API
+3. **Metadata Acquisition**: Use cached metadata or download from eduGAIN endpoint
+4. **XML Parsing**: Namespace-aware ElementTree parsing with comprehensive error handling
+5. **Entity Analysis**: Iterate through entities extracting:
    - Security contact elements (REFEDS or InCommon types)
-   - SIRTFI Entity Category absence
-   - Registration authority information
-   - Entity type (SP/IdP) determination
-5. CSV output generation with optional headers
+   - Privacy statement URLs (SPs only)
+   - Registration authority → federation name mapping
+   - Entity type determination (SP/IdP)
+6. **Output Generation**: Summary statistics, CSV exports, or markdown reports based on user selection
 
 ### Key Functions
-- `download_metadata()`: Handles HTTP requests with timeout and error handling
-- `parse_metadata()`: Parses XML content or local files with error handling
-- `analyze_entities()`: Core analysis logic for identifying target entities
-- `main()`: Command-line interface and orchestration
+- `get_metadata()`: Smart metadata acquisition with caching and 12-hour expiry
+- `get_federation_mapping()`: Federation name mapping with API integration and 30-day cache
+- `analyze_privacy_security()`: Core analysis with federation name mapping
+- `print_federation_summary()`: Markdown report generation with federation names
+- `export_federation_csv()`: CSV export of federation-level statistics
+- `map_registration_authority()`: Registration authority → federation name conversion
 
 ## 📋 Requirements
 
 ### System Requirements
-- **Python**: 3.11+ (tested on 3.11, 3.12, 3.13)
+- **Python**: 3.9-3.13 (tested on 3.11, 3.12, 3.13)
 - **Memory**: 256MB+ recommended for large metadata files
 - **Network**: Internet connectivity for metadata download (unless using local files)
 
 ### Dependencies
+
+Simple two-tier approach:
+
+| File | Use Case | Dependencies |
+|------|----------|--------------|
+| `requirements-runtime.txt` | **Production** | `requests` only |
+| `requirements.txt` | **Development** | Runtime + testing + formatting |
+
+#### Runtime Dependencies
 - **requests 2.32.5**: HTTP client for downloading metadata
-- **pytest**: Testing framework with coverage support
+- **Standard Library**: All other functionality uses built-in Python modules
+
+#### Development Dependencies
+- **pytest**: Testing framework
+- **black**: Code formatting
 
 ## ❓ Troubleshooting
 
@@ -177,6 +279,7 @@ A: Always use virtual environments as shown in setup instructions
 
 ### Performance Tips
 - Use `--summary-only` for quick statistics without full CSV output
+- Use `--federation-summary` to identify which federations need improvement
 - Pre-download metadata files for repeated analysis
 - Enable compression for large output files: `python script.py | gzip > output.csv.gz`
 

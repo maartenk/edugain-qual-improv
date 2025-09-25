@@ -1,0 +1,4 @@
+# Minimal runtime dependencies for production use
+# Install with: pip install -r requirements-runtime.txt
+
+requests==2.32.5
