@@ -127,10 +127,6 @@ venv.bak/
 # mkdocs documentation
 /site
 
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
 
 # Pyre type checker
 .pyre/
@@ -162,3 +158,23 @@ pip-selfcheck.json
 metadata_cache/
 output/
 results/
+
+# eduGAIN cache files
+.edugain_metadata_cache.xml
+.edugain_federations_cache.json
+
+# Temporary test environments
+*_test/
+*_venv/
+runtime_test/
+dev_venv/
+verify_venv/
+
+# Additional test artifacts
+.pytest_extra/
+
+# Coverage reports
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml

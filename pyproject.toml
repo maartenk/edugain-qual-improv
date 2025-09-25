@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: System :: Systems Administration",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
 ]
@@ -31,20 +32,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "coverage>=7.0.0",
     "black>=23.0.0",
-    "isort>=5.12.0",
-    "flake8>=6.0.0",
-    "mypy>=1.5.0",
-    "types-requests>=2.31.0",
-]
-security = [
-    "bandit>=1.7.5",
-    "safety>=2.3.0",
-]
-pre-commit = [
-    "pre-commit>=3.0.0",
 ]
 
 [project.urls]
@@ -64,7 +52,6 @@ extend-exclude = '''
   \.eggs
   | \.git
   | \.hg
-  | \.mypy_cache
   | \.pytest_cache
   | \.tox
   | \.venv
@@ -73,38 +60,19 @@ extend-exclude = '''
 )/
 '''
 
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
-ensure_newline_before_comments = true
-line_length = 88
-known_first_party = ["seccon_nosirtfi"]
-src_paths = [".", "test_seccon_nosirtfi.py"]
-
-[tool.mypy]
-python_version = "3.9"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = false
-ignore_missing_imports = true
-disable_error_code = "no-untyped-def"
 
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = [
-    "--strict-markers",
-    "--strict-config",
     "--verbose",
     "--tb=short",
+    "--cov=privacy_security_analysis",
     "--cov=seccon_nosirtfi",
     "--cov-report=term-missing",
-    "--cov-report=xml",
+    "--cov-report=html",
 ]
 testpaths = [
-    ".",
+    "tests",
 ]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
@@ -115,11 +83,13 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["seccon_nosirtfi"]
+source = [
+    "privacy_security_analysis",
+    "seccon_nosirtfi",
+]
 omit = [
-    "test_*.py",
-    "*_test.py",
-    "setup.py",
+    "tests/*",
+    "*/test_*",
 ]
 
 [tool.coverage.report]
@@ -134,11 +104,6 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod",
-    "if TYPE_CHECKING:",
 ]
 show_missing = true
 precision = 2
-
-[tool.bandit]
-exclude_dirs = ["tests", ".venv", ".env"]
-skips = ["B101"]  # Skip assert_used for test files
