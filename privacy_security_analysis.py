@@ -64,7 +64,10 @@ def is_metadata_cache_valid() -> bool:
 
         if cache_age > timedelta(hours=METADATA_EXPIRY_HOURS):
             hours_old = cache_age.total_seconds() / 3600
-            print(f"Metadata cache is {hours_old:.1f} hours old (>12h), refreshing...", file=sys.stderr)
+            print(
+                f"Metadata cache is {hours_old:.1f} hours old (>12h), refreshing...",
+                file=sys.stderr,
+            )
             return False
 
         hours_old = cache_age.total_seconds() / 3600
@@ -93,7 +96,7 @@ def download_metadata(url: str, timeout: int = REQUEST_TIMEOUT) -> bytes:
 def save_metadata_cache(content: bytes) -> None:
     """Save metadata content to cache file."""
     try:
-        with open(METADATA_CACHE_FILE, 'wb') as f:
+        with open(METADATA_CACHE_FILE, "wb") as f:
             f.write(content)
         print(f"Metadata cached to {METADATA_CACHE_FILE}", file=sys.stderr)
     except OSError as e:
@@ -106,7 +109,7 @@ def load_metadata_cache() -> Optional[bytes]:
         return None
 
     try:
-        with open(METADATA_CACHE_FILE, 'rb') as f:
+        with open(METADATA_CACHE_FILE, "rb") as f:
             return f.read()
     except OSError as e:
         print(f"Warning: Could not read metadata cache: {e}", file=sys.stderr)
@@ -154,12 +157,15 @@ def load_federation_cache() -> Optional[Dict[str, str]]:
         cache_age = datetime.now() - datetime.fromtimestamp(cache_mtime)
 
         if cache_age > timedelta(days=CACHE_EXPIRY_DAYS):
-            print(f"Federation cache is {cache_age.days} days old, refreshing...", file=sys.stderr)
+            print(
+                f"Federation cache is {cache_age.days} days old, refreshing...",
+                file=sys.stderr,
+            )
             return None
 
-        with open(FEDERATION_CACHE_FILE, 'r', encoding='utf-8') as f:
+        with open(FEDERATION_CACHE_FILE, "r", encoding="utf-8") as f:
             cache_data = json.load(f)
-            return cache_data.get('federations', {})
+            return cache_data.get("federations", {})
 
     except (json.JSONDecodeError, OSError, KeyError) as e:
         print(f"Warning: Could not read federation cache: {e}", file=sys.stderr)
@@ -170,12 +176,12 @@ def save_federation_cache(federations: Dict[str, str]) -> None:
     """Save federation name mapping to cache file."""
     try:
         cache_data = {
-            'federations': federations,
-            'cached_at': datetime.now().isoformat(),
-            'cache_version': '1.0'
+            "federations": federations,
+            "cached_at": datetime.now().isoformat(),
+            "cache_version": "1.0",
         }
 
-        with open(FEDERATION_CACHE_FILE, 'w', encoding='utf-8') as f:
+        with open(FEDERATION_CACHE_FILE, "w", encoding="utf-8") as f:
             json.dump(cache_data, f, indent=2, ensure_ascii=False)
 
     except OSError as e:
@@ -196,8 +202,8 @@ def fetch_federation_names() -> Dict[str, str]:
 
         for fed_id, fed_info in federations_data.items():
             if isinstance(fed_info, dict):
-                reg_auth = fed_info.get('reg_auth')
-                name = fed_info.get('name')
+                reg_auth = fed_info.get("reg_auth")
+                name = fed_info.get("name")
 
                 if reg_auth and name:
                     federation_mapping[reg_auth] = name
@@ -219,7 +225,10 @@ def get_federation_mapping() -> Dict[str, str]:
     federation_mapping = load_federation_cache()
 
     if federation_mapping is not None:
-        print(f"Using cached federation names ({len(federation_mapping)} federations)", file=sys.stderr)
+        print(
+            f"Using cached federation names ({len(federation_mapping)} federations)",
+            file=sys.stderr,
+        )
         return federation_mapping
 
     # Cache miss or expired, fetch from API
@@ -232,7 +241,9 @@ def get_federation_mapping() -> Dict[str, str]:
     return federation_mapping
 
 
-def map_registration_authority(reg_auth: str, federation_mapping: Dict[str, str]) -> str:
+def map_registration_authority(
+    reg_auth: str, federation_mapping: Dict[str, str]
+) -> str:
     """Map registration authority to federation name, fallback to reg_auth if not found."""
     if not reg_auth:
         return "Unknown"
@@ -250,7 +261,9 @@ def map_registration_authority(reg_auth: str, federation_mapping: Dict[str, str]
         return clean_reg_auth
 
 
-def analyze_privacy_security(root: ET.Element, federation_mapping: Dict[str, str] = None) -> Tuple[List[List[str]], dict, dict]:
+def analyze_privacy_security(
+    root: ET.Element, federation_mapping: Dict[str, str] = None
+) -> Tuple[List[List[str]], dict, dict]:
     """
     Analyze entities for privacy statement URLs and security contacts.
     Privacy statements are only analyzed for SPs (not IdPs).
@@ -361,7 +374,9 @@ def analyze_privacy_security(root: ET.Element, federation_mapping: Dict[str, str
             ).strip()
 
         # Map registration authority to federation name for display
-        federation_name = map_registration_authority(registration_authority, federation_mapping or {})
+        federation_name = map_registration_authority(
+            registration_authority, federation_mapping or {}
+        )
 
         # Update federation-level statistics (use federation name as key)
         if registration_authority:
@@ -562,7 +577,10 @@ def print_summary(stats: dict) -> None:
         )
 
     print("", file=sys.stderr)
-    print("💡 For detailed entity lists, federation reports, or CSV exports, use --help to see all options.", file=sys.stderr)
+    print(
+        "💡 For detailed entity lists, federation reports, or CSV exports, use --help to see all options.",
+        file=sys.stderr,
+    )
 
 
 def print_summary_markdown(stats: dict, output_file=sys.stderr) -> None:
@@ -579,76 +597,134 @@ def print_summary_markdown(stats: dict, output_file=sys.stderr) -> None:
 
     print("# 📊 eduGAIN Quality Analysis Report", file=output_file)
     print("", file=output_file)
-    print(f"**Analysis Date:** {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}", file=output_file)
-    print(f"**Total Entities Analyzed:** {total:,} ({total_sps:,} SPs, {total_idps:,} IdPs)", file=output_file)
+    print(
+        f"**Analysis Date:** {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}",
+        file=output_file,
+    )
+    print(
+        f"**Total Entities Analyzed:** {total:,} ({total_sps:,} SPs, {total_idps:,} IdPs)",
+        file=output_file,
+    )
     print("", file=output_file)
 
     # Privacy Statement Coverage (SPs only)
     if total_sps > 0:
         sp_privacy_pct = (stats["sps_has_privacy"] / total_sps) * 100
         sp_missing_privacy_pct = 100 - sp_privacy_pct
-        privacy_status = "🟢" if sp_privacy_pct >= 80 else "🟡" if sp_privacy_pct >= 50 else "🔴"
+        privacy_status = (
+            "🟢" if sp_privacy_pct >= 80 else "🟡" if sp_privacy_pct >= 50 else "🔴"
+        )
 
         print("## 📋 Privacy Statement Coverage", file=output_file)
-        print("*Privacy statements are only required for Service Providers (SPs)*", file=output_file)
+        print(
+            "*Privacy statements are only required for Service Providers (SPs)*",
+            file=output_file,
+        )
         print("", file=output_file)
-        print(f"- **{privacy_status} SPs with privacy statements:** {stats['sps_has_privacy']:,}/{total_sps:,} ({sp_privacy_pct:.1f}%)", file=output_file)
-        print(f"- **❌ SPs missing privacy statements:** {stats['sps_missing_privacy']:,}/{total_sps:,} ({sp_missing_privacy_pct:.1f}%)", file=output_file)
+        print(
+            f"- **{privacy_status} SPs with privacy statements:** {stats['sps_has_privacy']:,}/{total_sps:,} ({sp_privacy_pct:.1f}%)",
+            file=output_file,
+        )
+        print(
+            f"- **❌ SPs missing privacy statements:** {stats['sps_missing_privacy']:,}/{total_sps:,} ({sp_missing_privacy_pct:.1f}%)",
+            file=output_file,
+        )
         print("", file=output_file)
 
     # Security Contact Coverage
     total_security_pct = (stats["total_has_security"] / total) * 100
     total_missing_security_pct = 100 - total_security_pct
-    security_status = "🟢" if total_security_pct >= 80 else "🟡" if total_security_pct >= 50 else "🔴"
+    security_status = (
+        "🟢" if total_security_pct >= 80 else "🟡" if total_security_pct >= 50 else "🔴"
+    )
 
     print("## 🔒 Security Contact Coverage", file=output_file)
-    print("*Security contacts should be provided by both SPs and IdPs*", file=output_file)
+    print(
+        "*Security contacts should be provided by both SPs and IdPs*", file=output_file
+    )
     print("", file=output_file)
-    print(f"- **{security_status} Total entities with security contacts:** {stats['total_has_security']:,}/{total:,} ({total_security_pct:.1f}%)", file=output_file)
-    print(f"- **❌ Total entities missing security contacts:** {stats['total_missing_security']:,}/{total:,} ({total_missing_security_pct:.1f}%)", file=output_file)
+    print(
+        f"- **{security_status} Total entities with security contacts:** {stats['total_has_security']:,}/{total:,} ({total_security_pct:.1f}%)",
+        file=output_file,
+    )
+    print(
+        f"- **❌ Total entities missing security contacts:** {stats['total_missing_security']:,}/{total:,} ({total_missing_security_pct:.1f}%)",
+        file=output_file,
+    )
 
     # Breakdown by entity type
     if total_sps > 0:
         sp_security_pct = (stats["sps_has_security"] / total_sps) * 100
         sp_missing_security = total_sps - stats["sps_has_security"]
-        print(f"  - **SPs:** {stats['sps_has_security']:,} with / {sp_missing_security:,} without ({sp_security_pct:.1f}% coverage)", file=output_file)
+        print(
+            f"  - **SPs:** {stats['sps_has_security']:,} with / {sp_missing_security:,} without ({sp_security_pct:.1f}% coverage)",
+            file=output_file,
+        )
 
     if total_idps > 0:
         idp_security_pct = (stats["idps_has_security"] / total_idps) * 100
         idp_missing_security = total_idps - stats["idps_has_security"]
-        print(f"  - **IdPs:** {stats['idps_has_security']:,} with / {idp_missing_security:,} without ({idp_security_pct:.1f}% coverage)", file=output_file)
+        print(
+            f"  - **IdPs:** {stats['idps_has_security']:,} with / {idp_missing_security:,} without ({idp_security_pct:.1f}% coverage)",
+            file=output_file,
+        )
 
     print("", file=output_file)
 
     # Combined Coverage Summary (SPs only)
     if total_sps > 0:
-        sp_has_at_least_one = stats["sps_has_privacy"] + stats["sps_has_security"] - stats["sps_has_both"]
+        sp_has_at_least_one = (
+            stats["sps_has_privacy"] + stats["sps_has_security"] - stats["sps_has_both"]
+        )
         sp_missing_both = total_sps - sp_has_at_least_one
 
         sp_both_pct = (stats["sps_has_both"] / total_sps) * 100
         sp_at_least_one_pct = (sp_has_at_least_one / total_sps) * 100
         sp_missing_both_pct = (sp_missing_both / total_sps) * 100
 
-        compliance_status = "🟢" if sp_both_pct >= 80 else "🟡" if sp_both_pct >= 50 else "🔴"
+        compliance_status = (
+            "🟢" if sp_both_pct >= 80 else "🟡" if sp_both_pct >= 50 else "🔴"
+        )
 
         print("## 📈 SP Compliance Summary", file=output_file)
-        print("*Combined privacy statement and security contact compliance for Service Providers*", file=output_file)
+        print(
+            "*Combined privacy statement and security contact compliance for Service Providers*",
+            file=output_file,
+        )
         print("", file=output_file)
-        print(f"- **{compliance_status} Full Compliance (Both):** {stats['sps_has_both']:,}/{total_sps:,} ({sp_both_pct:.1f}%)", file=output_file)
-        print(f"- **⚡ Partial Compliance (At Least One):** {sp_has_at_least_one:,}/{total_sps:,} ({sp_at_least_one_pct:.1f}%)", file=output_file)
-        print(f"- **❌ No Compliance (Missing Both):** {sp_missing_both:,}/{total_sps:,} ({sp_missing_both_pct:.1f}%)", file=output_file)
+        print(
+            f"- **{compliance_status} Full Compliance (Both):** {stats['sps_has_both']:,}/{total_sps:,} ({sp_both_pct:.1f}%)",
+            file=output_file,
+        )
+        print(
+            f"- **⚡ Partial Compliance (At Least One):** {sp_has_at_least_one:,}/{total_sps:,} ({sp_at_least_one_pct:.1f}%)",
+            file=output_file,
+        )
+        print(
+            f"- **❌ No Compliance (Missing Both):** {sp_missing_both:,}/{total_sps:,} ({sp_missing_both_pct:.1f}%)",
+            file=output_file,
+        )
         print("", file=output_file)
 
     # Key Insights
     print("## 💡 Key Insights", file=output_file)
 
     if total_sps > 0:
-        print(f"- {sp_at_least_one_pct:.1f}% of SPs provide at least basic compliance", file=output_file)
-        print(f"- {sp_both_pct:.1f}% of SPs achieve full compliance with both requirements", file=output_file)
+        print(
+            f"- {sp_at_least_one_pct:.1f}% of SPs provide at least basic compliance",
+            file=output_file,
+        )
+        print(
+            f"- {sp_both_pct:.1f}% of SPs achieve full compliance with both requirements",
+            file=output_file,
+        )
 
     if total_idps > 0:
         idp_security_pct = (stats["idps_has_security"] / total_idps) * 100
-        print(f"- {idp_security_pct:.1f}% of IdPs have security contacts (IdPs don't require privacy statements)", file=output_file)
+        print(
+            f"- {idp_security_pct:.1f}% of IdPs have security contacts (IdPs don't require privacy statements)",
+            file=output_file,
+        )
 
     print("", file=output_file)
 
@@ -664,9 +740,7 @@ def print_federation_summary(federation_stats: dict, output_file=sys.stderr) -> 
 
     # Sort federations by total entities (descending)
     sorted_federations = sorted(
-        federation_stats.items(),
-        key=lambda x: x[1]["total_entities"],
-        reverse=True
+        federation_stats.items(), key=lambda x: x[1]["total_entities"], reverse=True
     )
 
     for federation, stats in sorted_federations:
@@ -683,36 +757,87 @@ def print_federation_summary(federation_stats: dict, output_file=sys.stderr) -> 
         print(f"### 📍 **{federation_name}**", file=output_file)
 
         # Entity overview in compact format
-        print(f"- **Total Entities:** {total:,} ({total_sps:,} SPs, {total_idps:,} IdPs)", file=output_file)
+        print(
+            f"- **Total Entities:** {total:,} ({total_sps:,} SPs, {total_idps:,} IdPs)",
+            file=output_file,
+        )
 
         # Privacy and Security stats in one line each
         if total_sps > 0:
             sp_privacy_pct = (stats["sps_has_privacy"] / total_sps) * 100
-            privacy_status = "🟢" if sp_privacy_pct >= 80 else "🟡" if sp_privacy_pct >= 50 else "🔴"
-            print(f"- **SP Privacy Coverage:** {privacy_status} {stats['sps_has_privacy']:,}/{total_sps:,} ({sp_privacy_pct:.1f}%)", file=output_file)
+            privacy_status = (
+                "🟢" if sp_privacy_pct >= 80 else "🟡" if sp_privacy_pct >= 50 else "🔴"
+            )
+            print(
+                f"- **SP Privacy Coverage:** {privacy_status} {stats['sps_has_privacy']:,}/{total_sps:,} ({sp_privacy_pct:.1f}%)",
+                file=output_file,
+            )
 
         # Security coverage (overall)
         total_security_pct = (stats["total_has_security"] / total) * 100
-        security_status = "🟢" if total_security_pct >= 80 else "🟡" if total_security_pct >= 50 else "🔴"
-        print(f"- **Security Contact Coverage:** {security_status} {stats['total_has_security']:,}/{total:,} ({total_security_pct:.1f}%)", file=output_file)
+        security_status = (
+            "🟢"
+            if total_security_pct >= 80
+            else "🟡"
+            if total_security_pct >= 50
+            else "🔴"
+        )
+        print(
+            f"- **Security Contact Coverage:** {security_status} {stats['total_has_security']:,}/{total:,} ({total_security_pct:.1f}%)",
+            file=output_file,
+        )
 
         # Entity type breakdown for security (compact)
         if total_sps > 0 and total_idps > 0:
             sp_security_pct = (stats["sps_has_security"] / total_sps) * 100
             idp_security_pct = (stats["idps_has_security"] / total_idps) * 100
-            print(f"  - SPs: {stats['sps_has_security']:,}/{total_sps:,} ({sp_security_pct:.1f}%), IdPs: {stats['idps_has_security']:,}/{total_idps:,} ({idp_security_pct:.1f}%)", file=output_file)
+            sp_security_status = (
+                "🟢" if sp_security_pct >= 80 else "🟡" if sp_security_pct >= 50 else "🔴"
+            )
+            idp_security_status = (
+                "🟢"
+                if idp_security_pct >= 80
+                else "🟡"
+                if idp_security_pct >= 50
+                else "🔴"
+            )
+            print(
+                f"  - SPs: {sp_security_status} {stats['sps_has_security']:,}/{total_sps:,} ({sp_security_pct:.1f}%), IdPs: {idp_security_status} {stats['idps_has_security']:,}/{total_idps:,} ({idp_security_pct:.1f}%)",
+                file=output_file,
+            )
         elif total_sps > 0:
             sp_security_pct = (stats["sps_has_security"] / total_sps) * 100
-            print(f"  - SPs: {stats['sps_has_security']:,}/{total_sps:,} ({sp_security_pct:.1f}%)", file=output_file)
+            sp_security_status = (
+                "🟢" if sp_security_pct >= 80 else "🟡" if sp_security_pct >= 50 else "🔴"
+            )
+            print(
+                f"  - SPs: {sp_security_status} {stats['sps_has_security']:,}/{total_sps:,} ({sp_security_pct:.1f}%)",
+                file=output_file,
+            )
         elif total_idps > 0:
             idp_security_pct = (stats["idps_has_security"] / total_idps) * 100
-            print(f"  - IdPs: {stats['idps_has_security']:,}/{total_idps:,} ({idp_security_pct:.1f}%)", file=output_file)
+            idp_security_status = (
+                "🟢"
+                if idp_security_pct >= 80
+                else "🟡"
+                if idp_security_pct >= 50
+                else "🔴"
+            )
+            print(
+                f"  - IdPs: {idp_security_status} {stats['idps_has_security']:,}/{total_idps:,} ({idp_security_pct:.1f}%)",
+                file=output_file,
+            )
 
         # Combined compliance for SPs (if any)
         if total_sps > 0:
             sp_both_pct = (stats["sps_has_both"] / total_sps) * 100
-            compliance_status = "🟢" if sp_both_pct >= 80 else "🟡" if sp_both_pct >= 50 else "🔴"
-            print(f"- **SP Full Compliance:** {compliance_status} {stats['sps_has_both']:,}/{total_sps:,} ({sp_both_pct:.1f}%)", file=output_file)
+            compliance_status = (
+                "🟢" if sp_both_pct >= 80 else "🟡" if sp_both_pct >= 50 else "🔴"
+            )
+            print(
+                f"- **SP Full Compliance:** {compliance_status} {stats['sps_has_both']:,}/{total_sps:,} ({sp_both_pct:.1f}%)",
+                file=output_file,
+            )
 
         print("", file=output_file)
 
@@ -723,29 +848,29 @@ def export_federation_csv(federation_stats: dict, include_headers: bool = True) 
 
     # CSV headers
     if include_headers:
-        writer.writerow([
-            "Federation",
-            "TotalEntities",
-            "TotalSPs",
-            "TotalIdPs",
-            "SPsWithPrivacy",
-            "SPsMissingPrivacy",
-            "EntitiesWithSecurity",
-            "EntitiesMissingSecurity",
-            "SPsWithSecurity",
-            "SPsMissingSecurity",
-            "IdPsWithSecurity",
-            "IdPsMissingSecurity",
-            "SPsWithBoth",
-            "SPsWithAtLeastOne",
-            "SPsMissingBoth"
-        ])
+        writer.writerow(
+            [
+                "Federation",
+                "TotalEntities",
+                "TotalSPs",
+                "TotalIdPs",
+                "SPsWithPrivacy",
+                "SPsMissingPrivacy",
+                "EntitiesWithSecurity",
+                "EntitiesMissingSecurity",
+                "SPsWithSecurity",
+                "SPsMissingSecurity",
+                "IdPsWithSecurity",
+                "IdPsMissingSecurity",
+                "SPsWithBoth",
+                "SPsWithAtLeastOne",
+                "SPsMissingBoth",
+            ]
+        )
 
     # Sort federations by total entities (descending)
     sorted_federations = sorted(
-        federation_stats.items(),
-        key=lambda x: x[1]["total_entities"],
-        reverse=True
+        federation_stats.items(), key=lambda x: x[1]["total_entities"], reverse=True
     )
 
     for federation, stats in sorted_federations:
@@ -790,7 +915,11 @@ def export_federation_csv(federation_stats: dict, include_headers: bool = True) 
 
         # Combined (SPs only)
         if total_sps > 0:
-            sp_has_at_least_one = stats["sps_has_privacy"] + stats["sps_has_security"] - stats["sps_has_both"]
+            sp_has_at_least_one = (
+                stats["sps_has_privacy"]
+                + stats["sps_has_security"]
+                - stats["sps_has_both"]
+            )
             sp_missing_both = total_sps - sp_has_at_least_one
             sp_both_pct = (stats["sps_has_both"] / total_sps) * 100
             sp_at_least_one_pct = (sp_has_at_least_one / total_sps) * 100
@@ -803,23 +932,25 @@ def export_federation_csv(federation_stats: dict, include_headers: bool = True) 
             sp_missing_both_pct = 0
 
         # Write row
-        writer.writerow([
-            federation,
-            total,
-            total_sps,
-            total_idps,
-            stats["sps_has_privacy"],
-            sp_missing_privacy,
-            stats["total_has_security"],
-            total_missing_security,
-            stats["sps_has_security"],
-            sp_missing_security,
-            stats["idps_has_security"],
-            idp_missing_security,
-            stats["sps_has_both"],
-            sp_has_at_least_one,
-            sp_missing_both
-        ])
+        writer.writerow(
+            [
+                federation,
+                total,
+                total_sps,
+                total_idps,
+                stats["sps_has_privacy"],
+                sp_missing_privacy,
+                stats["total_has_security"],
+                total_missing_security,
+                stats["sps_has_security"],
+                sp_missing_security,
+                stats["idps_has_security"],
+                idp_missing_security,
+                stats["sps_has_both"],
+                sp_has_at_least_one,
+                sp_missing_both,
+            ]
+        )
 
 
 def main() -> None:
@@ -837,13 +968,19 @@ def main() -> None:
         "--url", default=EDUGAIN_METADATA_URL, help="Custom metadata URL"
     )
     parser.add_argument(
-        "--summary-only", action="store_true", help="Show only summary statistics (default behavior)"
+        "--summary-only",
+        action="store_true",
+        help="Show only summary statistics (default behavior)",
     )
     parser.add_argument(
-        "--federation-summary", action="store_true", help="Show per-federation breakdown with statistics"
+        "--federation-summary",
+        action="store_true",
+        help="Show per-federation breakdown with statistics",
     )
     parser.add_argument(
-        "--federation-csv", action="store_true", help="Export federation statistics to CSV format"
+        "--federation-csv",
+        action="store_true",
+        help="Export federation statistics to CSV format",
     )
 
     # Entity list options (mutually exclusive with summary options)
@@ -882,7 +1019,9 @@ def main() -> None:
     federation_mapping = get_federation_mapping()
 
     # Analyze entities
-    entities_list, stats, federation_stats = analyze_privacy_security(root, federation_mapping)
+    entities_list, stats, federation_stats = analyze_privacy_security(
+        root, federation_mapping
+    )
 
     # Handle federation CSV export
     if args.federation_csv:
