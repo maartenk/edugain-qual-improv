@@ -18,6 +18,7 @@ import requests
 
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import privacy_security_analysis
@@ -137,18 +138,21 @@ def entities_descriptor():
 def mock_open_read_json(data):
     """Helper to mock open() for reading JSON data."""
     from unittest.mock import mock_open
+
     return mock_open(read_data=json.dumps(data))
 
 
 def mock_open_read_bytes(data):
     """Helper to mock open() for reading bytes data."""
     from unittest.mock import mock_open
+
     return mock_open(read_data=data)
 
 
 def mock_open_write_bytes():
     """Helper to mock open() for writing bytes data."""
     from unittest.mock import mock_open
+
     return mock_open()
 
 
@@ -163,11 +167,13 @@ class TestFederationMapping:
             "https://aaf.edu.au": "AAF",
             "https://incommon.org": "InCommon",
             "https://maren.ac.mw": "MAREN",
-            "https://ukfederation.org.uk": "UK federation"
+            "https://ukfederation.org.uk": "UK federation",
         }
 
     @patch("privacy_security_analysis.requests.get")
-    def test_get_federation_mapping_api_success(self, mock_get, mock_federation_response):
+    def test_get_federation_mapping_api_success(
+        self, mock_get, mock_federation_response
+    ):
         """Test successful federation mapping from API."""
         mock_response = MagicMock()
         mock_response.json.return_value = mock_federation_response
@@ -179,7 +185,9 @@ class TestFederationMapping:
             result = privacy_security_analysis.get_federation_mapping()
 
         assert result == mock_federation_response
-        mock_get.assert_called_once_with(privacy_security_analysis.EDUGAIN_API_URL, timeout=10)
+        mock_get.assert_called_once_with(
+            privacy_security_analysis.EDUGAIN_API_URL, timeout=10
+        )
 
     @patch("privacy_security_analysis.requests.get")
     def test_get_federation_mapping_api_failure(self, mock_get):
@@ -199,7 +207,7 @@ class TestFederationMapping:
         cache_data = {
             "federations": mock_federation_response,
             "cached_at": datetime.utcnow().isoformat(),
-            "cache_version": "1.0"
+            "cache_version": "1.0",
         }
 
         with patch("os.path.exists", return_value=True):
@@ -215,7 +223,7 @@ class TestFederationMapping:
         cache_data = {
             "federations": {"old": "data"},
             "cached_at": old_date,
-            "cache_version": "1.0"
+            "cache_version": "1.0",
         }
 
         mock_response = MagicMock()
@@ -224,7 +232,9 @@ class TestFederationMapping:
 
         with patch("os.path.exists", return_value=True):
             with patch("builtins.open", mock_open_read_json(cache_data)):
-                with patch("privacy_security_analysis.requests.get", return_value=mock_response):
+                with patch(
+                    "privacy_security_analysis.requests.get", return_value=mock_response
+                ):
                     with patch("sys.stderr", new_callable=io.StringIO):
                         result = privacy_security_analysis.get_federation_mapping()
 
@@ -245,34 +255,42 @@ class TestFederationMapping:
         assert result == "https://unknown.org"
 
     @patch("privacy_security_analysis.get_federation_mapping")
-    def test_analyze_with_federation_mapping(self, mock_get_federation, entities_descriptor, xml_builder):
+    def test_analyze_with_federation_mapping(
+        self, mock_get_federation, entities_descriptor, xml_builder
+    ):
         """Test that analyze_privacy_security uses federation mapping."""
         mock_federation_mapping = {
             "https://maren.ac.mw": "MAREN",
-            "https://incommon.org": "InCommon"
+            "https://incommon.org": "InCommon",
         }
         mock_get_federation.return_value = mock_federation_mapping
 
         entity1 = xml_builder(
             entity_id="https://sp1.example.org",
             reg_authority="https://maren.ac.mw",
-            org_name="Test SP"
+            org_name="Test SP",
         )
         entity2 = xml_builder(
             entity_id="https://sp2.example.org",
             reg_authority="https://incommon.org",
-            org_name="Another SP"
+            org_name="Another SP",
         )
         entities_descriptor.extend([entity1, entity2])
 
-        entities_list, stats, federation_stats = privacy_security_analysis.analyze_privacy_security(
-            entities_descriptor
-        )
+        (
+            entities_list,
+            stats,
+            federation_stats,
+        ) = privacy_security_analysis.analyze_privacy_security(entities_descriptor)
 
         # Check that federation names are used instead of URLs
         assert len(entities_list) == 2
-        entity1_data = next(e for e in entities_list if e[3] == "https://sp1.example.org")
-        entity2_data = next(e for e in entities_list if e[3] == "https://sp2.example.org")
+        entity1_data = next(
+            e for e in entities_list if e[3] == "https://sp1.example.org"
+        )
+        entity2_data = next(
+            e for e in entities_list if e[3] == "https://sp2.example.org"
+        )
 
         assert entity1_data[0] == "MAREN"  # Should be mapped name, not URL
         assert entity2_data[0] == "InCommon"  # Should be mapped name, not URL
@@ -318,9 +336,13 @@ class TestMetadataCaching:
 
         with patch("os.path.exists", return_value=True):
             with patch("os.path.getmtime", return_value=old_time.timestamp()):
-                with patch("privacy_security_analysis.requests.get", return_value=mock_response):
+                with patch(
+                    "privacy_security_analysis.requests.get", return_value=mock_response
+                ):
                     with patch("builtins.open", mock_open_write_bytes()) as mock_open:
-                        with patch("sys.stderr", new_callable=io.StringIO) as mock_stderr:
+                        with patch(
+                            "sys.stderr", new_callable=io.StringIO
+                        ) as mock_stderr:
                             result = privacy_security_analysis.get_metadata()
 
         assert result == new_xml_content
@@ -335,7 +357,9 @@ class TestMetadataCaching:
         mock_response.raise_for_status.return_value = None
 
         with patch("os.path.exists", return_value=False):
-            with patch("privacy_security_analysis.requests.get", return_value=mock_response):
+            with patch(
+                "privacy_security_analysis.requests.get", return_value=mock_response
+            ):
                 with patch("builtins.open", mock_open_write_bytes()) as mock_open:
                     with patch("sys.stderr", new_callable=io.StringIO) as mock_stderr:
                         result = privacy_security_analysis.get_metadata()
@@ -442,9 +466,11 @@ class TestAnalyzePrivacySecurity:
         )
         entities_descriptor.append(entity)
 
-        entities_list, stats, federation_stats = privacy_security_analysis.analyze_privacy_security(
-            entities_descriptor
-        )
+        (
+            entities_list,
+            stats,
+            federation_stats,
+        ) = privacy_security_analysis.analyze_privacy_security(entities_descriptor)
 
         assert len(entities_list) == 1
         entity_data = entities_list[0]
@@ -471,9 +497,11 @@ class TestAnalyzePrivacySecurity:
         entity = xml_builder(has_privacy_statement=False, has_security_contact=True)
         entities_descriptor.append(entity)
 
-        entities_list, stats, federation_stats = privacy_security_analysis.analyze_privacy_security(
-            entities_descriptor
-        )
+        (
+            entities_list,
+            stats,
+            federation_stats,
+        ) = privacy_security_analysis.analyze_privacy_security(entities_descriptor)
 
         assert len(entities_list) == 1
         entity_data = entities_list[0]
@@ -490,9 +518,11 @@ class TestAnalyzePrivacySecurity:
         entity = xml_builder(has_privacy_statement=True, has_security_contact=False)
         entities_descriptor.append(entity)
 
-        entities_list, stats, federation_stats = privacy_security_analysis.analyze_privacy_security(
-            entities_descriptor
-        )
+        (
+            entities_list,
+            stats,
+            federation_stats,
+        ) = privacy_security_analysis.analyze_privacy_security(entities_descriptor)
 
         assert len(entities_list) == 1
         entity_data = entities_list[0]
@@ -508,9 +538,11 @@ class TestAnalyzePrivacySecurity:
         entity = xml_builder(has_privacy_statement=False, has_security_contact=False)
         entities_descriptor.append(entity)
 
-        entities_list, stats, federation_stats = privacy_security_analysis.analyze_privacy_security(
-            entities_descriptor
-        )
+        (
+            entities_list,
+            stats,
+            federation_stats,
+        ) = privacy_security_analysis.analyze_privacy_security(entities_descriptor)
 
         assert len(entities_list) == 1
         entity_data = entities_list[0]
@@ -538,9 +570,11 @@ class TestAnalyzePrivacySecurity:
         entity = xml_builder(entity_type=entity_type)
         entities_descriptor.append(entity)
 
-        entities_list, stats, federation_stats = privacy_security_analysis.analyze_privacy_security(
-            entities_descriptor
-        )
+        (
+            entities_list,
+            stats,
+            federation_stats,
+        ) = privacy_security_analysis.analyze_privacy_security(entities_descriptor)
 
         assert len(entities_list) == 1
         assert entities_list[0][1] == expected_type
@@ -553,9 +587,11 @@ class TestAnalyzePrivacySecurity:
         entity = xml_builder(contact_type=contact_type)
         entities_descriptor.append(entity)
 
-        entities_list, stats, federation_stats = privacy_security_analysis.analyze_privacy_security(
-            entities_descriptor
-        )
+        (
+            entities_list,
+            stats,
+            federation_stats,
+        ) = privacy_security_analysis.analyze_privacy_security(entities_descriptor)
 
         assert len(entities_list) == 1
         assert entities_list[0][6] == "Yes"  # has security contact
@@ -589,9 +625,11 @@ class TestAnalyzePrivacySecurity:
 
         entities_descriptor.extend([entity1, entity2, entity3, entity4])
 
-        entities_list, stats, federation_stats = privacy_security_analysis.analyze_privacy_security(
-            entities_descriptor
-        )
+        (
+            entities_list,
+            stats,
+            federation_stats,
+        ) = privacy_security_analysis.analyze_privacy_security(entities_descriptor)
 
         assert len(entities_list) == 4
         assert stats["total_entities"] == 4
@@ -625,9 +663,11 @@ class TestAnalyzePrivacySecurity:
 
         entities_descriptor.extend([idp_entity, sp_entity])
 
-        entities_list, stats, federation_stats = privacy_security_analysis.analyze_privacy_security(
-            entities_descriptor
-        )
+        (
+            entities_list,
+            stats,
+            federation_stats,
+        ) = privacy_security_analysis.analyze_privacy_security(entities_descriptor)
 
         assert len(entities_list) == 2
         assert stats["total_entities"] == 2
@@ -690,9 +730,11 @@ class TestAnalyzePrivacySecurity:
 
         entities_descriptor.extend([sp1, sp2, idp1, idp2, idp3])
 
-        entities_list, stats, federation_stats = privacy_security_analysis.analyze_privacy_security(
-            entities_descriptor
-        )
+        (
+            entities_list,
+            stats,
+            federation_stats,
+        ) = privacy_security_analysis.analyze_privacy_security(entities_descriptor)
 
         assert len(entities_list) == 5
         assert stats["total_entities"] == 5
@@ -737,9 +779,11 @@ class TestAnalyzePrivacySecurity:
 
         entities_descriptor.extend([fed1_sp, fed1_idp, fed2_sp])
 
-        entities_list, stats, federation_stats = privacy_security_analysis.analyze_privacy_security(
-            entities_descriptor
-        )
+        (
+            entities_list,
+            stats,
+            federation_stats,
+        ) = privacy_security_analysis.analyze_privacy_security(entities_descriptor)
 
         assert len(entities_list) == 3
         assert len(federation_stats) == 2
@@ -845,7 +889,7 @@ class TestFederationCSVExport:
             privacy_security_analysis.export_federation_csv(federation_stats, True)
 
         output = mock_stdout.getvalue()
-        lines = output.strip().split('\n')
+        lines = output.strip().split("\n")
 
         # Check header
         assert "RegistrationAuthority,TotalEntities,TotalSPs,TotalIdPs" in lines[0]
@@ -882,7 +926,7 @@ class TestFederationCSVExport:
             privacy_security_analysis.export_federation_csv(federation_stats, False)
 
         output = mock_stdout.getvalue()
-        lines = output.strip().split('\n')
+        lines = output.strip().split("\n")
 
         # Should have only 1 line (no header)
         assert len(lines) == 1
@@ -907,11 +951,13 @@ class TestFederationCSVExport:
             privacy_security_analysis.export_federation_csv(federation_stats, True)
 
         output = mock_stdout.getvalue()
-        lines = output.strip().split('\n')
+        lines = output.strip().split("\n")
 
         # Check that SP counts are 0 when no SPs exist
         assert "0,0" in lines[1]  # Privacy stats should be 0,0
-        assert "0,0,0" in lines[1]  # SP both, at least one, missing both should be 0,0,0
+        assert (
+            "0,0,0" in lines[1]
+        )  # SP both, at least one, missing both should be 0,0,0
 
     @patch("privacy_security_analysis.download_metadata")
     @patch("privacy_security_analysis.parse_metadata")
@@ -1263,7 +1309,9 @@ class TestMainFunction:
         """Test main function with --list-missing-privacy option."""
         mock_download.return_value = b"<xml>content</xml>"
         mock_parse.return_value = MagicMock()
-        entities_list = [["https://example.org", "SP", "Org", "entity", "No", "", "Yes"]]
+        entities_list = [
+            ["https://example.org", "SP", "Org", "entity", "No", "", "Yes"]
+        ]
         mock_analyze.return_value = (entities_list, {"total_entities": 1}, {})
         mock_filter.return_value = entities_list
 
@@ -1298,7 +1346,9 @@ class TestMainFunction:
         """Test main function with --list-missing-security option."""
         mock_download.return_value = b"<xml>content</xml>"
         mock_parse.return_value = MagicMock()
-        entities_list = [["https://example.org", "SP", "Org", "entity", "Yes", "url", "No"]]
+        entities_list = [
+            ["https://example.org", "SP", "Org", "entity", "Yes", "url", "No"]
+        ]
         mock_analyze.return_value = (entities_list, {"total_entities": 1}, {})
         mock_filter.return_value = entities_list
 
@@ -1332,7 +1382,9 @@ class TestMainFunction:
         """Test main function with --list-all-entities option."""
         mock_download.return_value = b"<xml>content</xml>"
         mock_parse.return_value = MagicMock()
-        entities_list = [["https://example.org", "SP", "Org", "entity", "Yes", "url", "Yes"]]
+        entities_list = [
+            ["https://example.org", "SP", "Org", "entity", "Yes", "url", "Yes"]
+        ]
         mock_analyze.return_value = (entities_list, {"total_entities": 1}, {})
 
         with patch.object(
@@ -1387,7 +1439,10 @@ class TestMainFunction:
 
         # import sys is already available from the top of the file
         import sys
-        mock_print_federation.assert_called_once_with(federation_stats, output_file=sys.stdout)
+
+        mock_print_federation.assert_called_once_with(
+            federation_stats, output_file=sys.stdout
+        )
 
 
 class TestConstants:
