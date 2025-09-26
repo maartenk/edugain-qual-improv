@@ -24,7 +24,9 @@ import json
 import os
 import re
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse
@@ -43,8 +45,10 @@ METADATA_EXPIRY_HOURS = 12
 URL_VALIDATION_EXPIRY_DAYS = 7
 REQUEST_TIMEOUT = 30
 URL_VALIDATION_TIMEOUT = 10
-URL_VALIDATION_DELAY = 0.5  # Seconds between URL checks
+URL_VALIDATION_DELAY = 0.5  # Seconds between URL checks (per thread)
 MAX_CONTENT_SIZE = 50 * 1024  # 50KB limit for content analysis
+URL_VALIDATION_THREADS = 8  # Number of parallel threads for URL validation
+URL_VALIDATION_BATCH_SIZE = 50  # Process URLs in batches for progress reporting
 
 # SAML metadata namespaces
 NAMESPACES = {
@@ -81,6 +85,17 @@ PRIVACY_CONTENT_PATTERNS = [
 PRIVACY_REGEX = [
     re.compile(pattern, re.IGNORECASE) for pattern in PRIVACY_CONTENT_PATTERNS
 ]
+
+# Global rate limiting semaphore for URL validation
+_url_validation_semaphore = None
+
+
+def _get_url_validation_semaphore(max_concurrent: int = URL_VALIDATION_THREADS):
+    """Get or create the global URL validation semaphore."""
+    global _url_validation_semaphore
+    if _url_validation_semaphore is None:
+        _url_validation_semaphore = threading.Semaphore(max_concurrent)
+    return _url_validation_semaphore
 
 
 def is_metadata_cache_valid() -> bool:
@@ -374,7 +389,9 @@ def validate_privacy_url_content(content: str) -> Tuple[bool, int]:
     return content_valid, match_count
 
 
-def validate_privacy_url(url: str, validation_cache: Dict[str, Dict] = None) -> Dict:
+def validate_privacy_url(
+    url: str, validation_cache: Dict[str, Dict] = None, use_semaphore: bool = True
+) -> Dict:
     """
     Validate a privacy statement URL for accessibility and content.
 
@@ -406,10 +423,18 @@ def validate_privacy_url(url: str, validation_cache: Dict[str, Dict] = None) -> 
         cached_result["from_cache"] = True
         return cached_result
 
+    # Get semaphore for rate limiting if needed
+    semaphore = None
+    if use_semaphore:
+        semaphore = _get_url_validation_semaphore()
+        semaphore.acquire()
+
     # Validate URL format
     try:
         parsed = urlparse(url)
         if not parsed.scheme or not parsed.netloc:
+            if semaphore is not None:
+                semaphore.release()
             return {
                 "status_code": 0,
                 "accessible": False,
@@ -419,6 +444,8 @@ def validate_privacy_url(url: str, validation_cache: Dict[str, Dict] = None) -> 
                 "checked_at": datetime.now().isoformat(),
             }
     except Exception as e:
+        if semaphore is not None:
+            semaphore.release()
         return {
             "status_code": 0,
             "accessible": False,
@@ -543,6 +570,108 @@ def validate_privacy_url(url: str, validation_cache: Dict[str, Dict] = None) -> 
         if validation_cache is not None:
             validation_cache[url] = result
         return result
+    finally:
+        # Always release semaphore if acquired
+        if semaphore is not None:
+            semaphore.release()
+
+
+def validate_urls_parallel(
+    urls: List[str],
+    validation_cache: Dict[str, Dict] = None,
+    max_workers: int = URL_VALIDATION_THREADS,
+) -> Dict[str, Dict]:
+    """
+    Validate multiple URLs in parallel using ThreadPoolExecutor.
+
+    Args:
+        urls: List of URLs to validate
+        validation_cache: Shared cache for validation results
+        max_workers: Maximum number of worker threads
+
+    Returns:
+        Dict mapping URLs to their validation results
+    """
+    if not urls:
+        return {}
+
+    results = {}
+
+    # Filter out URLs that are already cached
+    urls_to_check = []
+    for url in urls:
+        if validation_cache and url in validation_cache:
+            results[url] = validation_cache[url]
+        else:
+            urls_to_check.append(url)
+
+    if not urls_to_check:
+        return results
+
+    print(
+        f"Validating {len(urls_to_check)} URLs in parallel (using {max_workers} threads)...",
+        file=sys.stderr,
+    )
+
+    # Process URLs in batches for progress reporting
+    total_batches = (
+        len(urls_to_check) + URL_VALIDATION_BATCH_SIZE - 1
+    ) // URL_VALIDATION_BATCH_SIZE
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for batch_num in range(total_batches):
+            start_idx = batch_num * URL_VALIDATION_BATCH_SIZE
+            end_idx = min(
+                (batch_num + 1) * URL_VALIDATION_BATCH_SIZE, len(urls_to_check)
+            )
+            batch_urls = urls_to_check[start_idx:end_idx]
+
+            print(
+                f"Processing batch {batch_num + 1}/{total_batches} ({len(batch_urls)} URLs)...",
+                file=sys.stderr,
+            )
+
+            # Submit validation tasks for this batch
+            future_to_url = {
+                executor.submit(
+                    validate_privacy_url, url, validation_cache, use_semaphore=True
+                ): url
+                for url in batch_urls
+            }
+
+            # Collect results as they complete
+            batch_completed = 0
+            for future in as_completed(future_to_url):
+                url = future_to_url[future]
+                try:
+                    result = future.result()
+                    results[url] = result
+                    batch_completed += 1
+
+                    # Progress update every 10 URLs or at end of batch
+                    if batch_completed % 10 == 0 or batch_completed == len(batch_urls):
+                        print(
+                            f"  Completed {batch_completed}/{len(batch_urls)} URLs in batch {batch_num + 1}",
+                            file=sys.stderr,
+                        )
+
+                except Exception as exc:
+                    print(f"URL validation failed for {url}: {exc}", file=sys.stderr)
+                    # Create error result
+                    results[url] = {
+                        "status_code": 0,
+                        "accessible": False,
+                        "content_valid": False,
+                        "match_count": 0,
+                        "error": f"Validation failed: {str(exc)}",
+                        "checked_at": datetime.now().isoformat(),
+                    }
+                    # Add to cache
+                    if validation_cache is not None:
+                        validation_cache[url] = results[url]
+
+    print(f"Completed validation of {len(urls_to_check)} URLs", file=sys.stderr)
+    return results
 
 
 def analyze_privacy_security(
@@ -550,6 +679,7 @@ def analyze_privacy_security(
     federation_mapping: Dict[str, str] = None,
     validate_urls: bool = False,
     validation_cache: Dict[str, Dict] = None,
+    max_workers: int = URL_VALIDATION_THREADS,
 ) -> Tuple[List[List[str]], dict, dict]:
     """
     Analyze entities for privacy statement URLs and security contacts.
@@ -561,6 +691,7 @@ def analyze_privacy_security(
         federation_mapping: Mapping of registration authorities to federation names
         validate_urls: Whether to perform URL validation (HTTP status + content check)
         validation_cache: Cache of previous URL validation results
+        max_workers: Maximum number of threads for parallel URL validation
 
     Returns:
         Tuple of (entity_data_list, summary_stats, federation_stats)
@@ -602,6 +733,38 @@ def analyze_privacy_security(
     org_name_xpath = "./md:Organization/md:OrganizationDisplayName"
     sp_descriptor_xpath = "./md:SPSSODescriptor"
     idp_descriptor_xpath = "./md:IDPSSODescriptor"
+
+    # Collect all privacy URLs for parallel validation
+    if validate_urls:
+        print("Collecting privacy statement URLs for validation...", file=sys.stderr)
+        urls_to_validate = []
+        for entity in entities:
+            ent_id = entity.attrib.get("entityID")
+            if not ent_id:
+                continue
+
+            # Only collect URLs for SPs
+            is_sp = entity.find(sp_descriptor_xpath, NAMESPACES) is not None
+            if is_sp:
+                privacy_elem = entity.find(privacy_xpath, NAMESPACES)
+                if privacy_elem is not None and privacy_elem.text is not None:
+                    privacy_url = privacy_elem.text.strip()
+                    if privacy_url and privacy_url not in urls_to_validate:
+                        urls_to_validate.append(privacy_url)
+
+        # Validate all URLs in parallel
+        if urls_to_validate:
+            print(
+                f"Found {len(urls_to_validate)} unique privacy URLs to validate",
+                file=sys.stderr,
+            )
+            url_validation_results = validate_urls_parallel(
+                urls_to_validate, validation_cache, max_workers
+            )
+        else:
+            url_validation_results = {}
+    else:
+        url_validation_results = {}
 
     for entity in entities:
         stats["total_entities"] += 1
@@ -645,14 +808,13 @@ def analyze_privacy_security(
             if has_privacy:
                 stats["sps_has_privacy"] += 1
 
-                # Perform URL validation if enabled
-                if validate_urls and privacy_url:
-                    print(
-                        f"Validating URL for {orgname}: {privacy_url}", file=sys.stderr
-                    )
-                    url_validation_result = validate_privacy_url(
-                        privacy_url, validation_cache
-                    )
+                # Get URL validation result if validation was enabled
+                if (
+                    validate_urls
+                    and privacy_url
+                    and privacy_url in url_validation_results
+                ):
+                    url_validation_result = url_validation_results[privacy_url]
 
                     # Update validation statistics
                     stats["urls_checked"] += 1
@@ -1509,6 +1671,12 @@ def main() -> None:
         action="store_true",
         help="Validate privacy statement URLs for accessibility and content (slower)",
     )
+    parser.add_argument(
+        "--validation-threads",
+        type=int,
+        default=URL_VALIDATION_THREADS,
+        help=f"Number of parallel threads for URL validation (default: {URL_VALIDATION_THREADS})",
+    )
 
     # Entity list options (mutually exclusive with summary options)
     entity_group = parser.add_mutually_exclusive_group()
@@ -1557,7 +1725,11 @@ def main() -> None:
 
     # Analyze entities
     entities_list, stats, federation_stats = analyze_privacy_security(
-        root, federation_mapping, args.validate_urls, validation_cache
+        root,
+        federation_mapping,
+        args.validate_urls,
+        validation_cache,
+        args.validation_threads,
     )
 
     # Save updated URL validation cache if validation was performed
