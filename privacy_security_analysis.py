@@ -22,10 +22,12 @@ import argparse
 import csv
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 from xml.etree import ElementTree as ET
 
 import requests
@@ -35,9 +37,14 @@ EDUGAIN_METADATA_URL = "https://mds.edugain.org/edugain-v2.xml"
 EDUGAIN_FEDERATIONS_API = "https://technical.edugain.org/api.php?action=list_feds"
 FEDERATION_CACHE_FILE = ".edugain_federations_cache.json"
 METADATA_CACHE_FILE = ".edugain_metadata_cache.xml"
+URL_VALIDATION_CACHE_FILE = ".edugain_url_validation_cache.json"
 CACHE_EXPIRY_DAYS = 30
 METADATA_EXPIRY_HOURS = 12
+URL_VALIDATION_EXPIRY_DAYS = 7
 REQUEST_TIMEOUT = 30
+URL_VALIDATION_TIMEOUT = 10
+URL_VALIDATION_DELAY = 0.5  # Seconds between URL checks
+MAX_CONTENT_SIZE = 50 * 1024  # 50KB limit for content analysis
 
 # SAML metadata namespaces
 NAMESPACES = {
@@ -50,6 +57,30 @@ NAMESPACES = {
     "mdattr": "urn:oasis:names:tc:SAML:metadata:attribute",
     "saml": "urn:oasis:names:tc:SAML:2.0:assertion",
 }
+
+# Privacy statement content validation patterns
+PRIVACY_CONTENT_PATTERNS = [
+    # Strong indicators
+    r"\bprivacy\s+(statement|policy|notice)\b",
+    r"\bdata\s+protection\b",
+    r"\bpersonal\s+(information|data)\b",
+    r"\bdata\s+processing\b",
+    r"\bcookies?\s+(policy|statement)\b",
+    r"\bGDPR\b",
+    r"\bdata\s+controller\b",
+    # Common privacy-related terms
+    r"\bcollect.*\binformation\b",
+    r"\buse.*\bdata\b",
+    r"\bshare.*\binformation\b",
+    r"\bthird.{1,10}part(y|ies)\b",
+    r"\bopt.{1,5}out\b",
+    r"\bwithdraw.*\bconsent\b",
+]
+
+# Compile regex patterns for performance
+PRIVACY_REGEX = [
+    re.compile(pattern, re.IGNORECASE) for pattern in PRIVACY_CONTENT_PATTERNS
+]
 
 
 def is_metadata_cache_valid() -> bool:
@@ -261,13 +292,275 @@ def map_registration_authority(
         return clean_reg_auth
 
 
+def load_url_validation_cache() -> Optional[Dict[str, Dict]]:
+    """Load URL validation results from cache file if it exists and is not expired."""
+    if not os.path.exists(URL_VALIDATION_CACHE_FILE):
+        return None
+
+    try:
+        # Check if cache is expired (older than URL_VALIDATION_EXPIRY_DAYS)
+        cache_mtime = os.path.getmtime(URL_VALIDATION_CACHE_FILE)
+        cache_age = datetime.now() - datetime.fromtimestamp(cache_mtime)
+
+        if cache_age > timedelta(days=URL_VALIDATION_EXPIRY_DAYS):
+            print(
+                f"URL validation cache is {cache_age.days} days old, refreshing...",
+                file=sys.stderr,
+            )
+            return None
+
+        with open(URL_VALIDATION_CACHE_FILE, "r", encoding="utf-8") as f:
+            cache_data = json.load(f)
+            return cache_data.get("validations", {})
+
+    except (json.JSONDecodeError, OSError, KeyError) as e:
+        print(f"Warning: Could not read URL validation cache: {e}", file=sys.stderr)
+        return None
+
+
+def save_url_validation_cache(validations: Dict[str, Dict]) -> None:
+    """Save URL validation results to cache file."""
+    try:
+        cache_data = {
+            "validations": validations,
+            "cached_at": datetime.now().isoformat(),
+            "cache_version": "1.0",
+        }
+
+        with open(URL_VALIDATION_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(cache_data, f, indent=2, ensure_ascii=False)
+
+    except OSError as e:
+        print(f"Warning: Could not save URL validation cache: {e}", file=sys.stderr)
+
+
+def validate_privacy_url_content(content: str) -> Tuple[bool, int]:
+    """
+    Validate if content appears to be a genuine privacy statement.
+
+    Returns:
+        Tuple of (content_valid: bool, match_count: int)
+    """
+    if not content:
+        return False, 0
+
+    # Convert to lowercase for case-insensitive matching
+    content_lower = content.lower()
+
+    # Check for clear indicators this is NOT a privacy statement
+    error_indicators = [
+        "page not found",
+        "404",
+        "error",
+        "not found",
+        "under construction",
+        "coming soon",
+        "maintenance",
+    ]
+
+    for indicator in error_indicators:
+        if indicator in content_lower:
+            return False, 0
+
+    # Count matches for privacy-related patterns
+    match_count = 0
+    for regex in PRIVACY_REGEX:
+        if regex.search(content):
+            match_count += 1
+
+    # Content is considered valid if it has multiple privacy indicators
+    content_valid = match_count >= 3
+
+    return content_valid, match_count
+
+
+def validate_privacy_url(url: str, validation_cache: Dict[str, Dict] = None) -> Dict:
+    """
+    Validate a privacy statement URL for accessibility and content.
+
+    Returns:
+        Dict with validation results: {
+            'status_code': int,
+            'accessible': bool,
+            'content_valid': bool,
+            'match_count': int,
+            'error': str or None,
+            'checked_at': str
+        }
+    """
+    if not url or not url.strip():
+        return {
+            "status_code": 0,
+            "accessible": False,
+            "content_valid": False,
+            "match_count": 0,
+            "error": "Empty URL",
+            "checked_at": datetime.now().isoformat(),
+        }
+
+    url = url.strip()
+
+    # Check cache first
+    if validation_cache and url in validation_cache:
+        cached_result = validation_cache[url].copy()
+        cached_result["from_cache"] = True
+        return cached_result
+
+    # Validate URL format
+    try:
+        parsed = urlparse(url)
+        if not parsed.scheme or not parsed.netloc:
+            return {
+                "status_code": 0,
+                "accessible": False,
+                "content_valid": False,
+                "match_count": 0,
+                "error": "Invalid URL format",
+                "checked_at": datetime.now().isoformat(),
+            }
+    except Exception as e:
+        return {
+            "status_code": 0,
+            "accessible": False,
+            "content_valid": False,
+            "match_count": 0,
+            "error": f"URL parsing error: {str(e)}",
+            "checked_at": datetime.now().isoformat(),
+        }
+
+    # Rate limiting
+    time.sleep(URL_VALIDATION_DELAY)
+
+    try:
+        # Make HTTP request with restricted content size
+        response = requests.get(
+            url,
+            timeout=URL_VALIDATION_TIMEOUT,
+            headers={"User-Agent": "eduGAIN-Quality-Analysis/1.0 (URL validation bot)"},
+            stream=True,
+        )
+
+        status_code = response.status_code
+
+        # Check if URL is accessible (2xx or 3xx status codes)
+        accessible = 200 <= status_code < 400
+
+        # For content validation, we need successful responses
+        content_valid = False
+        match_count = 0
+
+        if accessible and status_code < 300:  # Only analyze 2xx responses
+            try:
+                # Read limited content
+                content_bytes = b""
+                for chunk in response.iter_content(chunk_size=1024):
+                    content_bytes += chunk
+                    if len(content_bytes) >= MAX_CONTENT_SIZE:
+                        break
+
+                # Try to decode content
+                content = content_bytes.decode("utf-8", errors="ignore")
+                content_valid, match_count = validate_privacy_url_content(content)
+
+            except Exception as content_error:
+                print(
+                    f"Warning: Content analysis failed for {url}: {content_error}",
+                    file=sys.stderr,
+                )
+
+        result = {
+            "status_code": status_code,
+            "accessible": accessible,
+            "content_valid": content_valid,
+            "match_count": match_count,
+            "error": None,
+            "checked_at": datetime.now().isoformat(),
+        }
+
+        # Add result to cache
+        if validation_cache is not None:
+            validation_cache[url] = result
+
+        return result
+
+    except requests.exceptions.Timeout:
+        result = {
+            "status_code": 0,
+            "accessible": False,
+            "content_valid": False,
+            "match_count": 0,
+            "error": "Request timeout",
+            "checked_at": datetime.now().isoformat(),
+        }
+        if validation_cache is not None:
+            validation_cache[url] = result
+        return result
+    except requests.exceptions.SSLError:
+        result = {
+            "status_code": 0,
+            "accessible": False,
+            "content_valid": False,
+            "match_count": 0,
+            "error": "SSL certificate error",
+            "checked_at": datetime.now().isoformat(),
+        }
+        if validation_cache is not None:
+            validation_cache[url] = result
+        return result
+    except requests.exceptions.ConnectionError:
+        result = {
+            "status_code": 0,
+            "accessible": False,
+            "content_valid": False,
+            "match_count": 0,
+            "error": "Connection error",
+            "checked_at": datetime.now().isoformat(),
+        }
+        if validation_cache is not None:
+            validation_cache[url] = result
+        return result
+    except requests.exceptions.RequestException as e:
+        result = {
+            "status_code": 0,
+            "accessible": False,
+            "content_valid": False,
+            "match_count": 0,
+            "error": f"Request error: {str(e)}",
+            "checked_at": datetime.now().isoformat(),
+        }
+        if validation_cache is not None:
+            validation_cache[url] = result
+        return result
+    except Exception as e:
+        result = {
+            "status_code": 0,
+            "accessible": False,
+            "content_valid": False,
+            "match_count": 0,
+            "error": f"Unexpected error: {str(e)}",
+            "checked_at": datetime.now().isoformat(),
+        }
+        if validation_cache is not None:
+            validation_cache[url] = result
+        return result
+
+
 def analyze_privacy_security(
-    root: ET.Element, federation_mapping: Dict[str, str] = None
+    root: ET.Element,
+    federation_mapping: Dict[str, str] = None,
+    validate_urls: bool = False,
+    validation_cache: Dict[str, Dict] = None,
 ) -> Tuple[List[List[str]], dict, dict]:
     """
     Analyze entities for privacy statement URLs and security contacts.
     Privacy statements are only analyzed for SPs (not IdPs).
     Security contacts are analyzed for both IdPs and SPs.
+
+    Args:
+        root: XML root element of eduGAIN metadata
+        federation_mapping: Mapping of registration authorities to federation names
+        validate_urls: Whether to perform URL validation (HTTP status + content check)
+        validation_cache: Cache of previous URL validation results
 
     Returns:
         Tuple of (entity_data_list, summary_stats, federation_stats)
@@ -287,6 +580,13 @@ def analyze_privacy_security(
         "total_missing_security": 0,
         "sps_has_both": 0,
         "sps_missing_both": 0,
+        # URL validation statistics
+        "urls_checked": 0,
+        "urls_accessible": 0,
+        "urls_broken": 0,
+        "urls_content_valid": 0,
+        "urls_content_invalid": 0,
+        "validation_enabled": validate_urls,
     }
 
     # Federation-level statistics by registration authority
@@ -311,6 +611,14 @@ def analyze_privacy_security(
         if not ent_id:
             continue
 
+        # Get organization name early for logging
+        orgname_elem = entity.find(org_name_xpath, NAMESPACES)
+        orgname = (
+            orgname_elem.text.strip()
+            if orgname_elem is not None and orgname_elem.text
+            else "Unknown"
+        )
+
         # Determine entity type first
         is_sp = entity.find(sp_descriptor_xpath, NAMESPACES) is not None
         is_idp = entity.find(idp_descriptor_xpath, NAMESPACES) is not None
@@ -327,6 +635,8 @@ def analyze_privacy_security(
         # Check for privacy statement URL (only for SPs)
         has_privacy = False
         privacy_url = ""
+        url_validation_result = None
+
         if is_sp:
             privacy_elem = entity.find(privacy_xpath, NAMESPACES)
             has_privacy = privacy_elem is not None and privacy_elem.text is not None
@@ -334,6 +644,28 @@ def analyze_privacy_security(
 
             if has_privacy:
                 stats["sps_has_privacy"] += 1
+
+                # Perform URL validation if enabled
+                if validate_urls and privacy_url:
+                    print(
+                        f"Validating URL for {orgname}: {privacy_url}", file=sys.stderr
+                    )
+                    url_validation_result = validate_privacy_url(
+                        privacy_url, validation_cache
+                    )
+
+                    # Update validation statistics
+                    stats["urls_checked"] += 1
+                    if url_validation_result["accessible"]:
+                        stats["urls_accessible"] += 1
+                    else:
+                        stats["urls_broken"] += 1
+
+                    if url_validation_result["content_valid"]:
+                        stats["urls_content_valid"] += 1
+                    else:
+                        stats["urls_content_invalid"] += 1
+
             else:
                 stats["sps_missing_privacy"] += 1
 
@@ -395,6 +727,12 @@ def analyze_privacy_security(
                     "total_missing_security": 0,
                     "sps_has_both": 0,
                     "sps_missing_both": 0,
+                    # URL validation statistics
+                    "urls_checked": 0,
+                    "urls_accessible": 0,
+                    "urls_broken": 0,
+                    "urls_content_valid": 0,
+                    "urls_content_invalid": 0,
                 }
 
             fed_stats = federation_stats[federation_name]
@@ -404,6 +742,19 @@ def analyze_privacy_security(
                 fed_stats["total_sps"] += 1
                 if has_privacy:
                     fed_stats["sps_has_privacy"] += 1
+
+                    # Update federation URL validation stats
+                    if validate_urls and url_validation_result:
+                        fed_stats["urls_checked"] += 1
+                        if url_validation_result["accessible"]:
+                            fed_stats["urls_accessible"] += 1
+                        else:
+                            fed_stats["urls_broken"] += 1
+
+                        if url_validation_result["content_valid"]:
+                            fed_stats["urls_content_valid"] += 1
+                        else:
+                            fed_stats["urls_content_invalid"] += 1
                 else:
                     fed_stats["sps_missing_privacy"] += 1
 
@@ -430,26 +781,53 @@ def analyze_privacy_security(
             else:
                 fed_stats["total_missing_security"] += 1
 
-        # Get organization name with null safety
-        orgname_elem = entity.find(org_name_xpath, NAMESPACES)
-        orgname = (
-            orgname_elem.text.strip()
-            if orgname_elem is not None and orgname_elem.text
-            else "Unknown"
-        )
+        # Prepare validation data for entity list
+        if validate_urls and url_validation_result:
+            url_status = url_validation_result.get("status_code", 0)
+            url_accessible = (
+                "Yes" if url_validation_result.get("accessible", False) else "No"
+            )
+            content_valid = (
+                "Yes" if url_validation_result.get("content_valid", False) else "No"
+            )
+            validation_error = url_validation_result.get("error", "")
+        else:
+            url_status = "" if not validate_urls else "Not Checked"
+            url_accessible = "" if not validate_urls else "Not Checked"
+            content_valid = "" if not validate_urls else "Not Checked"
+            validation_error = "" if not validate_urls else "URL validation disabled"
 
         # Add entity data (use federation name for display, but keep using registration_authority for federation_stats)
-        entities_list.append(
-            [
-                federation_name,
-                ent_type,
-                orgname,
-                ent_id,
-                "Yes" if has_privacy else "No",
-                privacy_url if has_privacy else "",
-                "Yes" if has_security else "No",
-            ]
-        )
+        if validate_urls:
+            # Extended format with validation results
+            entities_list.append(
+                [
+                    federation_name,
+                    ent_type,
+                    orgname,
+                    ent_id,
+                    "Yes" if has_privacy else "No",
+                    privacy_url if has_privacy else "",
+                    "Yes" if has_security else "No",
+                    str(url_status),
+                    url_accessible,
+                    content_valid,
+                    validation_error,
+                ]
+            )
+        else:
+            # Original format without validation
+            entities_list.append(
+                [
+                    federation_name,
+                    ent_type,
+                    orgname,
+                    ent_id,
+                    "Yes" if has_privacy else "No",
+                    privacy_url if has_privacy else "",
+                    "Yes" if has_security else "No",
+                ]
+            )
 
     return entities_list, stats, federation_stats
 
@@ -577,6 +955,37 @@ def print_summary(stats: dict) -> None:
         )
 
     print("", file=sys.stderr)
+
+    # URL Validation Statistics (if enabled)
+    if stats.get("validation_enabled", False):
+        urls_checked = stats["urls_checked"]
+        if urls_checked > 0:
+            accessibility_pct = (stats["urls_accessible"] / urls_checked) * 100
+            content_pct = (stats["urls_content_valid"] / urls_checked) * 100
+
+            print("🔗 Privacy URL Validation Results:", file=sys.stderr)
+            print(
+                f"  📊 URLs checked: {urls_checked} privacy statement URLs",
+                file=sys.stderr,
+            )
+            print(
+                f"  ✅ Accessible URLs: {stats['urls_accessible']} out of {urls_checked} ({accessibility_pct:.1f}%)",
+                file=sys.stderr,
+            )
+            print(
+                f"  ❌ Broken/inaccessible URLs: {stats['urls_broken']} out of {urls_checked} ({100-accessibility_pct:.1f}%)",
+                file=sys.stderr,
+            )
+            print(
+                f"  📄 Valid privacy content: {stats['urls_content_valid']} out of {urls_checked} ({content_pct:.1f}%)",
+                file=sys.stderr,
+            )
+            print(
+                f"  ⚠️ Invalid/generic content: {stats['urls_content_invalid']} out of {urls_checked} ({100-content_pct:.1f}%)",
+                file=sys.stderr,
+            )
+            print("", file=sys.stderr)
+
     print(
         "💡 For detailed entity lists, federation reports, or CSV exports, use --help to see all options.",
         file=sys.stderr,
@@ -728,6 +1137,52 @@ def print_summary_markdown(stats: dict, output_file=sys.stderr) -> None:
 
     print("", file=output_file)
 
+    # URL Validation Results (if enabled)
+    if stats.get("validation_enabled", False):
+        urls_checked = stats["urls_checked"]
+        if urls_checked > 0:
+            accessibility_pct = (stats["urls_accessible"] / urls_checked) * 100
+            content_pct = (stats["urls_content_valid"] / urls_checked) * 100
+
+            accessibility_status = (
+                "🟢"
+                if accessibility_pct >= 90
+                else "🟡"
+                if accessibility_pct >= 70
+                else "🔴"
+            )
+            content_status = (
+                "🟢" if content_pct >= 80 else "🟡" if content_pct >= 60 else "🔴"
+            )
+
+            print("## 🔗 Privacy URL Validation Results", file=output_file)
+            print(
+                "*Analysis of privacy statement URL accessibility and content quality*",
+                file=output_file,
+            )
+            print("", file=output_file)
+            print(
+                f"- **📊 URLs Checked:** {urls_checked:,} privacy statement URLs",
+                file=output_file,
+            )
+            print(
+                f"- **{accessibility_status} URL Accessibility:** {stats['urls_accessible']:,}/{urls_checked:,} ({accessibility_pct:.1f}%)",
+                file=output_file,
+            )
+            print(
+                f"- **❌ Broken/Inaccessible URLs:** {stats['urls_broken']:,}/{urls_checked:,} ({100-accessibility_pct:.1f}%)",
+                file=output_file,
+            )
+            print(
+                f"- **{content_status} Valid Privacy Content:** {stats['urls_content_valid']:,}/{urls_checked:,} ({content_pct:.1f}%)",
+                file=output_file,
+            )
+            print(
+                f"- **⚠️ Invalid/Generic Content:** {stats['urls_content_invalid']:,}/{urls_checked:,} ({100-content_pct:.1f}%)",
+                file=output_file,
+            )
+            print("", file=output_file)
+
 
 def print_federation_summary(federation_stats: dict, output_file=sys.stderr) -> None:
     """Print user-friendly federation-level statistics in markdown format."""
@@ -839,6 +1294,28 @@ def print_federation_summary(federation_stats: dict, output_file=sys.stderr) -> 
                 file=output_file,
             )
 
+        # URL Validation Statistics (if any URLs were checked)
+        urls_checked = stats.get("urls_checked", 0)
+        if urls_checked > 0:
+            accessibility_pct = (stats["urls_accessible"] / urls_checked) * 100
+            content_pct = (stats["urls_content_valid"] / urls_checked) * 100
+
+            accessibility_status = (
+                "🟢"
+                if accessibility_pct >= 90
+                else "🟡"
+                if accessibility_pct >= 70
+                else "🔴"
+            )
+            content_status = (
+                "🟢" if content_pct >= 80 else "🟡" if content_pct >= 60 else "🔴"
+            )
+
+            print(
+                f"- **Privacy URL Quality:** {accessibility_status} {stats['urls_accessible']:,}/{urls_checked:,} accessible ({accessibility_pct:.1f}%), {content_status} {stats['urls_content_valid']:,}/{urls_checked:,} valid content ({content_pct:.1f}%)",
+                file=output_file,
+            )
+
         print("", file=output_file)
 
 
@@ -846,27 +1323,44 @@ def export_federation_csv(federation_stats: dict, include_headers: bool = True) 
     """Export federation statistics to CSV format."""
     writer = csv.writer(sys.stdout)
 
-    # CSV headers
+    # CSV headers - check if validation was enabled for any federation
+    validation_enabled = any(
+        fed_stats.get("urls_checked", 0) > 0 for fed_stats in federation_stats.values()
+    )
+
     if include_headers:
-        writer.writerow(
-            [
-                "Federation",
-                "TotalEntities",
-                "TotalSPs",
-                "TotalIdPs",
-                "SPsWithPrivacy",
-                "SPsMissingPrivacy",
-                "EntitiesWithSecurity",
-                "EntitiesMissingSecurity",
-                "SPsWithSecurity",
-                "SPsMissingSecurity",
-                "IdPsWithSecurity",
-                "IdPsMissingSecurity",
-                "SPsWithBoth",
-                "SPsWithAtLeastOne",
-                "SPsMissingBoth",
-            ]
-        )
+        headers = [
+            "Federation",
+            "TotalEntities",
+            "TotalSPs",
+            "TotalIdPs",
+            "SPsWithPrivacy",
+            "SPsMissingPrivacy",
+            "EntitiesWithSecurity",
+            "EntitiesMissingSecurity",
+            "SPsWithSecurity",
+            "SPsMissingSecurity",
+            "IdPsWithSecurity",
+            "IdPsMissingSecurity",
+            "SPsWithBoth",
+            "SPsWithAtLeastOne",
+            "SPsMissingBoth",
+        ]
+
+        if validation_enabled:
+            headers.extend(
+                [
+                    "URLsChecked",
+                    "URLsAccessible",
+                    "URLsBroken",
+                    "URLsContentValid",
+                    "URLsContentInvalid",
+                    "AccessibilityPercentage",
+                    "ContentValidityPercentage",
+                ]
+            )
+
+        writer.writerow(headers)
 
     # Sort federations by total entities (descending)
     sorted_federations = sorted(
@@ -931,26 +1425,54 @@ def export_federation_csv(federation_stats: dict, include_headers: bool = True) 
             sp_at_least_one_pct = 0
             sp_missing_both_pct = 0
 
+        # Prepare base row data
+        row_data = [
+            federation,
+            total,
+            total_sps,
+            total_idps,
+            stats["sps_has_privacy"],
+            sp_missing_privacy,
+            stats["total_has_security"],
+            total_missing_security,
+            stats["sps_has_security"],
+            sp_missing_security,
+            stats["idps_has_security"],
+            idp_missing_security,
+            stats["sps_has_both"],
+            sp_has_at_least_one,
+            sp_missing_both,
+        ]
+
+        # Add URL validation data if enabled
+        if validation_enabled:
+            urls_checked = stats.get("urls_checked", 0)
+            urls_accessible = stats.get("urls_accessible", 0)
+            urls_broken = stats.get("urls_broken", 0)
+            urls_content_valid = stats.get("urls_content_valid", 0)
+            urls_content_invalid = stats.get("urls_content_invalid", 0)
+
+            accessibility_pct = (
+                (urls_accessible / urls_checked * 100) if urls_checked > 0 else 0
+            )
+            content_pct = (
+                (urls_content_valid / urls_checked * 100) if urls_checked > 0 else 0
+            )
+
+            row_data.extend(
+                [
+                    urls_checked,
+                    urls_accessible,
+                    urls_broken,
+                    urls_content_valid,
+                    urls_content_invalid,
+                    f"{accessibility_pct:.1f}%",
+                    f"{content_pct:.1f}%",
+                ]
+            )
+
         # Write row
-        writer.writerow(
-            [
-                federation,
-                total,
-                total_sps,
-                total_idps,
-                stats["sps_has_privacy"],
-                sp_missing_privacy,
-                stats["total_has_security"],
-                total_missing_security,
-                stats["sps_has_security"],
-                sp_missing_security,
-                stats["idps_has_security"],
-                idp_missing_security,
-                stats["sps_has_both"],
-                sp_has_at_least_one,
-                sp_missing_both,
-            ]
-        )
+        writer.writerow(row_data)
 
 
 def main() -> None:
@@ -981,6 +1503,11 @@ def main() -> None:
         "--federation-csv",
         action="store_true",
         help="Export federation statistics to CSV format",
+    )
+    parser.add_argument(
+        "--validate-urls",
+        action="store_true",
+        help="Validate privacy statement URLs for accessibility and content (slower)",
     )
 
     # Entity list options (mutually exclusive with summary options)
@@ -1018,10 +1545,31 @@ def main() -> None:
     # Get federation name mapping
     federation_mapping = get_federation_mapping()
 
+    # Load URL validation cache if URL validation is enabled
+    validation_cache = None
+    if args.validate_urls:
+        validation_cache = load_url_validation_cache() or {}
+        if validation_cache:
+            print(
+                f"Loaded {len(validation_cache)} cached URL validation results",
+                file=sys.stderr,
+            )
+
     # Analyze entities
     entities_list, stats, federation_stats = analyze_privacy_security(
-        root, federation_mapping
+        root, federation_mapping, args.validate_urls, validation_cache
     )
+
+    # Save updated URL validation cache if validation was performed
+    if args.validate_urls and validation_cache is not None:
+        # The validation_cache was updated during analysis, so save it
+        urls_validated = stats.get("urls_checked", 0)
+        if urls_validated > 0:
+            print(
+                f"Saving URL validation cache with {len(validation_cache)} entries",
+                file=sys.stderr,
+            )
+            save_url_validation_cache(validation_cache)
 
     # Handle federation CSV export
     if args.federation_csv:
@@ -1052,17 +1600,28 @@ def main() -> None:
     # Output CSV results
     writer = csv.writer(sys.stdout)
     if not args.no_headers:
-        writer.writerow(
-            [
-                "Federation",
-                "EntityType",
-                "OrganizationName",
-                "EntityID",
-                "HasPrivacyStatement",
-                "PrivacyStatementURL",
-                "HasSecurityContact",
-            ]
-        )
+        headers = [
+            "Federation",
+            "EntityType",
+            "OrganizationName",
+            "EntityID",
+            "HasPrivacyStatement",
+            "PrivacyStatementURL",
+            "HasSecurityContact",
+        ]
+
+        # Add URL validation headers if validation was enabled
+        if stats.get("validation_enabled", False):
+            headers.extend(
+                [
+                    "URLStatusCode",
+                    "URLAccessible",
+                    "ContentValid",
+                    "ValidationError",
+                ]
+            )
+
+        writer.writerow(headers)
     writer.writerows(entities_list)
 
 

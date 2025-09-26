@@ -31,68 +31,113 @@ from privacy_security_analysis import (
     get_metadata,
     get_federation_mapping,
     analyze_privacy_security,
+    parse_metadata,
     map_registration_authority,
+    load_url_validation_cache,
+    save_url_validation_cache,
 )
+
+
+def convert_entities_to_dicts(
+    entities_list: List[List[str]], validation_enabled: bool = False
+) -> List[Dict]:
+    """Convert CSV-style entity list to dictionary format for Streamlit."""
+    entities = []
+    for entity_row in entities_list:
+        if validation_enabled and len(entity_row) >= 11:
+            # Extended format with URL validation: [federation_name, ent_type, orgname, ent_id, has_privacy_yes_no, privacy_url, has_security_yes_no, url_status, url_accessible, content_valid, validation_error]
+            entity = {
+                "federation_name": entity_row[0],
+                "entity_type": entity_row[1],
+                "organization_name": entity_row[2],
+                "entity_id": entity_row[3],
+                "has_privacy_statement": entity_row[4] == "Yes",
+                "privacy_statement_url": entity_row[5] if entity_row[5] else None,
+                "has_security_contact": entity_row[6] == "Yes",
+                "url_status_code": entity_row[7],
+                "url_accessible": entity_row[8] == "Yes",
+                "content_valid": entity_row[9] == "Yes",
+                "validation_error": entity_row[10] if entity_row[10] else None,
+            }
+        else:
+            # Standard format: [federation_name, ent_type, orgname, ent_id, has_privacy_yes_no, privacy_url, has_security_yes_no]
+            entity = {
+                "federation_name": entity_row[0],
+                "entity_type": entity_row[1],
+                "organization_name": entity_row[2],
+                "entity_id": entity_row[3],
+                "has_privacy_statement": entity_row[4] == "Yes",
+                "privacy_statement_url": entity_row[5] if entity_row[5] else None,
+                "has_security_contact": entity_row[6] == "Yes",
+                "url_status_code": None,
+                "url_accessible": None,
+                "content_valid": None,
+                "validation_error": None,
+            }
+        entities.append(entity)
+    return entities
 
 
 @st.cache_data(ttl=43200)  # Cache for 12 hours (same as metadata cache)
 def load_and_analyze_data(
-    use_local_file: bool = False, local_file_path: str = None, custom_url: str = None
+    use_local_file: bool = False,
+    local_file_path: str = None,
+    custom_url: str = None,
+    validate_urls: bool = False,
 ) -> Tuple[List[Dict], Dict[str, str], Dict]:
     """Load and analyze eduGAIN metadata with caching."""
     try:
         # Get federation mapping
         federation_mapping = get_federation_mapping()
 
-        # Get metadata
+        # Load URL validation cache if validation is enabled
+        validation_cache = None
+        if validate_urls:
+            validation_cache = load_url_validation_cache() or {}
+
+        # Get metadata and parse to XML Element
         if use_local_file and local_file_path:
-            with open(local_file_path, "rb") as f:
-                xml_content = f.read()
+            root = parse_metadata(None, local_file_path)
         else:
-            xml_content = get_metadata(custom_url)
+            xml_content = get_metadata(
+                custom_url or "https://mds.edugain.org/edugain-v2.xml"
+            )
+            root = parse_metadata(xml_content)
 
         # Analyze the data
-        entities = analyze_privacy_security(xml_content, federation_mapping)
-
-        # Generate summary statistics
-        total_entities = len(entities)
-        sps = [e for e in entities if e["entity_type"] == "SP"]
-        idps = [e for e in entities if e["entity_type"] == "IdP"]
-
-        # Privacy statement stats (SPs only)
-        sps_with_privacy = len([sp for sp in sps if sp["has_privacy_statement"]])
-        sps_without_privacy = len(sps) - sps_with_privacy
-
-        # Security contact stats (both SPs and IdPs)
-        sps_with_security = len([sp for sp in sps if sp["has_security_contact"]])
-        idps_with_security = len([idp for idp in idps if idp["has_security_contact"]])
-
-        # Combined stats (SPs only, since IdPs don't use privacy statements)
-        sps_with_both = len(
-            [
-                sp
-                for sp in sps
-                if sp["has_privacy_statement"] and sp["has_security_contact"]
-            ]
-        )
-        sps_missing_both = len(
-            [
-                sp
-                for sp in sps
-                if not sp["has_privacy_statement"] and not sp["has_security_contact"]
-            ]
+        entities_list, stats, federation_stats = analyze_privacy_security(
+            root, federation_mapping, validate_urls, validation_cache
         )
 
+        # Save updated validation cache if validation was performed
+        if (
+            validate_urls
+            and validation_cache is not None
+            and stats.get("urls_checked", 0) > 0
+        ):
+            save_url_validation_cache(validation_cache)
+
+        # Convert to dictionary format for Streamlit
+        entities = convert_entities_to_dicts(entities_list, validate_urls)
+
+        # Use the stats returned by analyze_privacy_security
         summary_stats = {
-            "total_entities": total_entities,
-            "total_sps": len(sps),
-            "total_idps": len(idps),
-            "sps_with_privacy": sps_with_privacy,
-            "sps_without_privacy": sps_without_privacy,
-            "sps_with_security": sps_with_security,
-            "idps_with_security": idps_with_security,
-            "sps_with_both": sps_with_both,
-            "sps_missing_both": sps_missing_both,
+            "total_entities": stats["total_entities"],
+            "total_sps": stats["total_sps"],
+            "total_idps": stats["total_idps"],
+            "sps_with_privacy": stats["sps_has_privacy"],
+            "sps_without_privacy": stats["sps_missing_privacy"],
+            "sps_with_security": stats["sps_has_security"],
+            "idps_with_security": stats["idps_has_security"],
+            "sps_with_both": stats["sps_has_both"],
+            "sps_missing_both": stats["sps_missing_both"],
+            # URL validation statistics
+            "validation_enabled": stats.get("validation_enabled", False),
+            "urls_checked": stats.get("urls_checked", 0),
+            "urls_accessible": stats.get("urls_accessible", 0),
+            "urls_broken": stats.get("urls_broken", 0),
+            "urls_content_valid": stats.get("urls_content_valid", 0),
+            "urls_content_invalid": stats.get("urls_content_invalid", 0),
         }
 
         return entities, federation_mapping, summary_stats
@@ -121,6 +166,33 @@ def create_summary_charts(stats: Dict, entities: List[Dict]) -> None:
         if stats["total_sps"] > 0:
             privacy_pct = (stats["sps_with_privacy"] / stats["total_sps"]) * 100
             st.metric("SPs with Privacy", f"{privacy_pct:.1f}%")
+
+    # URL validation metrics (if enabled)
+    if stats.get("validation_enabled", False) and stats.get("urls_checked", 0) > 0:
+        st.markdown("### 🔗 URL Validation Results")
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            st.metric("URLs Checked", f"{stats['urls_checked']:,}")
+
+        with col2:
+            if stats["urls_checked"] > 0:
+                accessibility_pct = (
+                    stats["urls_accessible"] / stats["urls_checked"]
+                ) * 100
+                st.metric("Accessible URLs", f"{accessibility_pct:.1f}%")
+
+        with col3:
+            if stats["urls_checked"] > 0:
+                content_pct = (
+                    stats["urls_content_valid"] / stats["urls_checked"]
+                ) * 100
+                st.metric("Valid Content", f"{content_pct:.1f}%")
+
+        with col4:
+            if stats["urls_checked"] > 0:
+                broken_pct = (stats["urls_broken"] / stats["urls_checked"]) * 100
+                st.metric("Broken URLs", f"{broken_pct:.1f}%")
 
     # Privacy and Security Coverage Charts
     col1, col2 = st.columns(2)
@@ -175,6 +247,47 @@ def create_summary_charts(stats: Dict, entities: List[Dict]) -> None:
                 },
             )
             st.plotly_chart(fig_security, use_container_width=True)
+
+    # URL validation charts (if enabled)
+    if stats.get("validation_enabled", False) and stats.get("urls_checked", 0) > 0:
+        st.markdown("### 🔗 URL Quality Analysis")
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # URL accessibility chart
+            accessibility_data = {
+                "Status": ["Accessible", "Broken/Inaccessible"],
+                "Count": [stats["urls_accessible"], stats["urls_broken"]],
+            }
+            fig_accessibility = px.pie(
+                accessibility_data,
+                values="Count",
+                names="Status",
+                title="Privacy URL Accessibility",
+                color_discrete_map={
+                    "Accessible": "#2E8B57",
+                    "Broken/Inaccessible": "#DC143C",
+                },
+            )
+            st.plotly_chart(fig_accessibility, use_container_width=True)
+
+        with col2:
+            # Content validation chart
+            content_data = {
+                "Status": ["Valid Privacy Content", "Invalid/Generic Content"],
+                "Count": [stats["urls_content_valid"], stats["urls_content_invalid"]],
+            }
+            fig_content = px.pie(
+                content_data,
+                values="Count",
+                names="Status",
+                title="Privacy URL Content Quality",
+                color_discrete_map={
+                    "Valid Privacy Content": "#2E8B57",
+                    "Invalid/Generic Content": "#FF8C00",
+                },
+            )
+            st.plotly_chart(fig_content, use_container_width=True)
 
 
 def create_federation_analysis(entities: List[Dict]) -> None:
@@ -248,7 +361,7 @@ def create_federation_analysis(entities: List[Dict]) -> None:
             color="Total Entities",
             color_continuous_scale="Blues",
         )
-        fig_fed_size.update_yaxis(categoryorder="total ascending")
+        fig_fed_size.update_layout(yaxis={"categoryorder": "total ascending"})
         st.plotly_chart(fig_fed_size, use_container_width=True)
 
     with col2:
@@ -265,7 +378,7 @@ def create_federation_analysis(entities: List[Dict]) -> None:
             color="SP Privacy %",
             color_continuous_scale="RdYlGn",
         )
-        fig_privacy_fed.update_yaxis(categoryorder="total ascending")
+        fig_privacy_fed.update_layout(yaxis={"categoryorder": "total ascending"})
         st.plotly_chart(fig_privacy_fed, use_container_width=True)
 
     # Federation details table
@@ -316,15 +429,24 @@ def create_entity_browser(entities: List[Dict]) -> None:
         )
 
     with col3:
-        status_filter = st.selectbox(
-            "Status Filter",
-            [
-                "All",
-                "Missing Privacy Statement",
-                "Missing Security Contact",
-                "Missing Both",
-            ],
-        )
+        status_options = [
+            "All",
+            "Missing Privacy Statement",
+            "Missing Security Contact",
+            "Missing Both",
+        ]
+
+        # Add URL validation filters if available
+        if any(entity.get("url_accessible") is not None for entity in entities):
+            status_options.extend(
+                [
+                    "Broken Privacy URLs",
+                    "Invalid Privacy Content",
+                    "Valid Privacy URLs",
+                ]
+            )
+
+        status_filter = st.selectbox("Status Filter", status_options)
 
     # Apply filters
     filtered_df = df[df["entity_type"].isin(entity_types)]
@@ -345,24 +467,41 @@ def create_entity_browser(entities: List[Dict]) -> None:
             & (~filtered_df["has_privacy_statement"])
             & (~filtered_df["has_security_contact"])
         ]
+    elif status_filter == "Broken Privacy URLs":
+        filtered_df = filtered_df[
+            (filtered_df["entity_type"] == "SP")
+            & (filtered_df["has_privacy_statement"])
+            & (~filtered_df["url_accessible"].fillna(False))
+        ]
+    elif status_filter == "Invalid Privacy Content":
+        filtered_df = filtered_df[
+            (filtered_df["entity_type"] == "SP")
+            & (filtered_df["has_privacy_statement"])
+            & (~filtered_df["content_valid"].fillna(False))
+        ]
+    elif status_filter == "Valid Privacy URLs":
+        filtered_df = filtered_df[
+            (filtered_df["entity_type"] == "SP")
+            & (filtered_df["has_privacy_statement"])
+            & (filtered_df["url_accessible"].fillna(False))
+            & (filtered_df["content_valid"].fillna(False))
+        ]
 
     # Display results
     st.write(f"Showing {len(filtered_df)} entities")
 
     # Prepare display DataFrame
-    display_df = filtered_df[
-        [
-            "federation_name",
-            "entity_type",
-            "organization_name",
-            "entity_id",
-            "has_privacy_statement",
-            "privacy_statement_url",
-            "has_security_contact",
-        ]
-    ].copy()
+    display_columns = [
+        "federation_name",
+        "entity_type",
+        "organization_name",
+        "entity_id",
+        "has_privacy_statement",
+        "privacy_statement_url",
+        "has_security_contact",
+    ]
 
-    display_df.columns = [
+    column_names = [
         "Federation",
         "Type",
         "Organization",
@@ -371,6 +510,28 @@ def create_entity_browser(entities: List[Dict]) -> None:
         "Privacy URL",
         "Has Security",
     ]
+
+    # Add URL validation columns if available
+    if any(entity.get("url_accessible") is not None for entity in entities):
+        display_columns.extend(
+            [
+                "url_status_code",
+                "url_accessible",
+                "content_valid",
+                "validation_error",
+            ]
+        )
+        column_names.extend(
+            [
+                "Status Code",
+                "Accessible",
+                "Valid Content",
+                "Validation Error",
+            ]
+        )
+
+    display_df = filtered_df[display_columns].copy()
+    display_df.columns = column_names
 
     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
@@ -434,6 +595,21 @@ def main():
             )
 
         st.markdown("---")
+        st.header("URL Validation")
+
+        validate_urls = st.checkbox(
+            "Validate Privacy Statement URLs",
+            value=False,
+            help="Check privacy statement URLs for accessibility and content quality. This will be slower but provides insights into URL quality.",
+        )
+
+        if validate_urls:
+            st.info(
+                "⚠️ URL validation will significantly increase analysis time due to rate limiting (0.5s per URL)."
+            )
+            estimated_urls = st.empty()  # Placeholder for URL count estimate
+
+        st.markdown("---")
         st.markdown("### About")
         st.markdown(
             """
@@ -447,11 +623,16 @@ def main():
         )
 
     # Load and analyze data
-    with st.spinner("Loading and analyzing eduGAIN metadata..."):
+    spinner_text = "Loading and analyzing eduGAIN metadata..."
+    if validate_urls:
+        spinner_text += " (Including URL validation - this may take several minutes)"
+
+    with st.spinner(spinner_text):
         entities, federation_mapping, stats = load_and_analyze_data(
             use_local_file=use_local_file,
             local_file_path=local_file_path,
             custom_url=custom_url,
+            validate_urls=validate_urls,
         )
 
     if not entities:

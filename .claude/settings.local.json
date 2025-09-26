@@ -26,7 +26,11 @@
       "Bash(timeout:*)",
       "Bash(echo \"## Demonstration: --federation-summary as Standalone Option\n\n### ✅ NEW: Standalone federation summary (just the option by itself)\nCommand: python privacy_security_analysis.py --federation-summary\n\nOutput: Shows main summary + federation breakdown, no CSV entity data\n\n### ✅ ALSO WORKS: Combined with --summary-only (redundant but still works)  \nCommand: python privacy_security_analysis.py --federation-summary --summary-only\n\nOutput: Same as above (both options imply summary-only behavior)\n\n### 📊 Three Output Options Available:\n\n1. **Main Summary Only:**\n   python privacy_security_analysis.py --summary-only\n\n2. **Federation Summary (includes main summary):**  \n   python privacy_security_analysis.py --federation-summary\n\n3. **Federation CSV Export:**\n   python privacy_security_analysis.py --federation-csv\n\")",
       "Bash(git pull:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "Bash(gh secret:*)",
+      "Bash(pytest:*)",
+      "Bash(curl:*)",
+      "Bash(git branch:*)"
     ],
     "deny": [],
     "ask": []
