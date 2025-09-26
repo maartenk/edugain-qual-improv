@@ -12,7 +12,8 @@ repos:
       - id: black
         language_version: python3
 
-  # TODO: Re-enable tests after updating them to match new API
+  # TODO: Re-enable tests after fixing API compatibility issues
+  # Tests are temporarily disabled due to federation API changes
   # - repo: local
   #   hooks:
   #     - id: pytest-local
