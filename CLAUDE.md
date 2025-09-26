@@ -123,7 +123,7 @@ python privacy_security_analysis.py --list-missing-both > critical_entities.csv
 ## Dependencies
 
 - **requests 2.32.5**: HTTP client for downloading metadata
-- **Python 3.13+**: Uses xml.etree.ElementTree and csv modules
+- **Python 3.11+**: Uses xml.etree.ElementTree and csv modules
 
 ## Development Notes
 
@@ -169,7 +169,9 @@ Test coverage: 96%+ on both scripts with comprehensive federation-level testing.
 ### Coverage Configuration
 - HTML reports generated in `htmlcov/` directory
 - XML reports for CI/CD integration
-- Coverage automatically uploaded to Codecov on CI runs
+- **Multi-version coverage**: Automatic upload to Codecov for Python 3.11, 3.12, 3.13
+- Each Python version tracked separately with flags (python-3.11, python-3.12, python-3.13)
+- Parallel coverage collection enabled for comprehensive testing
 - Configured to exclude test files and common boilerplate patterns
 
 ### New Features (Recent Updates)

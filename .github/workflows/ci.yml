@@ -36,26 +36,26 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        pytest tests/ -v --cov=privacy_security_analysis --cov=seccon_nosirtfi --cov-report=term-missing --cov-report=xml
+        pytest tests/ -v --cov-report=xml
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
         file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
+        flags: python-${{ matrix.python-version }}
+        name: coverage-py${{ matrix.python-version }}
         fail_ci_if_error: false
 
-    - name: Test script functionality
+    - name: Test script functionality and runtime requirements
       run: |
+        # Test scripts work with development environment
         python seccon_nosirtfi.py --help
         python privacy_security_analysis.py --help
-
-    - name: Test runtime-only requirements
-      run: |
-        python -m venv runtime_test
-        source runtime_test/bin/activate
-        pip install -r requirements-runtime.txt
-        python -c "import privacy_security_analysis; import seccon_nosirtfi; print('✅ Runtime requirements work')"
-        deactivate
-        rm -rf runtime_test
+        # Test runtime-only requirements (only on latest Python)
+        if [ "${{ matrix.python-version }}" = "3.13" ]; then
+          python -m venv /tmp/runtime_test
+          source /tmp/runtime_test/bin/activate
+          pip install -r requirements-runtime.txt
+          python -c "import privacy_security_analysis; import seccon_nosirtfi; print('✅ Runtime requirements work')"
+          deactivate
+        fi

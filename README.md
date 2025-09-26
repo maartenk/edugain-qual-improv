@@ -24,7 +24,7 @@ Python tools for analyzing eduGAIN federation metadata quality and security comp
 git clone https://github.com/maartenk/edugain-qual-improv.git
 cd edugain-qual-improv
 
-# Create virtual environment
+# Create virtual environment (requires Python 3.11+)
 python3 -m venv .venv
 source .venv/bin/activate
 
@@ -176,7 +176,7 @@ Caches are automatically managed - no manual intervention needed!
 git clone https://github.com/maartenk/edugain-qual-improv.git
 cd edugain-qual-improv
 
-# Setup virtual environment
+# Setup virtual environment (requires Python 3.11+)
 python3 -m venv .venv
 source .venv/bin/activate
 
@@ -193,10 +193,12 @@ black .
 ## 🔒 Testing & Quality
 
 - **54 comprehensive tests** covering all functionality
-- **96%+ code coverage** on both scripts
+- **96%+ code coverage** on both scripts across all Python versions
 - **Tests organized** in `tests/` directory following Python best practices
 - **Automated CI/CD** testing on Python 3.11, 3.12, and 3.13
+- **Multi-version coverage reporting** via Codecov for each Python version
 - **Federation-level testing** including new `--federation-summary` functionality
+- **Modern Python support** - requires Python 3.11+ for latest language features
 
 ## 🏗️ Architecture
 
@@ -243,7 +245,7 @@ Advanced analysis tool with federation mapping, caching, and flexible output for
 ## 📋 Requirements
 
 ### System Requirements
-- **Python**: 3.9-3.13 (tested on 3.11, 3.12, 3.13)
+- **Python**: 3.11-3.13 (tested on 3.11, 3.12, 3.13)
 - **Memory**: 256MB+ recommended for large metadata files
 - **Network**: Internet connectivity for metadata download (unless using local files)
 
