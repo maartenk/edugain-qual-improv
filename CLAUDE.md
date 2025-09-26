@@ -8,6 +8,7 @@ This repository contains tools for eduGAIN quality improvement:
 
 - **`seccon_nosirtfi.py`**: Analyzes eduGAIN metadata to identify entities with security contacts but without SIRTFI Entity Category certification
 - **`privacy_security_analysis.py`**: Advanced analysis tool with federation mapping, caching, and flexible output formats for privacy statements and security contacts
+- **`streamlit_app.py`**: Interactive web dashboard providing visual analysis and exploration of privacy statement and security contact data
 
 ## Setup and Installation
 
@@ -76,6 +77,21 @@ python privacy_security_analysis.py --list-missing-both > critical_entities.csv
 # - Federation breakdown: Shows friendly federation names instead of URLs
 ```
 
+### Running the Streamlit Web Dashboard
+```bash
+# With virtual environment activated
+streamlit run streamlit_app.py
+
+# The web dashboard will open at http://localhost:8501
+# Features:
+# - Interactive visualizations with charts and tables
+# - Federation-level filtering and analysis
+# - Real-time data processing with 12-hour caching
+# - Export capabilities for filtered data
+# - Responsive design for mobile and desktop
+# - Support for local file uploads or custom metadata URLs
+```
+
 ## Architecture
 
 ### Core Components
@@ -95,6 +111,15 @@ python privacy_security_analysis.py --list-missing-both > critical_entities.csv
   - **Multiple Output Formats**: Summary statistics, detailed CSV exports, markdown reports
   - **Entity Type Differentiation**: Privacy statements analyzed for SPs only, security contacts for both
   - **Comprehensive Statistics**: Split by entity type with federation-level breakdowns
+
+- **streamlit_app.py**: Interactive web dashboard built on top of privacy_security_analysis.py
+  - **Interactive Visualization**: Charts, tables, and metrics using Plotly and Streamlit
+  - **Data Source Options**: Live eduGAIN metadata, custom URLs, or uploaded XML files
+  - **Smart Caching**: Leverages existing 12-hour metadata cache from privacy_security_analysis
+  - **Multi-Tab Interface**: Overview, Federation Analysis, and Entity Browser tabs
+  - **Filtering & Export**: Dynamic filtering with CSV export capabilities
+  - **Responsive Design**: Works on desktop and mobile devices
+  - **Real-time Analysis**: Live data processing with visual feedback
 
 ### Data Processing Flow (privacy_security_analysis.py)
 1. **Initialization**: Command-line argument parsing and configuration
