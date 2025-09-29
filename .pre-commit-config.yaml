@@ -12,13 +12,11 @@ repos:
       - id: black
         language_version: python3
 
-  # TODO: Re-enable tests after fixing API compatibility issues
-  # Tests are temporarily disabled due to federation API changes
-  # - repo: local
-  #   hooks:
-  #     - id: pytest-local
-  #       name: Run tests
-  #       entry: bash -c 'cd /Users/kreme003/Workspace/git/edugain-qual-improv && source .venv/bin/activate && python -m pytest tests/ -v'
-  #       language: system
-  #       pass_filenames: false
-  #       always_run: true
+  - repo: local
+    hooks:
+      - id: pytest-local
+        name: Run tests
+        entry: bash -c 'cd /Users/kreme003/Workspace/git/edugain-qual-improv && source .venv/bin/activate && python -m pytest tests/ -v'
+        language: system
+        pass_filenames: false
+        always_run: true

@@ -7,7 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This repository contains tools for eduGAIN quality improvement:
 
 - **`seccon_nosirtfi.py`**: Analyzes eduGAIN metadata to identify entities with security contacts but without SIRTFI Entity Category certification
-- **`privacy_security_analysis.py`**: Advanced analysis tool with federation mapping, caching, and flexible output formats for privacy statements and security contacts
+- **`edugain_analysis/`**: Modular Python package for comprehensive privacy statement and security contact analysis
+- **`analyze.py`**: Streamlined entry point for the eduGAIN analysis package
+- **`privacy_security_analysis.py`**: ⚠️ DEPRECATED - Legacy monolithic script (use analyze.py instead)
 
 ## Setup and Installation
 
@@ -43,9 +45,17 @@ python seccon_nosirtfi.py > entities_without_sirtfi.csv
 # https://rafiki.ke,SP,KENET eduVPN,https://eduvpn.kenet.or.ke/php-saml-sp/metadata
 ```
 
-### Running the Privacy/Security Analysis Script
+### Running the Privacy/Security Analysis Tool
 ```bash
-# Default behavior - show summary statistics only (no CSV output)
+# NEW MODULAR INTERFACE (recommended)
+python analyze.py                          # Show summary statistics (default)
+python analyze.py --report                 # Generate detailed markdown report
+python analyze.py --csv entities           # Export all entities to CSV
+python analyze.py --csv federations        # Export federation statistics to CSV
+python analyze.py --csv urls --validate    # Export detailed URL validation results
+python analyze.py --validate               # Enable comprehensive URL validation
+
+# LEGACY INTERFACE (deprecated but still works)
 python privacy_security_analysis.py
 
 # Export detailed CSV lists of entities (single-purpose commands)
@@ -177,7 +187,7 @@ Test coverage: 96%+ on both scripts with comprehensive federation-level testing.
 ### New Features (Recent Updates)
 
 #### Federation Name Mapping
-- Automatic federation name resolution via eduGAIN API (`https://technical.edugain.org/api/v2/federations`)
+- Automatic federation name resolution via eduGAIN API (`https://technical.edugain.org/api.php?action=list_feds`)
 - Shows "InCommon" instead of "https://incommon.org" in all outputs
 - 30-day cache for federation names (`.edugain_federations_cache.json`)
 - Graceful fallback to registration authority URLs if API is unavailable

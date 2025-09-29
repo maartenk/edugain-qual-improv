@@ -162,10 +162,13 @@ results/
 # eduGAIN cache files
 .edugain_metadata_cache.xml
 .edugain_federations_cache.json
+.edugain_url_validation_cache.json
 
 # Temporary test environments
 *_test/
 *_venv/
+
+# Test output files
 runtime_test/
 dev_venv/
 verify_venv/
