@@ -46,6 +46,7 @@ jobs:
         file: ./coverage.xml
         flags: python-${{ matrix.python-version }}
         name: coverage-py${{ matrix.python-version }}
+        token: ${{ secrets.CODECOV_TOKEN }}
         fail_ci_if_error: false
 
     - name: Test script functionality and runtime requirements

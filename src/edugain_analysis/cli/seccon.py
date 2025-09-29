@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 eduGAIN Security Contact Analysis Tool
 
@@ -8,10 +7,10 @@ entities that have security contacts but do not carry a SIRTFI Entity Category c
 Output: CSV format with columns: RegistrationAuthority, EntityType, OrganizationName, EntityID
 
 Usage:
-    python seccon_nosirtfi.py                    # Download and analyze current metadata
-    python seccon_nosirtfi.py --local-file file  # Analyze local XML file
-    python seccon_nosirtfi.py --no-headers       # Omit CSV headers
-    python seccon_nosirtfi.py --url URL          # Use custom metadata URL
+    edugain-seccon                    # Download and analyze current metadata
+    edugain-seccon --local-file file  # Analyze local XML file
+    edugain-seccon --no-headers       # Omit CSV headers
+    edugain-seccon --url URL          # Use custom metadata URL
 
 Based on the code of https://gitlab.geant.org/edugain/edugain-contacts
 """
@@ -19,7 +18,6 @@ Based on the code of https://gitlab.geant.org/edugain/edugain-contacts
 import argparse
 import csv
 import sys
-from typing import List, Optional, Union
 from xml.etree import ElementTree as ET
 
 import requests
@@ -54,7 +52,7 @@ def download_metadata(url: str, timeout: int = REQUEST_TIMEOUT) -> bytes:
 
 
 def parse_metadata(
-    xml_content: Optional[bytes], local_file: Optional[str] = None
+    xml_content: bytes | None, local_file: str | None = None
 ) -> ET.Element:
     """Parse XML metadata content or local file."""
     try:
@@ -67,7 +65,7 @@ def parse_metadata(
         sys.exit(1)
 
 
-def analyze_entities(root: ET.Element) -> List[List[Union[str, None]]]:
+def analyze_entities(root: ET.Element) -> list[list[str | None]]:
     """Analyze entities to find those with security contacts but no SIRTFI certification."""
     entities_list = []
     entities = root.findall("./md:EntityDescriptor", NAMESPACES)
