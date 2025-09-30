@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Federation Breakdown</h1>
+
+<!-- Summary Stats -->
+<section hx-get="/partials/stats"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+    {% include "partials/stats_cards.html" %}
+</section>
+
+<!-- Federation Table with Sorting -->
+<section>
+    <article>
+        <header>
+            <strong>All Federations</strong>
+            <span style="float: right;">
+                <button hx-get="/partials/federations?sort=name&order=asc&limit=0"
+                        hx-target="#federation-table"
+                        hx-swap="innerHTML"
+                        class="secondary">
+                    📝 Sort by Name
+                </button>
+                <button hx-get="/partials/federations?sort=coverage&order=desc&limit=0"
+                        hx-target="#federation-table"
+                        hx-swap="innerHTML"
+                        class="secondary">
+                    📊 Sort by Coverage
+                </button>
+                <button hx-get="/partials/federations?sort=entities&order=desc&limit=0"
+                        hx-target="#federation-table"
+                        hx-swap="innerHTML"
+                        class="secondary">
+                    🔢 Sort by Entities
+                </button>
+            </span>
+        </header>
+
+        <div id="federation-table">
+            {% include "partials/federation_table.html" %}
+        </div>
+    </article>
+</section>
+{% endblock %}

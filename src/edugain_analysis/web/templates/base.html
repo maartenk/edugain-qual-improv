@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - eduGAIN Quality</title>
+
+    <!-- Pico CSS: Minimal, classless CSS framework (10KB) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/custom.css">
+
+    <!-- HTMX: Dynamic HTML without JavaScript (14KB) -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="container-fluid">
+        <ul>
+            <li><strong>📊 eduGAIN Quality Dashboard</strong></li>
+        </ul>
+        <ul>
+            <li><a href="/" {% if request.url.path == '/' %}aria-current="page"{% endif %}>Dashboard</a></li>
+            <li><a href="/federations" {% if request.url.path == '/federations' %}aria-current="page"{% endif %}>Federations</a></li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="container">
+        <small>
+            eduGAIN Quality Analysis Tool |
+            <a href="https://github.com/maartenk/edugain-qual-improv" target="_blank">GitHub</a> |
+            <a href="/health">Health Check</a>
+        </small>
+    </footer>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

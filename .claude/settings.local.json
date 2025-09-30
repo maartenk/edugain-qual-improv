@@ -39,7 +39,9 @@
       "Bash(python3.12:*)",
       "Bash(python3.11:*)",
       "Read(//Users/kreme003/Library/Caches/edugain-analysis/**)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(pip uninstall:*)",
+      "Read(//Users/kreme003/.cache/**)"
     ],
     "deny": [],
     "ask": []

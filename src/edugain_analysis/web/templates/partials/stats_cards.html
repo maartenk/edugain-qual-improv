@@ -1,0 +1,24 @@
+<section class="grid" id="stats-cards">
+    <article>
+        <header class="stat-label">Total Entities</header>
+        <div class="stat-value">{{ "{:,}".format(snapshot.total_entities) }}</div>
+        <small>{{ "{:,}".format(snapshot.total_sps) }} SPs • {{ "{:,}".format(snapshot.total_idps) }} IdPs</small>
+    </article>
+
+    <article>
+        <header class="stat-label">Privacy Coverage</header>
+        <div class="stat-value {% if snapshot.coverage_pct >= 80 %}coverage-high{% elif snapshot.coverage_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+            {{ "%.1f"|format(snapshot.coverage_pct) }}%
+        </div>
+        <progress value="{{ snapshot.coverage_pct }}" max="100"></progress>
+        <small>{{ "{:,}".format(snapshot.sps_with_privacy) }} of {{ "{:,}".format(snapshot.total_sps) }} SPs</small>
+    </article>
+
+    <article>
+        <header class="stat-label">Last Updated</header>
+        <div class="stat-value">
+            <small>{{ snapshot.timestamp.strftime('%Y-%m-%d') }}</small>
+        </div>
+        <small>{{ snapshot.timestamp.strftime('%H:%M:%S') }} • {{ snapshot.timestamp|time_ago }}</small>
+    </article>
+</section>

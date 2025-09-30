@@ -1,0 +1,73 @@
+{% if snapshots|length == 0 %}
+<p>No historical data available for the selected time period.</p>
+{% else %}
+<!-- Only load Chart.js on this partial (lazy loading) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+
+<div class="chart-container">
+    <canvas id="trend-chart"></canvas>
+</div>
+
+<script>
+(function() {
+    // Destroy existing chart if it exists
+    const existingChart = Chart.getChart("trend-chart");
+    if (existingChart) {
+        existingChart.destroy();
+    }
+
+    const ctx = document.getElementById('trend-chart');
+    const data = {
+        labels: [
+            {% for s in snapshots %}
+            '{{ s.timestamp.strftime("%m/%d") }}'{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ],
+        datasets: [{
+            label: 'Privacy Coverage %',
+            data: [
+                {% for s in snapshots %}
+                {{ "%.2f"|format(s.coverage_pct) }}{% if not loop.last %},{% endif %}
+                {% endfor %}
+            ],
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+            tension: 0.1,
+            fill: true
+        }]
+    };
+
+    new Chart(ctx, {
+        type: 'line',
+        data: data,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.parsed.y.toFixed(1) + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+})();
+</script>
+{% endif %}
