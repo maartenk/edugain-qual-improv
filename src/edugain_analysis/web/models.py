@@ -3,9 +3,19 @@
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import Column, DateTime, Float, Index, Integer, String, create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    create_engine,
+)
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
 Base = declarative_base()
 
@@ -26,6 +36,14 @@ class Snapshot(Base):
     idps_has_security = Column(Integer)
     coverage_pct = Column(Float)
 
+    # Relationships
+    federations = relationship(
+        "Federation", back_populates="snapshot", cascade="all, delete-orphan"
+    )
+    entities = relationship(
+        "Entity", back_populates="snapshot", cascade="all, delete-orphan"
+    )
+
     __table_args__ = (Index("idx_timestamp_desc", timestamp.desc()),)
 
 
@@ -35,7 +53,7 @@ class Federation(Base):
     __tablename__ = "federations"
 
     id = Column(Integer, primary_key=True)
-    snapshot_id = Column(Integer, index=True)
+    snapshot_id = Column(Integer, ForeignKey("snapshots.id"), index=True)
     name = Column(String(200), index=True)
     total_entities = Column(Integer)
     total_sps = Column(Integer)
@@ -45,7 +63,69 @@ class Federation(Base):
     idps_has_security = Column(Integer)
     coverage_pct = Column(Float)
 
+    # Relationships
+    snapshot = relationship("Snapshot", back_populates="federations")
+    entities = relationship(
+        "Entity", back_populates="federation", cascade="all, delete-orphan"
+    )
+
     __table_args__ = (Index("idx_snapshot_federation", snapshot_id, name),)
+
+
+class Entity(Base):
+    """Individual entity (SP or IdP) for detailed tracking."""
+
+    __tablename__ = "entities"
+
+    id = Column(Integer, primary_key=True)
+    snapshot_id = Column(Integer, ForeignKey("snapshots.id"), index=True)
+    federation_id = Column(Integer, ForeignKey("federations.id"), index=True)
+    entity_id = Column(
+        String(500), nullable=False, index=True
+    )  # SAML EntityID (can be long URL)
+    entity_type = Column(String(10), nullable=False, index=True)  # "SP" or "IdP"
+    organization_name = Column(String(500))
+    has_privacy_statement = Column(Boolean, default=False)
+    privacy_statement_url = Column(Text)  # Can be very long URL
+    has_security_contact = Column(Boolean, default=False)
+
+    # Relationships
+    snapshot = relationship("Snapshot", back_populates="entities")
+    federation = relationship("Federation", back_populates="entities")
+    url_validations = relationship(
+        "URLValidation", back_populates="entity", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        Index("idx_entity_snapshot", snapshot_id, entity_id),
+        Index("idx_entity_federation_type", federation_id, entity_type),
+        Index("idx_entity_privacy_status", has_privacy_statement),
+        Index("idx_entity_security_status", has_security_contact),
+    )
+
+
+class URLValidation(Base):
+    """URL validation results for privacy statement URLs."""
+
+    __tablename__ = "url_validations"
+
+    id = Column(Integer, primary_key=True)
+    entity_id = Column(Integer, ForeignKey("entities.id"), index=True)
+    url = Column(Text, nullable=False)
+    status_code = Column(Integer)  # HTTP status code (200, 404, etc.)
+    final_url = Column(Text)  # URL after redirects
+    accessible = Column(Boolean, default=False)
+    redirect_count = Column(Integer, default=0)
+    validation_error = Column(Text)  # Error message if validation failed
+    validated_at = Column(DateTime, default=datetime.now, index=True)
+
+    # Relationship
+    entity = relationship("Entity", back_populates="url_validations")
+
+    __table_args__ = (
+        Index("idx_validation_entity_url", entity_id, url),
+        Index("idx_validation_status", status_code, accessible),
+    )
 
 
 def get_database_path() -> str:

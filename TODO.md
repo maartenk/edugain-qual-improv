@@ -1,0 +1,159 @@
+# eduGAIN Quality Improvement - TODO
+
+## Web Dashboard MVP Enhancements
+
+### Priority 1: Data Layer & Infrastructure ✅
+
+- [x] **Store entity-level data in database**
+  - ✅ Added `Entity` model to `models.py` with columns: entity_id, snapshot_id, federation_id, entity_type (SP/IdP), organization_name, has_privacy_statement, privacy_statement_url, has_security_contact
+  - ✅ Added indexes for efficient querying (snapshot_id, federation_id, entity_type, privacy/security status)
+  - ✅ Updated `import_data.py` to populate entity table from analysis results
+  - ✅ Added SQLAlchemy relationships between Snapshot, Federation, and Entity models
+  - File: `src/edugain_analysis/web/models.py`
+
+- [x] **Add URL validation tracking table**
+  - ✅ Created `URLValidation` model with columns: entity_id, url, status_code, final_url, accessible, redirect_count, validation_error, validated_at
+  - ✅ Added foreign key relationship to Entity table with cascade delete
+  - ✅ Integrated with existing URL validation from `core/validation.py`
+  - ✅ Added `--validate-urls` flag to import_data.py for optional URL validation
+  - ✅ Tested with real eduGAIN metadata (10,047 entities imported successfully)
+  - File: `src/edugain_analysis/web/models.py`
+
+### Priority 2: Core Features
+
+- [ ] **Add search functionality for entities and federations**
+  - Implement `/api/search` endpoint with query parameter
+  - Add full-text search on entity names, entity IDs, federation names
+  - Create HTMX-powered search input with live results
+  - Add search UI component to dashboard and federation pages
+  - Files: `src/edugain_analysis/web/app.py`, `templates/base.html`
+
+- [ ] **Implement federation drill-down views**
+  - Add `/federations/{federation_name}` route showing all entities in federation
+  - Display entity table with privacy/security status per entity
+  - Include federation-specific statistics card
+  - Add pagination for large federations (100 entities per page)
+  - Files: `src/edugain_analysis/web/app.py`, `templates/federation_detail.html`
+
+- [ ] **Add entity-level detail views (individual SPs/IdPs)**
+  - Create `/entities/{entity_id}` route for individual entity details
+  - Show full metadata: organization, entity type, registration authority, privacy statement URL, security contact status
+  - Display URL validation results if available
+  - Add historical view if entity exists in multiple snapshots
+  - Files: `src/edugain_analysis/web/app.py`, `templates/entity_detail.html`
+
+### Priority 3: Enhanced Interactivity
+
+- [ ] **Add interactive filtering/sorting for entity tables**
+  - Add filter controls for entity type (SP/IdP), privacy status, security status
+  - Implement multi-column sorting with visual indicators
+  - Add "Show only missing privacy" and "Show only missing security" toggles
+  - Create `/partials/entity_table` HTMX endpoint with filter/sort params
+  - Files: `src/edugain_analysis/web/app.py`, `templates/partials/entity_table.html`
+
+- [ ] **Enhance visualizations with interactive charts/graphs**
+  - Replace static trend chart with interactive Chart.js implementation
+  - Add federation coverage comparison bar chart (top 20 federations)
+  - Create coverage distribution histogram
+  - Add privacy/security compliance pie charts
+  - Add chart interactivity: tooltips, zoom, data point selection
+  - Files: `templates/partials/trend_chart.html`, `static/js/charts.js`
+
+- [ ] **Add export functionality for filtered data (CSV/JSON)**
+  - Implement `/api/export/entities` endpoint with format parameter (csv/json)
+  - Support filter parameters matching table filters
+  - Add "Export to CSV" and "Export to JSON" buttons on entity tables
+  - Include federation breakdown export option
+  - Generate downloadable files with proper Content-Disposition headers
+  - File: `src/edugain_analysis/web/app.py`
+
+### Priority 4: User Experience
+
+- [ ] **Add URL validation results view with status codes**
+  - Create `/validation` page showing all privacy statement URL validation results
+  - Display table with columns: Entity, Federation, URL, Status Code, Final URL, Accessible, Last Checked
+  - Add filtering by status (accessible, redirect, error, timeout)
+  - Color-code status indicators (green=200, yellow=3xx, red=4xx/5xx)
+  - Show validation error details on hover/click
+  - Files: `src/edugain_analysis/web/app.py`, `templates/validation.html`
+
+- [ ] **Implement auto-refresh with cache status indicator**
+  - Add cache metadata to Snapshot model: cache_age, metadata_source, last_refresh_attempt
+  - Create `/api/cache/status` endpoint returning cache age and freshness
+  - Add visual indicator showing data age with color coding (fresh/stale/expired)
+  - Implement manual "Force Refresh" button triggering re-analysis
+  - Show loading spinner during refresh operations
+  - Files: `src/edugain_analysis/web/models.py`, `app.py`, `templates/base.html`
+
+- [ ] **Add data freshness indicator with last update time**
+  - Display "Last updated: X hours ago" on dashboard header
+  - Add timestamp tooltip showing exact update time
+  - Show "Data is stale" warning if snapshot > 24 hours old
+  - Include metadata source info (eduGAIN production vs local file)
+  - File: `templates/base.html`
+
+- [ ] **Add configuration page for analysis settings**
+  - Create `/config` route with settings form
+  - Add configurable options: auto-refresh interval, URL validation timeout, thread pool size, cache expiry
+  - Store settings in database (new `Settings` table)
+  - Add "Apply Settings" button with validation
+  - Include "Reset to Defaults" option
+  - Files: `src/edugain_analysis/web/app.py`, `templates/config.html`
+
+### Priority 5: Historical Analysis
+
+- [ ] **Add historical comparison views (trend analysis over time)**
+  - Create `/history` page showing snapshot timeline
+  - Add federation comparison across multiple snapshots
+  - Show coverage trend per federation over time
+  - Highlight entities that changed status (privacy/security added/removed)
+  - Add date range selector for historical analysis
+  - Files: `src/edugain_analysis/web/app.py`, `templates/history.html`
+
+### Priority 6: Polish & Optimization
+
+- [ ] **Improve responsive design for mobile devices**
+  - Test all pages on mobile viewports (320px, 768px, 1024px)
+  - Make tables horizontally scrollable on mobile
+  - Optimize chart sizing for small screens
+  - Convert multi-column layouts to stacked on mobile
+  - Add mobile-friendly navigation menu (hamburger)
+  - Test with PicoCSS responsive utilities
+  - Files: `templates/*.html`, `static/css/custom.css`
+
+## Architecture Notes
+
+- **Database Schema**: SQLite with SQLAlchemy ORM (XDG-compliant cache location)
+- **Frontend**: HTMX + PicoCSS + Chart.js (no build step, minimal JavaScript)
+- **Backend**: FastAPI with Jinja2 templates
+- **Data Flow**: CLI analysis → SQLite → FastAPI → HTMX partials
+- **Caching Strategy**: XDG cache directory for metadata, federation mappings, URL validation
+
+## Related Files
+
+- **Web App**: `src/edugain_analysis/web/app.py` (FastAPI routes)
+- **Models**: `src/edugain_analysis/web/models.py` (SQLAlchemy ORM)
+- **Data Import**: `src/edugain_analysis/web/import_data.py` (CLI → DB sync)
+- **Templates**: `src/edugain_analysis/web/templates/` (Jinja2 + HTMX)
+- **Core Analysis**: `src/edugain_analysis/core/analysis.py` (Business logic)
+- **URL Validation**: `src/edugain_analysis/core/validation.py` (Parallel HTTP checks)
+
+## Testing Priorities
+
+After implementing each feature:
+1. Add unit tests in `tests/unit/test_web_*.py`
+2. Test HTMX partial rendering with different parameters
+3. Verify database queries are indexed and performant
+4. Test with large datasets (1000+ entities)
+5. Validate responsive design on mobile devices
+
+## Future Considerations (Beyond MVP)
+
+- [ ] Real-time notifications for data updates
+- [ ] Email alerts for federation compliance changes
+- [ ] Multi-user support with authentication
+- [ ] API rate limiting and caching headers
+- [ ] WebSocket support for live updates
+- [ ] Advanced analytics dashboard with custom queries
+- [ ] PDF report generation
+- [ ] Integration with external monitoring systems

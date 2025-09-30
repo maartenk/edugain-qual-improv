@@ -6,9 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A modern Python package for eduGAIN quality improvement analysis. The codebase follows PEP 517/518/621 standards with a modular architecture:
 
-- **`src/edugain_analysis/`**: Main package with modular components (CLI, core logic, formatters, config)
+- **`src/edugain_analysis/`**: Main package with modular components (CLI, core logic, formatters, config, web)
 - **`analyze.py`**: Convenience wrapper that calls the main CLI entry point
 - **CLI Commands**: `edugain-analyze` and `edugain-seccon` (installed via package entry points)
+- **Web Dashboard**: Optional FastAPI + HTMX dashboard for interactive analysis
 
 ## Setup and Installation
 
@@ -72,6 +73,35 @@ edugain-seccon > entities_without_sirtfi.csv
 
 **Output:** CSV with columns `RegistrationAuthority,EntityType,OrganizationName,EntityID` containing entities with security contacts but no SIRTFI certification.
 
+### Usage - Web Dashboard
+
+```bash
+# Install with web dependencies
+pip install -e .[web]
+
+# Import data into database (required first-time setup)
+python -m edugain_analysis.web.import_data
+
+# Import with URL validation (slower, includes accessibility checks)
+python -m edugain_analysis.web.import_data --validate-urls
+
+# Generate test data for development
+python -m edugain_analysis.web.import_data --test-data --days 30
+
+# Start the web server
+uvicorn edugain_analysis.web.app:app --reload
+
+# Access dashboard at http://localhost:8000
+```
+
+**Features:**
+- Real-time coverage statistics with auto-refresh
+- Per-federation breakdown with sortable tables
+- Historical trend charts (7/30/90 day views)
+- Entity-level tracking (10,000+ entities)
+- URL validation results display
+- HTMX-powered for fast, responsive updates
+
 ## Architecture
 
 ### Package Structure
@@ -89,8 +119,23 @@ src/edugain_analysis/
 │   ├── analysis.py          # Core analysis logic for privacy/security
 │   ├── metadata.py          # Metadata downloading, parsing, federation mapping
 │   └── validation.py        # URL validation with parallel processing
-└── formatters/
-    └── base.py              # Output formatters (CSV, markdown, summary)
+├── formatters/
+│   └── base.py              # Output formatters (CSV, markdown, summary)
+└── web/                     # Web dashboard (optional)
+    ├── __init__.py
+    ├── app.py               # FastAPI application with routes
+    ├── models.py            # SQLAlchemy ORM models (Snapshot, Federation, Entity, URLValidation)
+    ├── import_data.py       # CLI for importing analysis results into database
+    ├── templates/           # Jinja2 + HTMX templates
+    │   ├── base.html        # Base template with navigation
+    │   ├── dashboard.html   # Main dashboard page
+    │   ├── federations.html # Federation list page
+    │   ├── empty.html       # Empty state when no data
+    │   └── partials/        # HTMX partial fragments
+    │       ├── stats_cards.html
+    │       ├── federation_table.html
+    │       └── trend_chart.html
+    └── static/              # CSS/JS assets (PicoCSS, Chart.js)
 ```
 
 ### Core Components
@@ -132,6 +177,25 @@ src/edugain_analysis/
   - `print_summary_markdown()`: Markdown report headers
   - `print_federation_summary()`: Federation breakdown tables
   - `export_federation_csv()`: Federation statistics CSV
+
+#### Web Layer (`web/`) - Optional
+- **models.py**: SQLAlchemy database models
+  - `Snapshot`: Analysis snapshots with timestamps (historical tracking)
+  - `Federation`: Per-federation statistics linked to snapshots
+  - `Entity`: Individual SP/IdP entities with privacy/security status
+  - `URLValidation`: Privacy statement URL validation results with status codes
+  - All models use proper indexes and foreign key relationships
+- **import_data.py**: Data import pipeline
+  - `import_snapshot()`: Runs analysis and saves to database
+  - `generate_test_data()`: Creates synthetic data for development
+  - Supports `--validate-urls` flag for URL validation
+  - Parses list-of-lists format from `analyze_privacy_security()`
+- **app.py**: FastAPI web application
+  - Full page routes: `/`, `/federations`
+  - HTMX partial routes: `/partials/stats`, `/partials/federations`, `/partials/trends`
+  - JSON API routes: `/api/snapshot/latest`, `/api/federations`
+  - Template filters: `time_ago()` for relative timestamps
+  - Database dependency injection via `get_db()`
 
 ### Data Processing Flow
 

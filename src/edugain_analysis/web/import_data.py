@@ -17,11 +17,16 @@ from pathlib import Path
 
 from ..core.analysis import analyze_privacy_security
 from ..core.metadata import get_federation_mapping, get_metadata, parse_metadata
-from .models import Federation, Snapshot, SessionLocal
+from ..core.validation import validate_urls_parallel
+from .models import Entity, Federation, Snapshot, SessionLocal, URLValidation
 
 
-def import_snapshot():
-    """Run analysis and import results into database."""
+def import_snapshot(validate_urls: bool = False):
+    """Run analysis and import results into database.
+
+    Args:
+        validate_urls: If True, validate privacy statement URLs
+    """
     print("📊 Running eduGAIN analysis...")
 
     try:
@@ -39,6 +44,23 @@ def import_snapshot():
         entities_list, stats, federation_stats = analyze_privacy_security(
             root, federation_mapping, validate_urls=False
         )
+
+        # Validate URLs if requested
+        url_validation_results = {}
+        if validate_urls:
+            print("  → Validating privacy statement URLs...")
+            # Collect URLs to validate
+            urls_to_validate = {}
+            for entity in entities_list:
+                if entity.get("PrivacyStatementURL"):
+                    urls_to_validate[entity["EntityID"]] = entity["PrivacyStatementURL"]
+
+            if urls_to_validate:
+                # Run validation
+                url_validation_results = validate_urls_parallel(
+                    list(urls_to_validate.values()), cache={}
+                )
+                print(f"     Validated {len(url_validation_results)} URLs")
 
         # Save to database
         print("  → Saving to database...")
@@ -61,7 +83,8 @@ def import_snapshot():
             db.add(snapshot)
             db.flush()  # Get snapshot ID
 
-            # Create federation records
+            # Create federation records and map federation IDs
+            federation_id_map = {}
             for fed_name, fed_stats in federation_stats.items():
                 federation = Federation(
                     snapshot_id=snapshot.id,
@@ -79,13 +102,114 @@ def import_snapshot():
                     else 0,
                 )
                 db.add(federation)
+                db.flush()  # Get federation ID
+                federation_id_map[fed_name] = federation.id
+
+            # Create entity records
+            # entities_list is a list of lists with format:
+            # [Federation, EntityType, OrgName, EntityID, HasPrivacy, PrivacyURL, HasSecurity]
+            # or with validation:
+            # [Federation, EntityType, OrgName, EntityID, HasPrivacy, PrivacyURL, HasSecurity,
+            #  StatusCode, FinalURL, Accessible, RedirectCount, ValidationError]
+            entity_id_map = {}
+            for entity_row in entities_list:
+                if validate_urls:
+                    # Extended format with validation
+                    (
+                        federation_name,
+                        entity_type,
+                        org_name,
+                        entity_id,
+                        has_privacy,
+                        privacy_url,
+                        has_security,
+                        status_code,
+                        final_url,
+                        accessible,
+                        redirect_count,
+                        validation_error,
+                    ) = entity_row
+                else:
+                    # Standard format without validation
+                    (
+                        federation_name,
+                        entity_type,
+                        org_name,
+                        entity_id,
+                        has_privacy,
+                        privacy_url,
+                        has_security,
+                    ) = entity_row
+                    status_code = (
+                        final_url
+                    ) = accessible = redirect_count = validation_error = None
+
+                federation_id = federation_id_map.get(federation_name)
+
+                # Convert Yes/No to boolean
+                has_privacy_bool = has_privacy == "Yes"
+                has_security_bool = has_security == "Yes"
+
+                entity = Entity(
+                    snapshot_id=snapshot.id,
+                    federation_id=federation_id,
+                    entity_id=entity_id,
+                    entity_type=entity_type,
+                    organization_name=org_name if org_name else None,
+                    has_privacy_statement=has_privacy_bool,
+                    privacy_statement_url=privacy_url if privacy_url else None,
+                    has_security_contact=has_security_bool,
+                )
+                db.add(entity)
+                db.flush()  # Get entity ID
+                entity_id_map[entity_id] = entity.id
+
+                # Add URL validation results if available
+                if validate_urls and privacy_url and status_code:
+                    # Convert accessible Yes/No to boolean
+                    accessible_bool = accessible == "Yes" if accessible else False
+
+                    # Parse status code and redirect count
+                    try:
+                        status_code_int = (
+                            int(status_code)
+                            if status_code and status_code != "Not Checked"
+                            else None
+                        )
+                    except (ValueError, TypeError):
+                        status_code_int = None
+
+                    try:
+                        redirect_count_int = (
+                            int(redirect_count)
+                            if redirect_count and redirect_count != "Not Checked"
+                            else 0
+                        )
+                    except (ValueError, TypeError):
+                        redirect_count_int = 0
+
+                    url_validation = URLValidation(
+                        entity_id=entity.id,
+                        url=privacy_url,
+                        status_code=status_code_int,
+                        final_url=final_url
+                        if final_url and final_url != privacy_url
+                        else None,
+                        accessible=accessible_bool,
+                        redirect_count=redirect_count_int,
+                        validation_error=validation_error if validation_error else None,
+                        validated_at=datetime.now(),
+                    )
+                    db.add(url_validation)
 
             db.commit()
             print(
-                f"✅ Successfully imported snapshot with {len(federation_stats)} federations"
+                f"✅ Successfully imported snapshot with {len(federation_stats)} federations and {len(entities_list)} entities"
             )
             print(f"   Total entities: {stats['total_entities']}")
             print(f"   Coverage: {snapshot.coverage_pct:.1f}%")
+            if validate_urls:
+                print(f"   URL validations: {len(url_validation_results)}")
 
         except Exception as e:
             db.rollback()
@@ -193,13 +317,18 @@ def main():
     parser.add_argument(
         "--days", type=int, default=30, help="Days of test data to generate"
     )
+    parser.add_argument(
+        "--validate-urls",
+        action="store_true",
+        help="Validate privacy statement URLs (slower)",
+    )
 
     args = parser.parse_args()
 
     if args.test_data:
         generate_test_data(args.days)
     else:
-        import_snapshot()
+        import_snapshot(validate_urls=args.validate_urls)
 
 
 if __name__ == "__main__":

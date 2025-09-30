@@ -12,11 +12,13 @@ A comprehensive Python package for analyzing eduGAIN federation metadata quality
 ### Key Features
 - 🔍 **Security Contact Analysis**: Identify entities with security contacts lacking SIRTFI certification
 - 🔒 **Privacy Statement Monitoring**: HTTP accessibility validation for privacy statement URLs
+- 🌐 **Web Dashboard**: Interactive HTMX-powered dashboard for real-time federation monitoring
 - 🌍 **Federation Intelligence**: Automatic mapping from registration authorities to friendly names via eduGAIN API
 - 💾 **XDG-Compliant Caching**: Cache files stored in standard user directories with configurable expiry
-- 📊 **Multiple Output Formats**: Summary statistics, detailed CSV exports, and markdown reports
+- 📊 **Multiple Output Formats**: Summary statistics, detailed CSV exports, markdown reports, and web UI
 - 🏗️ **Modern Architecture**: Modular design with comprehensive testing (92.17% coverage)
 - 📈 **Comprehensive Reporting**: Split statistics for SPs vs IdPs with federation-level breakdowns
+- 📦 **Entity-Level Tracking**: Individual entity storage with historical snapshots for trend analysis
 
 ## 🚀 Quick Start
 
@@ -55,6 +57,9 @@ python analyze.py --validate
 
 # Or use the package directly
 python -m edugain_analysis
+
+# Import data for web dashboard
+python -m edugain_analysis.web.import_data
 ```
 
 ## 📚 CLI Reference
@@ -107,6 +112,11 @@ src/edugain_analysis/
 ├── cli/                     # Command-line interfaces
 │   ├── main.py             # Primary CLI (edugain-analyze)
 │   └── seccon.py           # Security contact CLI (edugain-seccon)
+├── web/                     # Web dashboard (optional)
+│   ├── app.py              # FastAPI application
+│   ├── models.py           # SQLAlchemy database models
+│   ├── import_data.py      # Data import from analysis
+│   └── templates/          # HTMX + PicoCSS templates
 └── config/                  # Configuration and patterns
     └── settings.py         # Constants and validation patterns
 ```
@@ -165,6 +175,46 @@ When using `--csv urls --validate`, you get detailed technical information:
 | `ValidationError` | Error details | `Connection timeout` |
 
 This gives technical staff the specific information needed to fix broken links.
+
+## 🌐 Web Dashboard
+
+The package includes an optional web dashboard for interactive analysis and monitoring.
+
+### Features
+- **Real-time Statistics**: Auto-refreshing coverage metrics and entity counts
+- **Federation Breakdown**: Sortable tables showing per-federation compliance
+- **Trend Analysis**: Historical charts tracking compliance changes over time
+- **Entity-Level Data**: Individual SP/IdP records with privacy and security status
+- **URL Validation Results**: Track privacy statement accessibility with status codes
+- **HTMX-Powered**: Fast, responsive updates without heavy JavaScript frameworks
+
+### Running the Dashboard
+
+```bash
+# Install web dependencies
+pip install -e .[web]
+
+# Import data into database
+python -m edugain_analysis.web.import_data
+
+# (Optional) Import with URL validation
+python -m edugain_analysis.web.import_data --validate-urls
+
+# Start the web server
+uvicorn edugain_analysis.web.app:app --reload
+
+# Access at http://localhost:8000
+```
+
+### Database Schema
+
+The web dashboard uses SQLite with the following models:
+- **Snapshot**: Historical analysis snapshots with timestamps
+- **Federation**: Per-federation statistics for each snapshot
+- **Entity**: Individual SP/IdP entities with metadata
+- **URLValidation**: Privacy statement URL validation results
+
+Data is stored in XDG-compliant cache directory: `~/.cache/edugain-analysis/webapp.db`
 
 ## 🔧 Development
 
