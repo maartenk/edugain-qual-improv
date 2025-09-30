@@ -1,5 +1,6 @@
 # Runtime dependencies
 requests==2.32.5
+platformdirs>=3.0.0
 
 # Development dependencies (testing + basic formatting)
 pytest>=7.0.0

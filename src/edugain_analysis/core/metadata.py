@@ -64,16 +64,20 @@ def get_cache_file(filename: str) -> Path:
     return get_cache_dir() / filename
 
 
+def _is_cache_valid(cache_file: Path, max_age_hours: int) -> bool:
+    """Check if cache file exists and is within max age."""
+    if not cache_file.exists():
+        return False
+
+    file_age = time.time() - cache_file.stat().st_mtime
+    return file_age <= max_age_hours * 3600
+
+
 def load_json_cache(filename: str, max_age_hours: int = 24) -> dict[str, Any] | None:
     """Load JSON cache file if it exists and is not too old."""
     cache_file = get_cache_file(filename)
 
-    if not cache_file.exists():
-        return None
-
-    # Check if cache is too old
-    file_age = time.time() - cache_file.stat().st_mtime
-    if file_age > max_age_hours * 3600:
+    if not _is_cache_valid(cache_file, max_age_hours):
         return None
 
     try:
@@ -98,12 +102,7 @@ def load_text_cache(filename: str, max_age_hours: int = 24) -> str | None:
     """Load text cache file if it exists and is not too old."""
     cache_file = get_cache_file(filename)
 
-    if not cache_file.exists():
-        return None
-
-    # Check if cache is too old
-    file_age = time.time() - cache_file.stat().st_mtime
-    if file_age > max_age_hours * 3600:
+    if not _is_cache_valid(cache_file, max_age_hours):
         return None
 
     try:
