@@ -100,17 +100,15 @@ The package follows Python best practices with a modular structure:
 src/edugain_analysis/
 ├── core/                     # Core analysis logic
 │   ├── analysis.py          # Main analysis functions
-│   ├── metadata.py          # Metadata handling and caching
-│   └── validation.py        # URL validation with language detection
+│   ├── metadata.py          # Metadata handling and XDG-compliant caching
+│   └── validation.py        # URL validation with parallel processing
 ├── formatters/              # Output formatting
 │   └── base.py             # Text, CSV, and markdown formatters
 ├── cli/                     # Command-line interfaces
 │   ├── main.py             # Primary CLI (edugain-analyze)
 │   └── seccon.py           # Security contact CLI (edugain-seccon)
-├── config/                  # Configuration and patterns
-│   └── settings.py         # Constants and validation patterns
-└── utils/                   # Utilities
-    └── cache.py            # XDG-compliant cache management
+└── config/                  # Configuration and patterns
+    └── settings.py         # Constants and validation patterns
 ```
 
 ## 🔍 Privacy Statement URL Validation
