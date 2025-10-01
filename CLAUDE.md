@@ -234,7 +234,7 @@ src/edugain_analysis/
 
 **Development (optional):**
 - pytest, pytest-cov, pytest-xdist: Testing and coverage
-- black, ruff, mypy: Code formatting, linting, type checking
+- ruff, mypy: Linting, formatting, and type checking
 - pre-commit: Git hooks for code quality
 
 **Web (optional):**
@@ -310,7 +310,7 @@ pytest -n auto
 - **GitHub Actions**: Automated testing on all branches via `.github/workflows/ci.yml`
 - **Trigger events**: Push to any branch, pull requests to any branch, manual workflow dispatch
 - **Codecov**: Automatic coverage upload with multi-version flags (python-3.11, python-3.12, python-3.13)
-- **Quality gates**: Linting (ruff), type checking (mypy), formatting (black)
+- **Quality gates**: Linting and formatting (ruff), type checking (mypy)
 - **Matrix testing**: Python 3.11, 3.12, and 3.13 tested in parallel
 - **Continue on error**: Tests continue even if individual steps fail to maximize coverage reporting
 
@@ -346,11 +346,11 @@ pytest -n auto
 
 ### Code Quality Checks
 ```bash
-# Format code with black
-black src/ tests/
+# Format code with ruff
+ruff format src/ tests/
 
-# Lint with ruff
-ruff check src/ tests/
+# Lint with ruff (with auto-fix)
+ruff check --fix src/ tests/
 
 # Type check with mypy
 mypy src/
@@ -366,7 +366,7 @@ pre-commit run --all-files
 4. Write unit tests in `tests/unit/`
 5. Run tests: `pytest -v`
 6. Check coverage: `pytest --cov-report=term-missing`
-7. Run quality checks: `ruff check`, `mypy`, `black --check`
+7. Run quality checks: `ruff check`, `ruff format --check`, `mypy`
 8. Commit with descriptive message
 9. Push and create PR
 

@@ -255,9 +255,9 @@ pytest
 # Run tests with coverage
 pytest --cov=src/edugain_analysis
 
-# Lint code
+# Lint and format code
 ruff check src/ tests/
-black --check src/ tests/
+ruff format --check src/ tests/
 mypy src/
 
 # Or use the convenience script
@@ -287,8 +287,7 @@ pytest -n auto
 ### Code Quality
 
 The project uses modern Python tooling:
-- **Ruff**: Fast linting and code quality checks
-- **Black**: Code formatting
+- **Ruff**: Fast linting and code formatting
 - **mypy**: Type checking
 - **pytest**: Testing with coverage
 - **pre-commit**: Git hooks for quality assurance

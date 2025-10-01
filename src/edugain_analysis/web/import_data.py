@@ -141,9 +141,9 @@ def import_snapshot(validate_urls: bool = False):
                         privacy_url,
                         has_security,
                     ) = entity_row
-                    status_code = (
-                        final_url
-                    ) = accessible = redirect_count = validation_error = None
+                    status_code = final_url = accessible = redirect_count = (
+                        validation_error
+                    ) = None
 
                 federation_id = federation_id_map.get(federation_name)
 
@@ -244,10 +244,10 @@ def generate_test_data(days: int = 30):
             timestamp = datetime.now() - timedelta(days=day)
 
             # Add some variance
-            coverage_variance = random.uniform(-5, 5)
+            coverage_variance = random.uniform(-5, 5)  # noqa: S311
             coverage = max(50, min(90, base_coverage + coverage_variance))
 
-            entities_variance = random.randint(-200, 200)
+            entities_variance = random.randint(-200, 200)  # noqa: S311
             total_entities = base_entities + entities_variance
 
             total_sps = int(total_entities * 0.7)

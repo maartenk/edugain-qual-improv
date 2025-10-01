@@ -395,7 +395,11 @@ def print_federation_summary(federation_stats: dict, output_file=sys.stderr) -> 
             sp_security_pct = (stats["sps_has_security"] / total_sps) * 100
             idp_security_pct = (stats["idps_has_security"] / total_idps) * 100
             sp_security_status = (
-                "🟢" if sp_security_pct >= 80 else "🟡" if sp_security_pct >= 50 else "🔴"
+                "🟢"
+                if sp_security_pct >= 80
+                else "🟡"
+                if sp_security_pct >= 50
+                else "🔴"
             )
             idp_security_status = (
                 "🟢"
@@ -411,7 +415,11 @@ def print_federation_summary(federation_stats: dict, output_file=sys.stderr) -> 
         elif total_sps > 0:
             sp_security_pct = (stats["sps_has_security"] / total_sps) * 100
             sp_security_status = (
-                "🟢" if sp_security_pct >= 80 else "🟡" if sp_security_pct >= 50 else "🔴"
+                "🟢"
+                if sp_security_pct >= 80
+                else "🟡"
+                if sp_security_pct >= 50
+                else "🔴"
             )
             print(
                 f"  └─ SPs: {sp_security_status} {stats['sps_has_security']:,}/{total_sps:,} ({sp_security_pct:.1f}%)",
