@@ -13,12 +13,11 @@ Usage:
 
 import sys
 from datetime import datetime, timedelta
-from pathlib import Path
 
 from ..core.analysis import analyze_privacy_security
 from ..core.metadata import get_federation_mapping, get_metadata, parse_metadata
 from ..core.validation import validate_urls_parallel
-from .models import Entity, Federation, Snapshot, SessionLocal, URLValidation
+from .models import Entity, Federation, SessionLocal, Snapshot, URLValidation
 
 
 def import_snapshot(validate_urls: bool = False):
@@ -76,9 +75,11 @@ def import_snapshot(validate_urls: bool = False):
                 sps_missing_privacy=stats["sps_missing_privacy"],
                 sps_has_security=stats["sps_has_security"],
                 idps_has_security=stats["idps_has_security"],
-                coverage_pct=stats["sps_has_privacy"] / stats["total_sps"] * 100
-                if stats["total_sps"] > 0
-                else 0,
+                coverage_pct=(
+                    stats["sps_has_privacy"] / stats["total_sps"] * 100
+                    if stats["total_sps"] > 0
+                    else 0
+                ),
             )
             db.add(snapshot)
             db.flush()  # Get snapshot ID
@@ -95,11 +96,11 @@ def import_snapshot(validate_urls: bool = False):
                     sps_with_privacy=fed_stats["sps_has_privacy"],
                     sps_has_security=fed_stats["sps_has_security"],
                     idps_has_security=fed_stats["idps_has_security"],
-                    coverage_pct=fed_stats["sps_has_privacy"]
-                    / fed_stats["total_sps"]
-                    * 100
-                    if fed_stats["total_sps"] > 0
-                    else 0,
+                    coverage_pct=(
+                        fed_stats["sps_has_privacy"] / fed_stats["total_sps"] * 100
+                        if fed_stats["total_sps"] > 0
+                        else 0
+                    ),
                 )
                 db.add(federation)
                 db.flush()  # Get federation ID
@@ -192,9 +193,11 @@ def import_snapshot(validate_urls: bool = False):
                         entity_id=entity.id,
                         url=privacy_url,
                         status_code=status_code_int,
-                        final_url=final_url
-                        if final_url and final_url != privacy_url
-                        else None,
+                        final_url=(
+                            final_url
+                            if final_url and final_url != privacy_url
+                            else None
+                        ),
                         accessible=accessible_bool,
                         redirect_count=redirect_count_int,
                         validation_error=validation_error if validation_error else None,

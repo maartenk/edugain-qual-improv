@@ -196,7 +196,7 @@ async def entity_detail(
             {
                 "request": request,
                 "title": "Entity Not Found",
-                "message": f"Entity not found.",
+                "message": "Entity not found.",
             },
         )
 

@@ -182,10 +182,12 @@ The package includes an optional web dashboard for interactive analysis and moni
 
 ### Features
 - **Real-time Statistics**: Auto-refreshing coverage metrics and entity counts
-- **Federation Breakdown**: Sortable tables showing per-federation compliance
+- **Search Functionality**: Live search for entities and federations with instant results
+- **Federation Drill-Down**: Detailed per-federation views with entity lists and compliance statistics
+- **Entity Detail Pages**: Individual SP/IdP pages showing full metadata, privacy statements, security contacts
 - **Trend Analysis**: Historical charts tracking compliance changes over time
-- **Entity-Level Data**: Individual SP/IdP records with privacy and security status
-- **URL Validation Results**: Track privacy statement accessibility with status codes
+- **Entity-Level Tracking**: 10,000+ individual entities stored with privacy and security status
+- **URL Validation Results**: Track privacy statement accessibility with HTTP status codes
 - **HTMX-Powered**: Fast, responsive updates without heavy JavaScript frameworks
 
 ### Running the Dashboard
@@ -209,10 +211,10 @@ uvicorn edugain_analysis.web.app:app --reload
 ### Database Schema
 
 The web dashboard uses SQLite with the following models:
-- **Snapshot**: Historical analysis snapshots with timestamps
-- **Federation**: Per-federation statistics for each snapshot
-- **Entity**: Individual SP/IdP entities with metadata
-- **URLValidation**: Privacy statement URL validation results
+- **Snapshot**: Historical analysis snapshots with timestamps (supports trend analysis)
+- **Federation**: Per-federation statistics for each snapshot (linked to entities)
+- **Entity**: Individual SP/IdP entities with full metadata (entity_id, organization, type, privacy/security status)
+- **URLValidation**: Privacy statement URL validation results (status codes, redirects, accessibility)
 
 ### Cache Management
 
