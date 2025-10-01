@@ -454,7 +454,6 @@ def print_federation_summary(federation_stats: dict, output_file=sys.stderr) -> 
         urls_checked = stats.get("urls_checked", 0)
         if urls_checked > 0:
             accessibility_pct = (stats["urls_accessible"] / urls_checked) * 100
-            broken_pct = (stats["urls_broken"] / urls_checked) * 100
 
             accessibility_status = (
                 "🟢"

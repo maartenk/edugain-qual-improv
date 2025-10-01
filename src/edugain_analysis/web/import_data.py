@@ -1,14 +1,12 @@
 """Utility to import analysis data into web database.
 
-TODO: This is a placeholder for data import functionality.
-The actual implementation should:
-1. Run the eduGAIN analysis (or use existing analysis module)
-2. Save results to the web application database
-3. Support scheduled/cron job execution
+Imports eduGAIN metadata analysis results into the SQLite database
+for the web dashboard. Supports URL validation and test data generation.
 
 Usage:
     python -m edugain_analysis.web.import_data
-    python -m edugain_analysis.web.import_data --days-history 30
+    python -m edugain_analysis.web.import_data --validate-urls
+    python -m edugain_analysis.web.import_data --test-data --days 30
 """
 
 import sys
