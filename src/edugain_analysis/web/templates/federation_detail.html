@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block content %}
+<header>
+    <h1>{{ federation.name }}</h1>
+    <p>
+        <a href="/federations">← Back to all federations</a>
+    </p>
+</header>
+
+<!-- Federation Statistics Card -->
+<section>
+    <article>
+        <header>
+            <strong>📊 Federation Statistics</strong>
+        </header>
+        <div class="grid">
+            <div>
+                <small>Total Entities</small>
+                <h3>{{ federation.total_entities }}</h3>
+            </div>
+            <div>
+                <small>Service Providers</small>
+                <h3>{{ federation.total_sps }}</h3>
+            </div>
+            <div>
+                <small>Identity Providers</small>
+                <h3>{{ federation.total_idps }}</h3>
+            </div>
+            <div>
+                <small>Coverage</small>
+                <h3>{{ "%.1f"|format(federation.coverage_pct) }}%</h3>
+            </div>
+        </div>
+        <hr>
+        <div class="grid">
+            <div>
+                <small>SPs with Privacy Statements</small>
+                <p>{{ federation.sps_with_privacy }} / {{ federation.total_sps }}</p>
+            </div>
+            <div>
+                <small>SPs with Security Contacts</small>
+                <p>{{ federation.sps_has_security }} / {{ federation.total_sps }}</p>
+            </div>
+            <div>
+                <small>IdPs with Security Contacts</small>
+                <p>{{ federation.idps_has_security }} / {{ federation.total_idps }}</p>
+            </div>
+        </div>
+    </article>
+</section>
+
+<!-- Entities Table -->
+<section>
+    <h2>Entities ({{ entities|length }} shown)</h2>
+    {% if entities %}
+    <figure>
+        <table role="grid">
+            <thead>
+                <tr>
+                    <th>Organization</th>
+                    <th>Type</th>
+                    <th>Privacy Statement</th>
+                    <th>Security Contact</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for entity in entities %}
+                <tr>
+                    <td>
+                        <strong>{{ entity.organization_name or "N/A" }}</strong><br>
+                        <small style="word-break: break-all;">{{ entity.entity_id[:60] }}{% if entity.entity_id|length > 60 %}...{% endif %}</small>
+                    </td>
+                    <td>
+                        <span class="badge">{{ entity.entity_type }}</span>
+                    </td>
+                    <td>
+                        {% if entity.has_privacy_statement %}
+                            <span style="color: var(--pico-ins-color);">✅ Yes</span>
+                        {% else %}
+                            <span style="color: var(--pico-del-color);">❌ No</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if entity.has_security_contact %}
+                            <span style="color: var(--pico-ins-color);">✅ Yes</span>
+                        {% else %}
+                            <span style="color: var(--pico-del-color);">❌ No</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="/entities/{{ entity.entity_id }}" role="button" class="outline secondary">View Details</a>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </figure>
+    {% if entities|length >= 100 %}
+    <p><em>Showing first 100 entities. More pagination coming soon.</em></p>
+    {% endif %}
+    {% else %}
+    <p>No entities found for this federation.</p>
+    {% endif %}
+</section>
+
+<footer>
+    <p><small>Data as of {{ snapshot.timestamp|time_ago }}</small></p>
+</footer>
+{% endblock %}

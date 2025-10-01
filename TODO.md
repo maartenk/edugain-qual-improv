@@ -19,27 +19,30 @@
   - ✅ Tested with real eduGAIN metadata (10,047 entities imported successfully)
   - File: `src/edugain_analysis/web/models.py`
 
-### Priority 2: Core Features
+### Priority 2: Core Features ✅
 
-- [ ] **Add search functionality for entities and federations**
-  - Implement `/api/search` endpoint with query parameter
-  - Add full-text search on entity names, entity IDs, federation names
-  - Create HTMX-powered search input with live results
-  - Add search UI component to dashboard and federation pages
-  - Files: `src/edugain_analysis/web/app.py`, `templates/base.html`
+- [x] **Add search functionality for entities and federations**
+  - ✅ Implemented `/api/search` endpoint with query parameter returning JSON
+  - ✅ Implemented `/partials/search` endpoint for HTMX live results
+  - ✅ Added full-text search on entity names, entity IDs, federation names using SQL ILIKE
+  - ✅ Created HTMX-powered search dropdown in navigation with live results (300ms debounce)
+  - ✅ Search returns entities and federations with quick preview info
+  - Files: `src/edugain_analysis/web/app.py`, `templates/base.html`, `templates/partials/search_results.html`
 
-- [ ] **Implement federation drill-down views**
-  - Add `/federations/{federation_name}` route showing all entities in federation
-  - Display entity table with privacy/security status per entity
-  - Include federation-specific statistics card
-  - Add pagination for large federations (100 entities per page)
+- [x] **Implement federation drill-down views**
+  - ✅ Added `/federations/{federation_name}` route showing all entities in federation
+  - ✅ Display entity table with privacy/security status per entity (visual indicators)
+  - ✅ Include federation-specific statistics card with SP/IdP breakdown
+  - ✅ Implemented pagination (100 entities per page limit)
+  - ✅ Added "View Details" buttons linking to entity pages
   - Files: `src/edugain_analysis/web/app.py`, `templates/federation_detail.html`
 
-- [ ] **Add entity-level detail views (individual SPs/IdPs)**
-  - Create `/entities/{entity_id}` route for individual entity details
-  - Show full metadata: organization, entity type, registration authority, privacy statement URL, security contact status
-  - Display URL validation results if available
-  - Add historical view if entity exists in multiple snapshots
+- [x] **Add entity-level detail views (individual SPs/IdPs)**
+  - ✅ Created `/entities/{entity_id:path}` route for individual entity details
+  - ✅ Show full metadata: organization, entity type, federation, privacy statement URL, security contact status
+  - ✅ Display URL validation results with HTTP status codes, redirects, and error messages
+  - ✅ Added historical view showing entity status across multiple snapshots
+  - ✅ Visual indicators for privacy/security status with color coding
   - Files: `src/edugain_analysis/web/app.py`, `templates/entity_detail.html`
 
 ### Priority 3: Enhanced Interactivity

@@ -25,6 +25,29 @@
         <ul>
             <li><a href="/" {% if request.url.path == '/' %}aria-current="page"{% endif %}>Dashboard</a></li>
             <li><a href="/federations" {% if request.url.path == '/federations' %}aria-current="page"{% endif %}>Federations</a></li>
+            <li>
+                <details role="list" dir="rtl">
+                    <summary aria-haspopup="listbox" role="link">🔍 Search</summary>
+                    <ul role="listbox" style="width: 400px; max-width: 90vw;">
+                        <li>
+                            <form style="padding: 1rem;">
+                                <input
+                                    type="search"
+                                    name="q"
+                                    placeholder="Search entities or federations..."
+                                    hx-get="/partials/search"
+                                    hx-trigger="keyup changed delay:300ms"
+                                    hx-target="#search-results"
+                                    autocomplete="off"
+                                >
+                                <div id="search-results" style="margin-top: 1rem; max-height: 400px; overflow-y: auto;">
+                                    <p><small>Start typing to search...</small></p>
+                                </div>
+                            </form>
+                        </li>
+                    </ul>
+                </details>
+            </li>
         </ul>
     </nav>
 
