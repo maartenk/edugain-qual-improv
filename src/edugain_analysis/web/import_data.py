@@ -14,7 +14,6 @@ from datetime import datetime, timedelta
 
 from ..core.analysis import analyze_privacy_security
 from ..core.metadata import get_federation_mapping, get_metadata, parse_metadata
-from ..core.validation import validate_urls_parallel
 from .models import Entity, Federation, SessionLocal, Snapshot, URLValidation
 
 
@@ -36,28 +35,18 @@ def import_snapshot(validate_urls: bool = False):
         print("  → Fetching federation names...")
         federation_mapping = get_federation_mapping()
 
-        # Run analysis
+        # Run analysis (with optional URL validation)
         print("  → Analyzing entities...")
-        entities_list, stats, federation_stats = analyze_privacy_security(
-            root, federation_mapping, validate_urls=False
-        )
-
-        # Validate URLs if requested
-        url_validation_results = {}
         if validate_urls:
             print("  → Validating privacy statement URLs...")
-            # Collect URLs to validate
-            urls_to_validate = {}
-            for entity in entities_list:
-                if entity.get("PrivacyStatementURL"):
-                    urls_to_validate[entity["EntityID"]] = entity["PrivacyStatementURL"]
 
-            if urls_to_validate:
-                # Run validation
-                url_validation_results = validate_urls_parallel(
-                    list(urls_to_validate.values()), cache={}
-                )
-                print(f"     Validated {len(url_validation_results)} URLs")
+        entities_list, stats, federation_stats = analyze_privacy_security(
+            root,
+            federation_mapping=federation_mapping,
+            validate_urls=validate_urls,  # Let core analysis handle validation
+            validation_cache=None,  # Could load cache here if desired
+            max_workers=10,  # Configurable thread pool size
+        )
 
         # Save to database
         print("  → Saving to database...")
@@ -210,7 +199,21 @@ def import_snapshot(validate_urls: bool = False):
             print(f"   Total entities: {stats['total_entities']}")
             print(f"   Coverage: {snapshot.coverage_pct:.1f}%")
             if validate_urls:
-                print(f"   URL validations: {len(url_validation_results)}")
+                validation_count = (
+                    db.query(URLValidation)
+                    .filter(
+                        URLValidation.entity_id.in_(
+                            [
+                                e.id
+                                for e in db.query(Entity)
+                                .filter(Entity.snapshot_id == snapshot.id)
+                                .all()
+                            ]
+                        )
+                    )
+                    .count()
+                )
+                print(f"   URL validations: {validation_count}")
 
         except Exception as e:
             db.rollback()
