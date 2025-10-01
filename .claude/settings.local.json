@@ -41,7 +41,17 @@
       "Read(//Users/kreme003/Library/Caches/edugain-analysis/**)",
       "Bash(tree:*)",
       "Bash(pip uninstall:*)",
-      "Read(//Users/kreme003/.cache/**)"
+      "Read(//Users/kreme003/.cache/**)",
+      "Bash(.venv/bin/pip install -e .)",
+      "Bash(.venv/bin/pip install:*)",
+      "Bash(.venv/bin/python:*)",
+      "Bash(.venv/bin/edugain-analyze:*)",
+      "Bash(.venv/bin/edugain-seccon:*)",
+      "Bash(.venv/bin/pytest tests/unit/test_web_models.py -v)",
+      "Bash(.venv/bin/pytest tests/unit/ -v --no-cov)",
+      "Bash(.venv/bin/pip:*)",
+      "Bash(.venv/bin/pytest tests/unit/ -v --cov=src/edugain_analysis --cov-report=term-missing --cov-report=html)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

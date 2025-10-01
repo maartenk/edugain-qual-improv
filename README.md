@@ -14,7 +14,7 @@ A comprehensive Python package for analyzing eduGAIN federation metadata quality
 - 🔒 **Privacy Statement Monitoring**: HTTP accessibility validation for privacy statement URLs
 - 🌐 **Web Dashboard**: Interactive HTMX-powered dashboard for real-time federation monitoring
 - 🌍 **Federation Intelligence**: Automatic mapping from registration authorities to friendly names via eduGAIN API
-- 💾 **XDG-Compliant Caching**: Cache files stored in standard user directories with configurable expiry
+- 💾 **XDG-Compliant Caching**: Smart caching system with configurable expiry (metadata: 12h, federations: 30d, URLs: 7d)
 - 📊 **Multiple Output Formats**: Summary statistics, detailed CSV exports, markdown reports, and web UI
 - 🏗️ **Modern Architecture**: Modular design with comprehensive testing (92.17% coverage)
 - 📈 **Comprehensive Reporting**: Split statistics for SPs vs IdPs with federation-level breakdowns
@@ -214,7 +214,30 @@ The web dashboard uses SQLite with the following models:
 - **Entity**: Individual SP/IdP entities with metadata
 - **URLValidation**: Privacy statement URL validation results
 
-Data is stored in XDG-compliant cache directory: `~/.cache/edugain-analysis/webapp.db`
+### Cache Management
+
+All data is stored in XDG-compliant cache directories:
+
+**Cache Location by Platform:**
+- macOS: `~/Library/Caches/edugain-analysis/`
+- Linux: `~/.cache/edugain-analysis/`
+- Windows: `%LOCALAPPDATA%\edugain\edugain-analysis\Cache\`
+
+**Cache Files:**
+- `metadata.xml` - eduGAIN metadata (expires after 12 hours)
+- `federations.json` - Federation name mappings (expires after 30 days)
+- `url_validation.json` - URL validation results (expires after 7 days)
+- `webapp.db` - Web dashboard database (persistent)
+
+**Cache Management Commands:**
+```bash
+# View cache location
+python -c "from platformdirs import user_cache_dir; print(user_cache_dir('edugain-analysis', 'edugain'))"
+
+# Clear cache to force fresh download
+rm -rf ~/Library/Caches/edugain-analysis/metadata.xml  # macOS
+rm -rf ~/.cache/edugain-analysis/metadata.xml           # Linux
+```
 
 ## 🔧 Development
 
@@ -246,11 +269,14 @@ scripts/lint.sh
 pytest
 
 # Run specific test categories
-pytest tests/unit/                          # Unit tests
-pytest tests/integration/                   # Integration tests
+pytest tests/unit/                          # Unit tests (153 tests)
+pytest tests/unit/test_web_models.py        # Web model tests only
 
 # Run with coverage reporting
 pytest --cov=src/edugain_analysis --cov-report=html
+
+# Run without coverage (faster)
+pytest --no-cov
 
 # Run tests in parallel
 pytest -n auto

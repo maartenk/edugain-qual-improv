@@ -238,7 +238,11 @@ src/edugain_analysis/
 - pre-commit: Git hooks for code quality
 
 **Web (optional):**
-- streamlit ≥1.28.0: Future web interface support
+- **fastapi ≥0.104.0**: Modern async web framework for dashboard
+- **uvicorn ≥0.24.0**: ASGI server for running FastAPI
+- **sqlalchemy ≥2.0.0**: ORM for database models (Snapshot, Federation, Entity, URLValidation)
+- **jinja2 ≥3.1.0**: Template engine for HTML rendering
+- **python-multipart ≥0.0.6**: Form data parsing
 
 ## Development Notes
 
@@ -252,7 +256,7 @@ src/edugain_analysis/
 
 ### Testing Structure
 
-Tests follow pytest best practices with 200+ test cases covering all modules:
+Tests follow pytest best practices with 150+ test cases covering all modules:
 
 ```
 tests/
@@ -263,7 +267,9 @@ tests/
 │   ├── test_core_metadata.py      # Metadata operations tests
 │   ├── test_core_validation.py    # URL validation tests
 │   ├── test_formatters.py         # Output formatter tests
-│   └── test_package_basic.py      # Import and basic functionality
+│   ├── test_web_models.py         # Web database model tests (NEW)
+│   ├── test_package_basic.py      # Import and basic functionality
+│   └── test_main_module.py        # Main module tests
 └── integration/
     └── (integration tests)
 ```
@@ -301,10 +307,12 @@ pytest -n auto
 - **Exclusions**: Test files, `__main__` blocks, abstract methods, debug code
 
 ### CI/CD Integration
-- **GitHub Actions**: Automated testing on push/PR via `.github/workflows/ci.yml`
-- **Codecov**: Automatic coverage upload with multi-version flags
+- **GitHub Actions**: Automated testing on all branches via `.github/workflows/ci.yml`
+- **Trigger events**: Push to any branch, pull requests to any branch, manual workflow dispatch
+- **Codecov**: Automatic coverage upload with multi-version flags (python-3.11, python-3.12, python-3.13)
 - **Quality gates**: Linting (ruff), type checking (mypy), formatting (black)
-- **Matrix testing**: All supported Python versions tested in parallel
+- **Matrix testing**: Python 3.11, 3.12, and 3.13 tested in parallel
+- **Continue on error**: Tests continue even if individual steps fail to maximize coverage reporting
 
 ## Key Features
 
