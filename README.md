@@ -16,7 +16,8 @@ A comprehensive Python package for analyzing eduGAIN federation metadata quality
 - 🌍 **Federation Intelligence**: Automatic mapping from registration authorities to friendly names via eduGAIN API
 - 💾 **XDG-Compliant Caching**: Smart caching system with configurable expiry (metadata: 12h, federations: 30d, URLs: 7d)
 - 📊 **Multiple Output Formats**: Summary statistics, detailed CSV exports, markdown reports, and web UI
-- 🏗️ **Modern Architecture**: Modular design with comprehensive testing (92.17% coverage)
+- 🏗️ **Modern Architecture**: Modular design with comprehensive testing (73% coverage, 94%+ for core modules)
+- ⚡ **Fast Tooling**: Ruff for linting and formatting (10-100x faster than Black)
 - 📈 **Comprehensive Reporting**: Split statistics for SPs vs IdPs with federation-level breakdowns
 - 📦 **Entity-Level Tracking**: Individual entity storage with historical snapshots for trend analysis
 
@@ -325,11 +326,27 @@ eduGAIN Metadata Analysis Results
 ## 🏗️ Future Development
 
 See [todo.md](todo.md) for a comprehensive roadmap of planned features and improvements, including:
-- Historical tracking with database backend
-- Machine learning for privacy analysis
-- Advanced web dashboard
-- API development
-- Internationalization support
+- Interactive filtering/sorting for entity tables (Priority 3)
+- Enhanced visualizations with Chart.js (Priority 3)
+- CSV/JSON export functionality (Priority 3)
+- URL validation results view (Priority 4)
+- Historical comparison and trend analysis (Priority 5)
+- Mobile-responsive design improvements (Priority 6)
+
+### Recent Improvements (v2.0.0)
+
+**Tooling & Code Quality:**
+- ⚡ Migrated from Black to Ruff for unified linting + formatting (10-100x faster)
+- 🧹 Removed 282 lines of dead code and duplicate documentation
+- 🔧 Fixed CI/CD workflow to test modern package entry points
+- ✅ 153 tests passing with 73% overall coverage (94%+ for core modules)
+
+**Web Dashboard:**
+- 🔍 Added search functionality with live results
+- 📊 Implemented federation drill-down views with entity lists
+- 🏢 Created entity detail pages with full metadata display
+- 💾 Entity-level database tracking (10,000+ entities supported)
+- 🔗 URL validation results with HTTP status tracking
 
 ## 📋 Requirements
 
@@ -338,8 +355,8 @@ See [todo.md](todo.md) for a comprehensive roadmap of planned features and impro
   - `requests` (≥2.28.0) - HTTP requests
   - `platformdirs` (≥3.0.0) - XDG-compliant directories
 - **Optional Dependencies**:
-  - `streamlit` (≥1.28.0) - Web dashboard (install with `[web]`)
-  - Development tools (install with `[dev]`)
+  - FastAPI, SQLAlchemy, Jinja2 (install with `[web]`)
+  - pytest, ruff, mypy (install with `[dev]`)
 
 ## 🤝 Contributing
 

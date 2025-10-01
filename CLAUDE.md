@@ -297,7 +297,7 @@ pytest --no-cov
 pytest -n auto
 ```
 
-**Coverage:** 92.17% overall with comprehensive testing across all modules.
+**Coverage:** 73% overall (94%+ for core analysis modules). Web modules (app.py, import_data.py) are untested as they require integration testing.
 
 ### Coverage Configuration
 - **HTML reports**: Generated in `htmlcov/` directory
