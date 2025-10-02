@@ -687,6 +687,7 @@ async def entity_table_partial(
     security_filter: str | None = None,
     sort_by: str = "organization",
     sort_order: str = "asc",
+    page: int = 1,
     limit: int = 100,
     db: Session = Depends(get_db),
 ):
@@ -699,7 +700,8 @@ async def entity_table_partial(
         security_filter: 'yes', 'no', or None (all)
         sort_by: Column to sort by (organization, type, privacy, security)
         sort_order: 'asc' or 'desc'
-        limit: Max entities to return
+        page: Page number (1-indexed)
+        limit: Max entities per page
     """
     snapshot = db.query(Snapshot).order_by(Snapshot.timestamp.desc()).first()
     if not snapshot:
@@ -747,8 +749,13 @@ async def entity_table_partial(
     else:
         query = query.order_by(sort_col.asc())
 
-    # Get entities
-    entities = query.limit(limit).all()
+    # Get total count for pagination
+    total_count = query.count()
+    total_pages = (total_count + limit - 1) // limit  # Ceiling division
+
+    # Apply pagination
+    offset = (page - 1) * limit
+    entities = query.limit(limit).offset(offset).all()
 
     # Get federation info if filtering by federation
     federation = None
@@ -767,6 +774,10 @@ async def entity_table_partial(
             "security_filter": security_filter,
             "sort_by": sort_by,
             "sort_order": sort_order,
+            "page": page,
+            "limit": limit,
+            "total_count": total_count,
+            "total_pages": total_pages,
             "now": datetime.now(),
         },
     )
