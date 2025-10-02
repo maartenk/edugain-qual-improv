@@ -104,15 +104,20 @@
   - ✅ Included "Reset to Defaults" functionality
   - Files: `src/edugain_analysis/web/app.py`, `templates/config.html`
 
-### Priority 5: Historical Analysis
+### Priority 5: Historical Analysis ✅
 
-- [ ] **Add historical comparison views (trend analysis over time)**
-  - Create `/history` page showing snapshot timeline
-  - Add federation comparison across multiple snapshots
-  - Show coverage trend per federation over time
-  - Highlight entities that changed status (privacy/security added/removed)
-  - Add date range selector for historical analysis
-  - Files: `src/edugain_analysis/web/app.py`, `templates/history.html`
+- [x] **Add historical comparison views (trend analysis over time)**
+  - ✅ Created `/history` page showing snapshot timeline with table of all snapshots
+  - ✅ Added federation comparison across multiple snapshots with dedicated charts
+  - ✅ Show coverage trend per federation over time with Chart.js line charts
+  - ✅ Highlight entities that changed status (privacy/security added/removed) with comparison tool
+  - ✅ Added date range selector for historical analysis (7/30/90/180/365 days)
+  - ✅ Implemented entity change detection between any two snapshots
+  - ✅ Created `/partials/entity_changes` endpoint for delta analysis
+  - ✅ Added visual indicators for new/modified/removed entities
+  - ✅ Display overall coverage trend chart with multiple datasets
+  - ✅ Added federation-specific historical view with selection dropdown
+  - Files: `src/edugain_analysis/web/app.py`, `templates/history.html`, `templates/partials/entity_changes.html`
 
 ### Priority 6: Polish & Optimization
 

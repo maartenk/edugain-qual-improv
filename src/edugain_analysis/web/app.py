@@ -91,6 +91,7 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
             "snapshot": snapshot,
             "federations": federations,
             "title": "Dashboard",
+            "now": datetime.now(),
         },
     )
 
@@ -120,6 +121,7 @@ async def federations_page(request: Request, db: Session = Depends(get_db)):
             "federations": federations,
             "snapshot": snapshot,
             "title": "Federations",
+            "now": datetime.now(),
         },
     )
 
@@ -172,6 +174,7 @@ async def federation_detail(
             "entities": entities,
             "snapshot": snapshot,
             "title": f"Federation: {federation_name}",
+            "now": datetime.now(),
         },
     )
 
@@ -230,6 +233,7 @@ async def entity_detail(
             "historical_entities": historical_entities,
             "snapshot": snapshot,
             "title": entity.organization_name or "Entity Detail",
+            "now": datetime.now(),
         },
     )
 
@@ -312,6 +316,7 @@ async def validation_page(
             "redirect_count": redirect_count,
             "error_count": error_count,
             "title": "URL Validation Results",
+            "now": datetime.now(),
         },
     )
 
@@ -336,6 +341,73 @@ async def config_page(request: Request, db: Session = Depends(get_db)):
             "settings": settings,
             "snapshot": snapshot,
             "title": "Configuration",
+            "now": datetime.now(),
+        },
+    )
+
+
+@app.get("/history", response_class=HTMLResponse)
+async def history_page(
+    request: Request,
+    days: int = 30,
+    federation_name: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """Historical analysis page showing trends over time."""
+    snapshot = db.query(Snapshot).order_by(Snapshot.timestamp.desc()).first()
+
+    if not snapshot:
+        return templates.TemplateResponse(
+            "empty.html",
+            {"request": request, "title": "Historical Analysis"},
+        )
+
+    # Get date range
+    cutoff = datetime.now() - timedelta(days=days)
+    snapshots = (
+        db.query(Snapshot)
+        .filter(Snapshot.timestamp >= cutoff)
+        .order_by(Snapshot.timestamp.desc())
+        .all()
+    )
+
+    # Get all federations for dropdown
+    federations = (
+        db.query(Federation.name)
+        .filter(Federation.snapshot_id == snapshot.id)
+        .distinct()
+        .order_by(Federation.name)
+        .all()
+    )
+    federation_names = [f.name for f in federations]
+
+    # If federation selected, get historical data for that federation
+    federation_history = []
+    if federation_name:
+        for snap in snapshots:
+            fed = (
+                db.query(Federation)
+                .filter(
+                    Federation.snapshot_id == snap.id,
+                    Federation.name == federation_name,
+                )
+                .first()
+            )
+            if fed:
+                federation_history.append({"snapshot": snap, "federation": fed})
+
+    return templates.TemplateResponse(
+        "history.html",
+        {
+            "request": request,
+            "snapshot": snapshot,
+            "snapshots": snapshots,
+            "federation_names": federation_names,
+            "selected_federation": federation_name,
+            "federation_history": federation_history,
+            "days": days,
+            "title": "Historical Analysis",
+            "now": datetime.now(),
         },
     )
 
@@ -354,7 +426,8 @@ async def stats_partial(request: Request, db: Session = Depends(get_db)):
         return "<p>No data available</p>"
 
     return templates.TemplateResponse(
-        "partials/stats_cards.html", {"request": request, "snapshot": snapshot}
+        "partials/stats_cards.html",
+        {"request": request, "snapshot": snapshot, "now": datetime.now()},
     )
 
 
@@ -493,6 +566,118 @@ async def federation_comparison_partial(
     )
 
 
+@app.get("/partials/entity_changes", response_class=HTMLResponse)
+async def entity_changes_partial(
+    request: Request,
+    snapshot1_id: int,
+    snapshot2_id: int | None = None,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    """Return entity changes between two snapshots as HTML fragment.
+
+    Shows entities that changed privacy or security status.
+    If snapshot2_id is None, compares snapshot1_id with the previous snapshot.
+    """
+    snapshot1 = db.query(Snapshot).filter(Snapshot.id == snapshot1_id).first()
+    if not snapshot1:
+        return "<p>Snapshot not found</p>"
+
+    # Get snapshot2 (previous snapshot if not specified)
+    if snapshot2_id:
+        snapshot2 = db.query(Snapshot).filter(Snapshot.id == snapshot2_id).first()
+    else:
+        snapshot2 = (
+            db.query(Snapshot)
+            .filter(Snapshot.timestamp < snapshot1.timestamp)
+            .order_by(Snapshot.timestamp.desc())
+            .first()
+        )
+
+    if not snapshot2:
+        return "<p>No previous snapshot available for comparison</p>"
+
+    # Get entities from both snapshots
+    entities1 = {
+        e.entity_id: e
+        for e in db.query(Entity).filter(Entity.snapshot_id == snapshot1.id).all()
+    }
+    entities2 = {
+        e.entity_id: e
+        for e in db.query(Entity).filter(Entity.snapshot_id == snapshot2.id).all()
+    }
+
+    # Find entities that changed status
+    changes = []
+    for entity_id, entity1 in entities1.items():
+        entity2 = entities2.get(entity_id)
+        if not entity2:
+            # New entity
+            changes.append(
+                {
+                    "entity": entity1,
+                    "change_type": "new",
+                    "privacy_changed": False,
+                    "security_changed": False,
+                    "old_privacy": None,
+                    "new_privacy": entity1.has_privacy_statement,
+                    "old_security": None,
+                    "new_security": entity1.has_security_contact,
+                }
+            )
+        else:
+            # Check for status changes
+            privacy_changed = (
+                entity1.has_privacy_statement != entity2.has_privacy_statement
+            )
+            security_changed = (
+                entity1.has_security_contact != entity2.has_security_contact
+            )
+
+            if privacy_changed or security_changed:
+                changes.append(
+                    {
+                        "entity": entity1,
+                        "change_type": "modified",
+                        "privacy_changed": privacy_changed,
+                        "security_changed": security_changed,
+                        "old_privacy": entity2.has_privacy_statement,
+                        "new_privacy": entity1.has_privacy_statement,
+                        "old_security": entity2.has_security_contact,
+                        "new_security": entity1.has_security_contact,
+                    }
+                )
+
+    # Check for removed entities
+    for entity_id, entity2 in entities2.items():
+        if entity_id not in entities1:
+            changes.append(
+                {
+                    "entity": entity2,
+                    "change_type": "removed",
+                    "privacy_changed": False,
+                    "security_changed": False,
+                    "old_privacy": entity2.has_privacy_statement,
+                    "new_privacy": None,
+                    "old_security": entity2.has_security_contact,
+                    "new_security": None,
+                }
+            )
+
+    # Limit results
+    changes = changes[:limit]
+
+    return templates.TemplateResponse(
+        "partials/entity_changes.html",
+        {
+            "request": request,
+            "changes": changes,
+            "snapshot1": snapshot1,
+            "snapshot2": snapshot2,
+        },
+    )
+
+
 @app.get("/partials/entity_table", response_class=HTMLResponse)
 async def entity_table_partial(
     request: Request,
@@ -582,6 +767,7 @@ async def entity_table_partial(
             "security_filter": security_filter,
             "sort_by": sort_by,
             "sort_order": sort_order,
+            "now": datetime.now(),
         },
     )
 

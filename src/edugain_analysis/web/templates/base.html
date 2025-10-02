@@ -25,6 +25,7 @@
         <ul>
             <li><a href="/" {% if request.url.path == '/' %}aria-current="page"{% endif %}>Dashboard</a></li>
             <li><a href="/federations" {% if request.url.path == '/federations' %}aria-current="page"{% endif %}>Federations</a></li>
+            <li><a href="/history" {% if request.url.path == '/history' %}aria-current="page"{% endif %}>History</a></li>
             <li><a href="/validation" {% if request.url.path == '/validation' %}aria-current="page"{% endif %}>URL Validation</a></li>
             <li><a href="/config" {% if request.url.path == '/config' %}aria-current="page"{% endif %}>Config</a></li>
             <li>
