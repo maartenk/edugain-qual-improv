@@ -26,7 +26,9 @@
                         <strong>{{ entity.organization_name or "N/A" }}</strong>
                         <span class="badge">{{ entity.entity_type }}</span>
                         - {{ entity.federation.name }}
-                        {% if entity.has_privacy_statement %}<span style="color: var(--pico-ins-color);">✅</span>{% else %}<span style="color: var(--pico-del-color);">❌</span>{% endif %}
+                        {% if entity.entity_type == "SP" %}
+                            {% if entity.has_privacy_statement %}<span style="color: var(--pico-ins-color);">✅</span>{% else %}<span style="color: var(--pico-del-color);">❌</span>{% endif %}
+                        {% endif %}
                         {% if entity.has_security_contact %}<span style="color: var(--pico-ins-color);">🛡️</span>{% else %}<span style="color: var(--pico-del-color);">⚠️</span>{% endif %}
                     </a>
                     <br>

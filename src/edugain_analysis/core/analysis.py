@@ -294,8 +294,10 @@ def analyze_privacy_security(
                     ent_type,
                     orgname,
                     ent_id,
-                    "Yes" if has_privacy else "No",
-                    privacy_url if has_privacy else "",
+                    "Yes" if has_privacy else ("N/A" if ent_type == "IdP" else "No"),
+                    privacy_url
+                    if has_privacy
+                    else ("N/A" if ent_type == "IdP" else ""),
                     "Yes" if has_security else "No",
                     str(url_status),
                     final_url,
@@ -312,8 +314,10 @@ def analyze_privacy_security(
                     ent_type,
                     orgname,
                     ent_id,
-                    "Yes" if has_privacy else "No",
-                    privacy_url if has_privacy else "",
+                    "Yes" if has_privacy else ("N/A" if ent_type == "IdP" else "No"),
+                    privacy_url
+                    if has_privacy
+                    else ("N/A" if ent_type == "IdP" else ""),
                     "Yes" if has_security else "No",
                 ]
             )

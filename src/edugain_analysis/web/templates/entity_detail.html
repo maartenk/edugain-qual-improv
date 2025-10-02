@@ -32,6 +32,7 @@
 
 <!-- Privacy & Security Status -->
 <section>
+    {% if entity.entity_type == "SP" %}
     <div class="grid">
         <article>
             <header>
@@ -64,10 +65,26 @@
             {% endif %}
         </article>
     </div>
+    {% else %}
+    <!-- IdP only shows security contact -->
+    <article>
+        <header>
+            <strong>🛡️ Security Contact</strong>
+        </header>
+        {% if entity.has_security_contact %}
+            <p style="color: var(--pico-ins-color);">✅ <strong>Present</strong></p>
+            <p><small>Security contact information found in metadata</small></p>
+        {% else %}
+            <p style="color: var(--pico-del-color);">❌ <strong>Missing</strong></p>
+            <p><small>No security contact found in metadata</small></p>
+        {% endif %}
+        <p><small><em>Note: Privacy statements are not applicable to Identity Providers (IdPs)</em></small></p>
+    </article>
+    {% endif %}
 </section>
 
-<!-- URL Validation Results -->
-{% if url_validation %}
+<!-- URL Validation Results (SP only) -->
+{% if url_validation and entity.entity_type == "SP" %}
 <section>
     <article>
         <header>
@@ -131,13 +148,16 @@
             <thead>
                 <tr>
                     <th>Snapshot Date</th>
+                    {% if entity.entity_type == "SP" %}
                     <th>Privacy Statement</th>
+                    {% endif %}
                     <th>Security Contact</th>
                 </tr>
             </thead>
             <tbody>
             <tr style="background: rgba(0, 100, 255, 0.1);">
                 <td><strong>{{ snapshot.timestamp.strftime('%Y-%m-%d %H:%M') }}</strong> <em>(current)</em></td>
+                {% if entity.entity_type == "SP" %}
                 <td>
                     {% if entity.has_privacy_statement %}
                         <span style="color: var(--pico-ins-color);">✅ Yes</span>
@@ -145,6 +165,7 @@
                         <span style="color: var(--pico-del-color);">❌ No</span>
                     {% endif %}
                 </td>
+                {% endif %}
                 <td>
                     {% if entity.has_security_contact %}
                         <span style="color: var(--pico-ins-color);">✅ Yes</span>
@@ -156,6 +177,7 @@
             {% for hist_entity in historical_entities %}
             <tr>
                 <td>{{ hist_entity.snapshot.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                {% if entity.entity_type == "SP" %}
                 <td>
                     {% if hist_entity.has_privacy_statement %}
                         <span style="color: var(--pico-ins-color);">✅ Yes</span>
@@ -163,6 +185,7 @@
                         <span style="color: var(--pico-del-color);">❌ No</span>
                     {% endif %}
                 </td>
+                {% endif %}
                 <td>
                     {% if hist_entity.has_security_contact %}
                         <span style="color: var(--pico-ins-color);">✅ Yes</span>

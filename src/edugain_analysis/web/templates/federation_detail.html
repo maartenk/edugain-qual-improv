@@ -76,7 +76,9 @@
                         <span class="badge">{{ entity.entity_type }}</span>
                     </td>
                     <td>
-                        {% if entity.has_privacy_statement %}
+                        {% if entity.entity_type == "IdP" %}
+                            <span style="color: #888;">N/A</span>
+                        {% elif entity.has_privacy_statement %}
                             <span style="color: var(--pico-ins-color);">✅ Yes</span>
                         {% else %}
                             <span style="color: var(--pico-del-color);">❌ No</span>
