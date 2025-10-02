@@ -13,28 +13,31 @@
 <!-- Federation Table with Sorting -->
 <section>
     <article>
-        <header>
+        <header style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
             <strong>All Federations</strong>
-            <span style="float: right;">
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                 <button hx-get="/partials/federations?sort=name&order=asc&limit=0"
                         hx-target="#federation-table"
                         hx-swap="innerHTML"
-                        class="secondary">
+                        class="secondary"
+                        style="margin: 0;">
                     📝 Sort by Name
                 </button>
                 <button hx-get="/partials/federations?sort=coverage&order=desc&limit=0"
                         hx-target="#federation-table"
                         hx-swap="innerHTML"
-                        class="secondary">
+                        class="secondary"
+                        style="margin: 0;">
                     📊 Sort by Coverage
                 </button>
                 <button hx-get="/partials/federations?sort=entities&order=desc&limit=0"
                         hx-target="#federation-table"
                         hx-swap="innerHTML"
-                        class="secondary">
+                        class="secondary"
+                        style="margin: 0;">
                     🔢 Sort by Entities
                 </button>
-            </span>
+            </div>
         </header>
 
         <div id="federation-table">
