@@ -94,13 +94,15 @@ uvicorn edugain_analysis.web.app:app --reload
 # Access dashboard at http://localhost:8000
 ```
 
-**Features:**
-- Real-time coverage statistics with auto-refresh
-- Per-federation breakdown with sortable tables
-- Historical trend charts (7/30/90 day views)
-- Entity-level tracking (10,000+ entities)
-- URL validation results display
-- HTMX-powered for fast, responsive updates
+**Features (All MVP Priorities Complete):**
+- **Priority 1**: Entity-level tracking (10,000+ entities), URL validation database with SQLAlchemy models
+- **Priority 2**: Live search (300ms debounce), federation drill-down views, entity detail pages with historical data
+- **Priority 3**: Interactive filtering/sorting, Chart.js visualizations, CSV/JSON export
+- **Priority 4**: URL validation results page, cache status indicators, configuration page with adjustable settings
+- **Priority 5**: Historical trend charts (7/30/90/180/365 day views), snapshot comparison, entity change detection
+- **Priority 6**: Mobile-responsive design (480px/768px/1024px breakpoints), print styles
+- HTMX-powered for fast partial updates without heavy JavaScript
+- PicoCSS classless styling for minimal overhead
 
 ## Architecture
 

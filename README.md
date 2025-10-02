@@ -179,17 +179,37 @@ This gives technical staff the specific information needed to fix broken links.
 
 ## 🌐 Web Dashboard
 
-The package includes an optional web dashboard for interactive analysis and monitoring.
+The package includes an optional modern web dashboard for interactive analysis and monitoring. Built with FastAPI, HTMX, and PicoCSS for fast, responsive, and lightweight performance.
 
-### Features
-- **Real-time Statistics**: Auto-refreshing coverage metrics and entity counts
-- **Search Functionality**: Live search for entities and federations with instant results
-- **Federation Drill-Down**: Detailed per-federation views with entity lists and compliance statistics
-- **Entity Detail Pages**: Individual SP/IdP pages showing full metadata, privacy statements, security contacts
-- **Trend Analysis**: Historical charts tracking compliance changes over time
-- **Entity-Level Tracking**: 10,000+ individual entities stored with privacy and security status
-- **URL Validation Results**: Track privacy statement accessibility with HTTP status codes
-- **HTMX-Powered**: Fast, responsive updates without heavy JavaScript frameworks
+### Core Features
+
+**Data & Analytics:**
+- **Real-time Statistics**: Live coverage metrics and entity counts with auto-refresh
+- **Entity-Level Tracking**: 10,000+ individual entities with full metadata (organization, type, privacy/security status)
+- **Historical Snapshots**: Track compliance changes over time with multiple snapshots
+- **Federation Intelligence**: Per-federation statistics and entity breakdowns
+
+**Interactive Navigation:**
+- **Live Search**: Instant search for entities and federations (300ms debounce, HTMX-powered)
+- **Federation Drill-Down**: Detailed per-federation views with sortable entity tables
+- **Entity Detail Pages**: Individual SP/IdP pages showing full metadata and historical status
+- **URL Validation Results**: Privacy statement accessibility tracking with HTTP status codes
+
+**Advanced Features:**
+- **Interactive Filtering**: Filter entities by type (SP/IdP), privacy status, security status
+- **Multi-Column Sorting**: Sort by organization, type, privacy, or security with visual indicators (▲/▼)
+- **CSV/JSON Export**: Download filtered data in multiple formats with timestamped filenames
+- **Historical Comparison**: Compare snapshots to detect entities that changed status (privacy/security added/removed)
+- **Trend Charts**: Chart.js visualizations for coverage trends (7/30/90/180/365 day views)
+- **Configuration Page**: Adjustable settings (auto-refresh, timeouts, cache expiry, validation threads)
+- **Cache Status**: Real-time cache freshness indicators (green/orange/red) with age display
+- **Mobile-Responsive**: Full responsive design with breakpoints for mobile (480px), tablet (768px), and desktop (1024px)
+
+**Technical:**
+- **HTMX-Powered**: Fast partial updates without heavy JavaScript frameworks
+- **PicoCSS**: Classless CSS framework for minimal styling overhead
+- **SQLite Database**: Efficient storage with indexed queries for fast lookups
+- **No Build Step**: Pure HTML/CSS/JS with CDN dependencies
 
 ### Running the Dashboard
 
@@ -323,15 +343,27 @@ eduGAIN Metadata Analysis Results
 - **missing-both**: SPs missing both privacy and security
 - **urls**: URL validation results (with `--validate`)
 
-## 🏗️ Future Development
+## 🏗️ Development Roadmap
 
-See [todo.md](todo.md) for a comprehensive roadmap of planned features and improvements, including:
-- Interactive filtering/sorting for entity tables (Priority 3)
-- Enhanced visualizations with Chart.js (Priority 3)
-- CSV/JSON export functionality (Priority 3)
-- URL validation results view (Priority 4)
-- Historical comparison and trend analysis (Priority 5)
-- Mobile-responsive design improvements (Priority 6)
+See [TODO.md](TODO.md) for a comprehensive roadmap. All MVP priorities (1-6) are now complete! ✅
+
+**Completed Features (v2.0.0):**
+- ✅ Priority 1: Data Layer & Infrastructure (Entity-level tracking, URL validation database)
+- ✅ Priority 2: Core Features (Search, federation drill-down, entity detail pages)
+- ✅ Priority 3: Enhanced Interactivity (Filtering/sorting, charts, CSV/JSON export)
+- ✅ Priority 4: User Experience (URL validation view, cache status, configuration page)
+- ✅ Priority 5: Historical Analysis (Trend charts, entity change detection, snapshot comparison)
+- ✅ Priority 6: Polish & Optimization (Mobile-responsive design, print styles)
+
+**Future Considerations:**
+- Real-time notifications for data updates
+- Email alerts for federation compliance changes
+- Multi-user support with authentication
+- API rate limiting and caching headers
+- WebSocket support for live updates
+- Advanced analytics dashboard with custom queries
+- PDF report generation
+- Integration with external monitoring systems
 
 ### Recent Improvements (v2.0.0)
 
@@ -339,14 +371,15 @@ See [todo.md](todo.md) for a comprehensive roadmap of planned features and impro
 - ⚡ Migrated from Black to Ruff for unified linting + formatting (10-100x faster)
 - 🧹 Removed 282 lines of dead code and duplicate documentation
 - 🔧 Fixed CI/CD workflow to test modern package entry points
-- ✅ 153 tests passing with 73% overall coverage (94%+ for core modules)
+- ✅ 153 tests passing with 61% overall coverage (94%+ for core modules, web modules need integration tests)
 
-**Web Dashboard:**
-- 🔍 Added search functionality with live results
-- 📊 Implemented federation drill-down views with entity lists
-- 🏢 Created entity detail pages with full metadata display
-- 💾 Entity-level database tracking (10,000+ entities supported)
-- 🔗 URL validation results with HTTP status tracking
+**Web Dashboard (Complete MVP):**
+- 🏗️ Priority 1: Entity-level tracking + URL validation database (SQLAlchemy models, indexes, relationships)
+- 🔍 Priority 2: Live search, federation drill-down views, entity detail pages with historical data
+- 🎯 Priority 3: Interactive filtering/sorting, Chart.js visualizations, CSV/JSON export
+- 🎨 Priority 4: URL validation results page, cache status indicators, configuration page
+- 📈 Priority 5: Historical trend analysis, snapshot comparison, entity change detection
+- 📱 Priority 6: Mobile-responsive design with breakpoints (480px/768px/1024px), print styles
 
 ## 📋 Requirements
 
