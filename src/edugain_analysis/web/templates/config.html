@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>⚙️ Configuration</h1>
+
+<!-- Cache Status Card -->
+<section>
+    <article>
+        <header><strong>📊 Cache Status</strong></header>
+        <div id="cache-status-container">
+            <p>Loading cache status...</p>
+        </div>
+        <script>
+            // Fetch cache status on page load
+            fetch('/api/cache/status')
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('cache-status-container');
+                    let statusColor = 'var(--pico-ins-color)';
+                    let statusIcon = '✅';
+
+                    if (data.status === 'stale') {
+                        statusColor = 'orange';
+                        statusIcon = '⚠️';
+                    } else if (data.status === 'expired' || data.status === 'no_data') {
+                        statusColor = 'var(--pico-del-color)';
+                        statusIcon = '❌';
+                    }
+
+                    if (data.status === 'no_data') {
+                        container.innerHTML = `
+                            <p style="color: ${statusColor};">${statusIcon} <strong>${data.message}</strong></p>
+                            <p><small>Run: <code>python -m edugain_analysis.web.import_data</code></small></p>
+                        `;
+                    } else {
+                        container.innerHTML = `
+                            <p style="color: ${statusColor};">${statusIcon} <strong>${data.message}</strong></p>
+                            <div class="grid" style="margin-top: 1rem;">
+                                <div>
+                                    <small><strong>Last Updated:</strong></small><br>
+                                    <span>${new Date(data.timestamp).toLocaleString()}</span>
+                                </div>
+                                <div>
+                                    <small><strong>Data Age:</strong></small><br>
+                                    <span>${data.age_hours.toFixed(1)} hours</span>
+                                </div>
+                                <div>
+                                    <small><strong>Metadata Source:</strong></small><br>
+                                    <span>${data.metadata_source}</span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching cache status:', error);
+                    document.getElementById('cache-status-container').innerHTML = '<p style="color: var(--pico-del-color);">❌ Error loading cache status</p>';
+                });
+        </script>
+        <footer>
+            <p><small>To refresh data, run: <code>python -m edugain_analysis.web.import_data</code></small></p>
+        </footer>
+    </article>
+</section>
+
+<!-- Settings Form -->
+<section>
+    <article>
+        <header><strong>⚙️ Analysis Settings</strong></header>
+        <form id="settings-form">
+            <div class="grid">
+                <div>
+                    <label for="auto_refresh_interval">
+                        Auto-Refresh Interval (hours)
+                        <small>How often to check for new data (1-168)</small>
+                    </label>
+                    <input type="number" id="auto_refresh_interval" name="auto_refresh_interval"
+                           min="1" max="168" value="{{ settings.auto_refresh_interval }}" required>
+                </div>
+
+                <div>
+                    <label for="metadata_cache_expiry">
+                        Metadata Cache Expiry (hours)
+                        <small>How long to cache metadata (1-168)</small>
+                    </label>
+                    <input type="number" id="metadata_cache_expiry" name="metadata_cache_expiry"
+                           min="1" max="168" value="{{ settings.metadata_cache_expiry }}" required>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div>
+                    <label for="url_validation_timeout">
+                        URL Validation Timeout (seconds)
+                        <small>HTTP request timeout (1-60)</small>
+                    </label>
+                    <input type="number" id="url_validation_timeout" name="url_validation_timeout"
+                           min="1" max="60" value="{{ settings.url_validation_timeout }}" required>
+                </div>
+
+                <div>
+                    <label for="url_validation_threads">
+                        URL Validation Threads
+                        <small>Parallel validation threads (1-50)</small>
+                    </label>
+                    <input type="number" id="url_validation_threads" name="url_validation_threads"
+                           min="1" max="50" value="{{ settings.url_validation_threads }}" required>
+                </div>
+            </div>
+
+            <div>
+                <label for="federation_cache_expiry">
+                    Federation Cache Expiry (hours)
+                    <small>How long to cache federation names (1-8760 = 1 year)</small>
+                </label>
+                <input type="number" id="federation_cache_expiry" name="federation_cache_expiry"
+                       min="1" max="8760" value="{{ settings.federation_cache_expiry }}" required>
+            </div>
+
+            <div id="settings-message" style="margin-top: 1rem;"></div>
+
+            <div class="grid">
+                <button type="submit" id="save-button">💾 Save Settings</button>
+                <button type="button" class="secondary outline" id="reset-button">🔄 Reset to Defaults</button>
+            </div>
+        </form>
+
+        <script>
+            // Save settings
+            document.getElementById('settings-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const saveButton = document.getElementById('save-button');
+                const messageDiv = document.getElementById('settings-message');
+
+                saveButton.disabled = true;
+                saveButton.textContent = '⏳ Saving...';
+
+                const formData = new FormData(e.target);
+                const params = new URLSearchParams();
+                for (const [key, value] of formData) {
+                    params.append(key, value);
+                }
+
+                try {
+                    const response = await fetch(`/api/settings?${params.toString()}`, {
+                        method: 'POST',
+                    });
+                    const data = await response.json();
+
+                    if (data.error) {
+                        messageDiv.innerHTML = `<p style="color: var(--pico-del-color);">❌ ${data.error}</p>`;
+                    } else {
+                        messageDiv.innerHTML = `<p style="color: var(--pico-ins-color);">✅ ${data.message}</p>`;
+                    }
+                } catch (error) {
+                    messageDiv.innerHTML = `<p style="color: var(--pico-del-color);">❌ Error saving settings</p>`;
+                } finally {
+                    saveButton.disabled = false;
+                    saveButton.textContent = '💾 Save Settings';
+                }
+            });
+
+            // Reset to defaults
+            document.getElementById('reset-button').addEventListener('click', async () => {
+                const resetButton = document.getElementById('reset-button');
+                const messageDiv = document.getElementById('settings-message');
+
+                if (!confirm('Are you sure you want to reset all settings to defaults?')) {
+                    return;
+                }
+
+                resetButton.disabled = true;
+                resetButton.textContent = '⏳ Resetting...';
+
+                try {
+                    const response = await fetch('/api/settings/reset', {
+                        method: 'POST',
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        messageDiv.innerHTML = `<p style="color: var(--pico-ins-color);">✅ ${data.message}</p>`;
+                        // Reload page to show default values
+                        setTimeout(() => window.location.reload(), 1000);
+                    } else {
+                        messageDiv.innerHTML = `<p style="color: var(--pico-del-color);">❌ Error resetting settings</p>`;
+                    }
+                } catch (error) {
+                    messageDiv.innerHTML = `<p style="color: var(--pico-del-color);">❌ Error resetting settings</p>`;
+                } finally {
+                    resetButton.disabled = false;
+                    resetButton.textContent = '🔄 Reset to Defaults';
+                }
+            });
+        </script>
+    </article>
+</section>
+
+<section>
+    <article>
+        <header><strong>ℹ️ About Settings</strong></header>
+        <p>These settings control the behavior of the analysis and caching system:</p>
+        <ul>
+            <li><strong>Auto-Refresh Interval:</strong> Reserved for future auto-refresh feature</li>
+            <li><strong>Metadata Cache Expiry:</strong> Controls how long eduGAIN metadata is cached</li>
+            <li><strong>URL Validation Timeout:</strong> Maximum time to wait for URL validation responses</li>
+            <li><strong>URL Validation Threads:</strong> Number of parallel threads for URL validation (higher = faster but more load)</li>
+            <li><strong>Federation Cache Expiry:</strong> How long federation name mappings are cached</li>
+        </ul>
+        <p><small>Note: Settings changes only affect new data imports. Run <code>python -m edugain_analysis.web.import_data</code> to apply changes.</small></p>
+    </article>
+</section>
+
+<footer>
+    <p><small>Last settings update: {% if settings.updated_at %}{{ settings.updated_at.strftime('%Y-%m-%d %H:%M') }}{% else %}Never{% endif %}</small></p>
+</footer>
+{% endblock %}

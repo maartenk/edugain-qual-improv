@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from .models import Entity, Federation, Snapshot, URLValidation, get_db
+from .models import Entity, Federation, Settings, Snapshot, URLValidation, get_db
 
 # Initialize FastAPI app
 app = FastAPI(title="eduGAIN Quality Dashboard", version="1.0.0")
@@ -312,6 +312,30 @@ async def validation_page(
             "redirect_count": redirect_count,
             "error_count": error_count,
             "title": "URL Validation Results",
+        },
+    )
+
+
+@app.get("/config", response_class=HTMLResponse)
+async def config_page(request: Request, db: Session = Depends(get_db)):
+    """Configuration page for analysis settings."""
+    # Get or create settings
+    settings = db.query(Settings).first()
+    if not settings:
+        settings = Settings()
+        db.add(settings)
+        db.commit()
+        db.refresh(settings)
+
+    snapshot = db.query(Snapshot).order_by(Snapshot.timestamp.desc()).first()
+
+    return templates.TemplateResponse(
+        "config.html",
+        {
+            "request": request,
+            "settings": settings,
+            "snapshot": snapshot,
+            "title": "Configuration",
         },
     )
 
@@ -896,6 +920,139 @@ async def export_federations(export_format: str = "csv", db: Session = Depends(g
             media_type="application/json",
             headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
+
+
+# ========================================
+# Settings and Cache Status API
+# ========================================
+
+
+@app.get("/api/cache/status")
+async def cache_status(db: Session = Depends(get_db)):
+    """Get cache status information."""
+    snapshot = db.query(Snapshot).order_by(Snapshot.timestamp.desc()).first()
+
+    if not snapshot:
+        return {
+            "status": "no_data",
+            "message": "No data available. Run data import first.",
+        }
+
+    # Calculate age of snapshot
+    now = datetime.now()
+    age_hours = (now - snapshot.timestamp).total_seconds() / 3600
+
+    # Determine freshness status
+    if age_hours < 12:
+        status = "fresh"
+        message = "Data is up to date"
+    elif age_hours < 24:
+        status = "stale"
+        message = "Data may be outdated"
+    else:
+        status = "expired"
+        message = "Data is stale and should be refreshed"
+
+    return {
+        "status": status,
+        "message": message,
+        "timestamp": snapshot.timestamp.isoformat(),
+        "age_hours": round(age_hours, 2),
+        "metadata_source": snapshot.metadata_source or "eduGAIN Production",
+        "cache_age_hours": snapshot.cache_age_hours,
+    }
+
+
+@app.get("/api/settings")
+async def get_settings(db: Session = Depends(get_db)):
+    """Get current settings."""
+    settings = db.query(Settings).first()
+    if not settings:
+        # Return defaults
+        return {
+            "auto_refresh_interval": 12,
+            "url_validation_timeout": 10,
+            "url_validation_threads": 10,
+            "metadata_cache_expiry": 12,
+            "federation_cache_expiry": 720,
+        }
+
+    return {
+        "auto_refresh_interval": settings.auto_refresh_interval,
+        "url_validation_timeout": settings.url_validation_timeout,
+        "url_validation_threads": settings.url_validation_threads,
+        "metadata_cache_expiry": settings.metadata_cache_expiry,
+        "federation_cache_expiry": settings.federation_cache_expiry,
+        "updated_at": settings.updated_at.isoformat() if settings.updated_at else None,
+    }
+
+
+@app.post("/api/settings")
+async def update_settings(
+    auto_refresh_interval: int = 12,
+    url_validation_timeout: int = 10,
+    url_validation_threads: int = 10,
+    metadata_cache_expiry: int = 12,
+    federation_cache_expiry: int = 720,
+    db: Session = Depends(get_db),
+):
+    """Update settings."""
+    # Validate inputs
+    if auto_refresh_interval < 1 or auto_refresh_interval > 168:  # Max 1 week
+        return {"error": "auto_refresh_interval must be between 1 and 168 hours"}
+    if url_validation_timeout < 1 or url_validation_timeout > 60:
+        return {"error": "url_validation_timeout must be between 1 and 60 seconds"}
+    if url_validation_threads < 1 or url_validation_threads > 50:
+        return {"error": "url_validation_threads must be between 1 and 50"}
+    if metadata_cache_expiry < 1 or metadata_cache_expiry > 168:
+        return {"error": "metadata_cache_expiry must be between 1 and 168 hours"}
+    if federation_cache_expiry < 1 or federation_cache_expiry > 8760:  # Max 1 year
+        return {"error": "federation_cache_expiry must be between 1 and 8760 hours"}
+
+    # Get or create settings
+    settings = db.query(Settings).first()
+    if not settings:
+        settings = Settings()
+        db.add(settings)
+
+    # Update values
+    settings.auto_refresh_interval = auto_refresh_interval
+    settings.url_validation_timeout = url_validation_timeout
+    settings.url_validation_threads = url_validation_threads
+    settings.metadata_cache_expiry = metadata_cache_expiry
+    settings.federation_cache_expiry = federation_cache_expiry
+    settings.updated_at = datetime.now()
+
+    db.commit()
+    db.refresh(settings)
+
+    return {
+        "success": True,
+        "message": "Settings updated successfully",
+        "settings": {
+            "auto_refresh_interval": settings.auto_refresh_interval,
+            "url_validation_timeout": settings.url_validation_timeout,
+            "url_validation_threads": settings.url_validation_threads,
+            "metadata_cache_expiry": settings.metadata_cache_expiry,
+            "federation_cache_expiry": settings.federation_cache_expiry,
+        },
+    }
+
+
+@app.post("/api/settings/reset")
+async def reset_settings(db: Session = Depends(get_db)):
+    """Reset settings to defaults."""
+    settings = db.query(Settings).first()
+    if settings:
+        settings.auto_refresh_interval = 12
+        settings.url_validation_timeout = 10
+        settings.url_validation_threads = 10
+        settings.metadata_cache_expiry = 12
+        settings.federation_cache_expiry = 720
+        settings.updated_at = datetime.now()
+        db.commit()
+
+    return {"success": True, "message": "Settings reset to defaults"}
 
 
 # ========================================

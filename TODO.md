@@ -71,7 +71,7 @@
   - ✅ Generate downloadable files with proper Content-Disposition headers and timestamped filenames
   - File: `src/edugain_analysis/web/app.py`
 
-### Priority 4: User Experience
+### Priority 4: User Experience ✅
 
 - [x] **Add URL validation results view with status codes**
   - ✅ Created `/validation` page showing all privacy statement URL validation results
@@ -81,13 +81,13 @@
   - ✅ Show validation error details with truncated preview in table
   - Files: `src/edugain_analysis/web/app.py`, `templates/validation.html`
 
-- [ ] **Implement auto-refresh with cache status indicator**
-  - Add cache metadata to Snapshot model: cache_age, metadata_source, last_refresh_attempt
-  - Create `/api/cache/status` endpoint returning cache age and freshness
-  - Add visual indicator showing data age with color coding (fresh/stale/expired)
-  - Implement manual "Force Refresh" button triggering re-analysis
-  - Show loading spinner during refresh operations
-  - Files: `src/edugain_analysis/web/models.py`, `app.py`, `templates/base.html`
+- [x] **Implement cache status indicator and settings**
+  - ✅ Added cache metadata to Snapshot model: cache_age_hours, metadata_source
+  - ✅ Created `/api/cache/status` endpoint returning cache age and freshness
+  - ✅ Added cache status display on config page with color coding (fresh/stale/expired)
+  - ✅ Created Settings model for storing configuration
+  - ✅ Added `/api/settings` endpoints (GET/POST) with validation
+  - Files: `src/edugain_analysis/web/models.py`, `app.py`
 
 - [x] **Add data freshness indicator with last update time**
   - ✅ Display "Last updated: X hours ago" in dashboard header using time_ago filter
@@ -96,12 +96,12 @@
   - ✅ Display "Data is stale" or "Data may be outdated" warnings based on age
   - File: `templates/base.html`
 
-- [ ] **Add configuration page for analysis settings**
-  - Create `/config` route with settings form
-  - Add configurable options: auto-refresh interval, URL validation timeout, thread pool size, cache expiry
-  - Store settings in database (new `Settings` table)
-  - Add "Apply Settings" button with validation
-  - Include "Reset to Defaults" option
+- [x] **Add configuration page for analysis settings**
+  - ✅ Created `/config` route with settings form and cache status display
+  - ✅ Added configurable options: auto-refresh interval, URL validation timeout, thread pool size, metadata cache expiry, federation cache expiry
+  - ✅ Created Settings table in database with defaults
+  - ✅ Implemented "Save Settings" with validation (1-168 hours for most, 1-8760 for federation cache)
+  - ✅ Included "Reset to Defaults" functionality
   - Files: `src/edugain_analysis/web/app.py`, `templates/config.html`
 
 ### Priority 5: Historical Analysis

@@ -36,6 +36,12 @@ class Snapshot(Base):
     idps_has_security = Column(Integer)
     coverage_pct = Column(Float)
 
+    # Cache metadata
+    metadata_source = Column(
+        String(500), default="eduGAIN Production"
+    )  # Source of metadata
+    cache_age_hours = Column(Float)  # Age of metadata cache in hours
+
     # Relationships
     federations = relationship(
         "Federation", back_populates="snapshot", cascade="all, delete-orphan"
@@ -128,6 +134,20 @@ class URLValidation(Base):
     )
 
 
+class Settings(Base):
+    """Application settings (singleton table)."""
+
+    __tablename__ = "settings"
+
+    id = Column(Integer, primary_key=True)
+    auto_refresh_interval = Column(Integer, default=12)  # Hours
+    url_validation_timeout = Column(Integer, default=10)  # Seconds
+    url_validation_threads = Column(Integer, default=10)  # Thread pool size
+    metadata_cache_expiry = Column(Integer, default=12)  # Hours
+    federation_cache_expiry = Column(Integer, default=720)  # Hours (30 days)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
 def get_database_path() -> str:
     """Get XDG-compliant database path."""
     try:
@@ -143,10 +163,10 @@ def get_database_path() -> str:
 
 def create_database():
     """Create database with optimizations."""
-    DATABASE_URL = get_database_path()
+    database_url = get_database_path()
 
     engine = create_engine(
-        DATABASE_URL,
+        database_url,
         connect_args={"check_same_thread": False, "timeout": 30},
         pool_pre_ping=True,
         echo=False,
