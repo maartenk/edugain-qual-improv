@@ -43,10 +43,11 @@
         </select>
     </div>
 
-    <div style="display: flex; align-items: flex-end;">
+    <div>
+        <label><small>&nbsp;</small></label>
         <button onclick="document.getElementById('entity-type-filter').value=''; document.getElementById('privacy-filter').value=''; document.getElementById('security-filter').value=''; htmx.trigger('#entity-type-filter', 'change');"
                 class="secondary outline"
-                style="width: 100%; margin: 0;">
+                style="width: 100%;">
             Clear Filters
         </button>
     </div>

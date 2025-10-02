@@ -63,7 +63,11 @@
       "Bash(grep:*)",
       "Bash(test:*)",
       "Bash(.venv/bin/ruff check src/ tests/ --select F401,F841)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(.venv/bin/pytest tests/unit/test_web_app.py tests/unit/test_web_import_data.py -v --no-cov)",
+      "Bash(.venv/bin/pytest tests/unit/test_web_app.py tests/unit/test_web_import_data.py -v --no-cov -x)",
+      "Bash(.venv/bin/pytest tests/unit/test_web_app.py tests/unit/test_web_import_data.py -v --cov=src/edugain_analysis --cov-report=term-missing)",
+      "Bash(.venv/bin/pytest tests/unit/ -v --cov=src/edugain_analysis --cov-report=term-missing)"
     ],
     "deny": [],
     "ask": []
