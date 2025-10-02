@@ -25,6 +25,7 @@
         <ul>
             <li><a href="/" {% if request.url.path == '/' %}aria-current="page"{% endif %}>Dashboard</a></li>
             <li><a href="/federations" {% if request.url.path == '/federations' %}aria-current="page"{% endif %}>Federations</a></li>
+            <li><a href="/validation" {% if request.url.path == '/validation' %}aria-current="page"{% endif %}>URL Validation</a></li>
             <li>
                 <details role="list" dir="rtl">
                     <summary aria-haspopup="listbox" role="link">🔍 Search</summary>
@@ -53,6 +54,25 @@
 
     <!-- Main Content -->
     <main class="container">
+        <!-- Data Freshness Indicator -->
+        {% if snapshot %}
+        {% set hours_ago = ((now - snapshot.timestamp).total_seconds() / 3600)|int %}
+        <div style="margin-bottom: 1rem;">
+            <small style="{% if hours_ago > 24 %}color: var(--pico-del-color);{% elif hours_ago > 12 %}color: orange;{% else %}color: var(--pico-ins-color);{% endif %}">
+                {% if hours_ago > 24 %}
+                    ⚠️ Data is stale (last updated {{ snapshot.timestamp|time_ago }})
+                {% elif hours_ago > 12 %}
+                    ⚠️ Data may be outdated (last updated {{ snapshot.timestamp|time_ago }})
+                {% else %}
+                    ✅ Data is fresh (last updated {{ snapshot.timestamp|time_ago }})
+                {% endif %}
+                <span title="{{ snapshot.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}">
+                    - {{ snapshot.timestamp.strftime('%Y-%m-%d %H:%M') }}
+                </span>
+            </small>
+        </div>
+        {% endif %}
+
         {% block content %}{% endblock %}
     </main>
 

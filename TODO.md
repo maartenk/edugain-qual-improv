@@ -73,12 +73,12 @@
 
 ### Priority 4: User Experience
 
-- [ ] **Add URL validation results view with status codes**
-  - Create `/validation` page showing all privacy statement URL validation results
-  - Display table with columns: Entity, Federation, URL, Status Code, Final URL, Accessible, Last Checked
-  - Add filtering by status (accessible, redirect, error, timeout)
-  - Color-code status indicators (green=200, yellow=3xx, red=4xx/5xx)
-  - Show validation error details on hover/click
+- [x] **Add URL validation results view with status codes**
+  - ✅ Created `/validation` page showing all privacy statement URL validation results
+  - ✅ Display table with columns: Entity, Federation, URL, Status Code, Final URL, Accessible, Last Checked
+  - ✅ Added filtering by status (accessible, redirect, error, timeout)
+  - ✅ Color-coded status indicators (green=2xx, orange=3xx, red=4xx/5xx)
+  - ✅ Show validation error details with truncated preview in table
   - Files: `src/edugain_analysis/web/app.py`, `templates/validation.html`
 
 - [ ] **Implement auto-refresh with cache status indicator**
@@ -89,11 +89,11 @@
   - Show loading spinner during refresh operations
   - Files: `src/edugain_analysis/web/models.py`, `app.py`, `templates/base.html`
 
-- [ ] **Add data freshness indicator with last update time**
-  - Display "Last updated: X hours ago" on dashboard header
-  - Add timestamp tooltip showing exact update time
-  - Show "Data is stale" warning if snapshot > 24 hours old
-  - Include metadata source info (eduGAIN production vs local file)
+- [x] **Add data freshness indicator with last update time**
+  - ✅ Display "Last updated: X hours ago" in dashboard header using time_ago filter
+  - ✅ Added timestamp tooltip showing exact update time (YYYY-MM-DD HH:MM)
+  - ✅ Show color-coded warnings: green (<12h), orange (12-24h), red (>24h stale)
+  - ✅ Display "Data is stale" or "Data may be outdated" warnings based on age
   - File: `templates/base.html`
 
 - [ ] **Add configuration page for analysis settings**

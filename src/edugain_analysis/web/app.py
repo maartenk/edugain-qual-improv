@@ -234,6 +234,88 @@ async def entity_detail(
     )
 
 
+@app.get("/validation", response_class=HTMLResponse)
+async def validation_page(
+    request: Request,
+    status_filter: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """URL validation results page."""
+    snapshot = db.query(Snapshot).order_by(Snapshot.timestamp.desc()).first()
+
+    if not snapshot:
+        return templates.TemplateResponse(
+            "empty.html",
+            {"request": request, "title": "URL Validation"},
+        )
+
+    # Get all URL validations for the latest snapshot
+    query = (
+        db.query(URLValidation, Entity)
+        .join(Entity, URLValidation.entity_id == Entity.id)
+        .filter(Entity.snapshot_id == snapshot.id)
+    )
+
+    # Apply status filter
+    if status_filter == "accessible":
+        query = query.filter(URLValidation.accessible.is_(True))
+    elif status_filter == "redirect":
+        query = query.filter(
+            URLValidation.status_code >= 300, URLValidation.status_code < 400
+        )
+    elif status_filter == "error":
+        query = query.filter(URLValidation.status_code >= 400)
+    elif status_filter == "timeout":
+        query = query.filter(URLValidation.validation_error.isnot(None))
+
+    validations = query.order_by(URLValidation.validated_at.desc()).limit(500).all()
+
+    # Get validation stats
+    total_validations = (
+        db.query(URLValidation)
+        .join(Entity)
+        .filter(Entity.snapshot_id == snapshot.id)
+        .count()
+    )
+    accessible_count = (
+        db.query(URLValidation)
+        .join(Entity)
+        .filter(Entity.snapshot_id == snapshot.id, URLValidation.accessible.is_(True))
+        .count()
+    )
+    redirect_count = (
+        db.query(URLValidation)
+        .join(Entity)
+        .filter(
+            Entity.snapshot_id == snapshot.id,
+            URLValidation.status_code >= 300,
+            URLValidation.status_code < 400,
+        )
+        .count()
+    )
+    error_count = (
+        db.query(URLValidation)
+        .join(Entity)
+        .filter(Entity.snapshot_id == snapshot.id, URLValidation.status_code >= 400)
+        .count()
+    )
+
+    return templates.TemplateResponse(
+        "validation.html",
+        {
+            "request": request,
+            "snapshot": snapshot,
+            "validations": validations,
+            "status_filter": status_filter,
+            "total_validations": total_validations,
+            "accessible_count": accessible_count,
+            "redirect_count": redirect_count,
+            "error_count": error_count,
+            "title": "URL Validation Results",
+        },
+    )
+
+
 # ========================================
 # HTMX Partial Routes
 # ========================================
