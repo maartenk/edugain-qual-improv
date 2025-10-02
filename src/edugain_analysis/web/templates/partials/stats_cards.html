@@ -6,7 +6,7 @@
     </article>
 
     <article>
-        <header class="stat-label">Privacy Coverage</header>
+        <header class="stat-label">Privacy Coverage (SPs)</header>
         <div class="stat-value {% if snapshot.coverage_pct >= 80 %}coverage-high{% elif snapshot.coverage_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
             {{ "%.1f"|format(snapshot.coverage_pct) }}%
         </div>
@@ -15,10 +15,27 @@
     </article>
 
     <article>
-        <header class="stat-label">Last Updated</header>
-        <div class="stat-value">
-            <small>{{ snapshot.timestamp.strftime('%Y-%m-%d') }}</small>
+        <header class="stat-label">Security Contacts (SPs)</header>
+        {% set sp_sec_pct = (snapshot.sps_has_security / snapshot.total_sps * 100) if snapshot.total_sps > 0 else 0 %}
+        <div class="stat-value {% if sp_sec_pct >= 80 %}coverage-high{% elif sp_sec_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+            {{ "%.1f"|format(sp_sec_pct) }}%
         </div>
-        <small>{{ snapshot.timestamp.strftime('%H:%M:%S') }} • {{ snapshot.timestamp|time_ago }}</small>
+        <progress value="{{ sp_sec_pct }}" max="100"></progress>
+        <small>{{ "{:,}".format(snapshot.sps_has_security) }} of {{ "{:,}".format(snapshot.total_sps) }} SPs</small>
     </article>
+
+    <article>
+        <header class="stat-label">Security Contacts (IdPs)</header>
+        {% set idp_sec_pct = (snapshot.idps_has_security / snapshot.total_idps * 100) if snapshot.total_idps > 0 else 0 %}
+        <div class="stat-value {% if idp_sec_pct >= 80 %}coverage-high{% elif idp_sec_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+            {{ "%.1f"|format(idp_sec_pct) }}%
+        </div>
+        <progress value="{{ idp_sec_pct }}" max="100"></progress>
+        <small>{{ "{:,}".format(snapshot.idps_has_security) }} of {{ "{:,}".format(snapshot.total_idps) }} IdPs</small>
+    </article>
+</section>
+
+<!-- Last Updated Info -->
+<section>
+    <p style="text-align: center;"><small>Last updated: {{ snapshot.timestamp.strftime('%Y-%m-%d %H:%M:%S') }} ({{ snapshot.timestamp|time_ago }})</small></p>
 </section>
