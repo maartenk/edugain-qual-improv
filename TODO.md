@@ -119,16 +119,18 @@
   - ✅ Added federation-specific historical view with selection dropdown
   - Files: `src/edugain_analysis/web/app.py`, `templates/history.html`, `templates/partials/entity_changes.html`
 
-### Priority 6: Polish & Optimization
+### Priority 6: Polish & Optimization ✅
 
-- [ ] **Improve responsive design for mobile devices**
-  - Test all pages on mobile viewports (320px, 768px, 1024px)
-  - Make tables horizontally scrollable on mobile
-  - Optimize chart sizing for small screens
-  - Convert multi-column layouts to stacked on mobile
-  - Add mobile-friendly navigation menu (hamburger)
-  - Test with PicoCSS responsive utilities
-  - Files: `templates/*.html`, `static/css/custom.css`
+- [x] **Improve responsive design for mobile devices**
+  - ✅ Added comprehensive responsive breakpoints (480px, 768px, 1024px)
+  - ✅ Made all tables horizontally scrollable with `.table-responsive` wrapper class
+  - ✅ Optimized chart sizing for small screens (responsive heights: 200px-400px)
+  - ✅ Converted multi-column layouts to stacked on mobile using `.controls-container` and `.stat-grid` classes
+  - ✅ Added mobile-friendly responsive utilities (compact fonts, reduced padding, flexible grids)
+  - ✅ Updated all templates to use responsive CSS classes (history.html, entity_table.html, federation_table.html, entity_changes.html)
+  - ✅ Added print styles for better document output
+  - ✅ Navigation automatically wraps on smaller screens (PicoCSS built-in responsive behavior)
+  - Files: `static/css/custom.css`, `templates/history.html`, `templates/partials/*.html`
 
 ## Architecture Notes
 

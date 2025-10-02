@@ -55,7 +55,7 @@
 <!-- Entity Table -->
 <div id="entity-table-content">
     {% if entities %}
-    <figure>
+    <div class="table-responsive">
         <table role="grid">
             <thead>
                 <tr>
@@ -127,7 +127,7 @@
             {% endfor %}
             </tbody>
         </table>
-    </figure>
+    </div>
     <p><small>Showing {{ entities|length }} entities</small></p>
     {% else %}
     <p>No entities found matching the selected filters.</p>

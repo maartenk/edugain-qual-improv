@@ -87,13 +87,173 @@ th:hover {
     color: var(--muted-color);
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
+/* Table wrapper for horizontal scrolling */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Responsive grid for stat cards */
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+/* Responsive controls container */
+.controls-container {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.controls-container > div {
+    flex: 1 1 200px;
+}
+
+/* Responsive adjustments for tablets and below (≤1024px) */
+@media (max-width: 1024px) {
+    /* Reduce stat card font sizes */
     .stat-value {
-        font-size: 2rem;
+        font-size: 2.2rem;
+    }
+
+    /* Stack navigation items if needed */
+    nav ul {
+        gap: 0.5rem;
+    }
+
+    nav ul li a {
+        padding: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    /* Optimize chart height */
+    .chart-container {
+        height: 280px;
+    }
+
+    /* Make stat grid more compact */
+    .stat-grid {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+}
+
+/* Responsive adjustments for mobile (≤768px) */
+@media (max-width: 768px) {
+    /* Smaller stat values */
+    .stat-value {
+        font-size: 1.8rem;
+    }
+
+    /* Smaller chart height */
+    .chart-container {
+        height: 250px;
+    }
+
+    /* Force single column for stat cards */
+    .stat-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Stack all controls vertically */
+    .controls-container {
+        flex-direction: column;
+    }
+
+    .controls-container > div {
+        flex: 1 1 auto;
+        width: 100%;
+    }
+
+    /* Reduce table font size */
+    table {
+        font-size: 0.85rem;
+    }
+
+    /* Reduce padding in tables */
+    th, td {
+        padding: 0.5rem;
+    }
+
+    /* Make navigation more compact */
+    nav ul li a {
+        font-size: 0.85rem;
+        padding: 0.4rem;
+    }
+
+    /* Hide less important navigation items on very small screens */
+    nav ul {
+        flex-wrap: wrap;
+    }
+}
+
+/* Responsive adjustments for small mobile (≤480px) */
+@media (max-width: 480px) {
+    /* Even smaller stat values */
+    .stat-value {
+        font-size: 1.5rem;
+    }
+
+    /* Smaller chart height */
+    .chart-container {
+        height: 200px;
+    }
+
+    /* Very compact tables */
+    table {
+        font-size: 0.8rem;
+    }
+
+    th, td {
+        padding: 0.4rem;
+    }
+
+    /* Reduce heading sizes */
+    h1 {
+        font-size: 1.75rem;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+    }
+
+    h3 {
+        font-size: 1.25rem;
+    }
+
+    /* Compact buttons */
+    button, [role="button"] {
+        font-size: 0.9rem;
+        padding: 0.5rem 1rem;
+    }
+
+    /* Stack search dropdown to full width */
+    details[role="list"] ul {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+}
+
+/* Print styles */
+@media print {
+    nav, .controls-container, details[role="list"] {
+        display: none;
     }
 
     .chart-container {
-        height: 250px;
+        page-break-inside: avoid;
+    }
+
+    table {
+        page-break-inside: auto;
+    }
+
+    tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
     }
 }

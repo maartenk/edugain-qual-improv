@@ -9,7 +9,7 @@
 <h1>📈 Historical Analysis</h1>
 
 <!-- Date Range and Federation Selector -->
-<div style="display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;">
+<div class="controls-container">
     <div>
         <label for="days-select">Time Range:</label>
         <select id="days-select" onchange="updateHistory()">
@@ -54,7 +54,7 @@ function updateHistory() {
         <p>No snapshots found in this time range. Try selecting a longer period or importing more data.</p>
     </article>
     {% else %}
-    <div style="overflow-x: auto;">
+    <div class="table-responsive">
         <table>
             <thead>
                 <tr>
@@ -215,7 +215,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <section style="margin-top: 2rem;">
     <h2>Federation: {{ selected_federation }}</h2>
 
-    <div style="overflow-x: auto;">
+    <div class="table-responsive">
         <table>
             <thead>
                 <tr>
@@ -367,7 +367,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <h2>Entity Status Changes</h2>
     <p>Compare snapshots to see which entities changed their privacy or security status.</p>
 
-    <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+    <div class="controls-container">
         <div>
             <label for="snapshot1-select">Compare:</label>
             <select id="snapshot1-select">
