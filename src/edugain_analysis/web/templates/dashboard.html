@@ -14,7 +14,7 @@
 <section>
     <article>
         <header>
-            <strong>Coverage Trends</strong>
+            <strong>📈 Coverage Trends</strong>
             <span style="float: right;">
                 <select hx-get="/partials/trends"
                         hx-target="#trends-chart"
@@ -33,6 +33,22 @@
              hx-trigger="load"
              hx-swap="innerHTML">
             <p aria-busy="true">Loading trends...</p>
+        </div>
+    </article>
+</section>
+
+<!-- Federation Comparison Chart -->
+<section>
+    <article>
+        <header>
+            <strong>📊 Top 20 Federations by Size</strong>
+        </header>
+
+        <div id="federation-comparison-chart"
+             hx-get="/partials/federation_comparison?limit=20"
+             hx-trigger="load"
+             hx-swap="innerHTML">
+            <p aria-busy="true">Loading comparison chart...</p>
         </div>
     </article>
 </section>

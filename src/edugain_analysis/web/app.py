@@ -1,10 +1,15 @@
 """FastAPI web application for eduGAIN analysis dashboard."""
 
+# ruff: noqa: B008 - Depends in defaults is standard FastAPI pattern
+
+import csv
+import json
 from datetime import datetime, timedelta
+from io import StringIO
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -359,6 +364,122 @@ async def search_partial(request: Request, q: str = "", db: Session = Depends(ge
     )
 
 
+@app.get("/partials/federation_comparison", response_class=HTMLResponse)
+async def federation_comparison_partial(
+    request: Request, limit: int = 20, db: Session = Depends(get_db)
+):
+    """Return federation comparison chart as HTML fragment."""
+    snapshot = db.query(Snapshot).order_by(Snapshot.timestamp.desc()).first()
+    if not snapshot:
+        return "<p>No data available</p>"
+
+    federations = (
+        db.query(Federation)
+        .filter(Federation.snapshot_id == snapshot.id)
+        .order_by(Federation.total_entities.desc())
+        .limit(limit)
+        .all()
+    )
+
+    return templates.TemplateResponse(
+        "partials/federation_comparison_chart.html",
+        {"request": request, "federations": federations},
+    )
+
+
+@app.get("/partials/entity_table", response_class=HTMLResponse)
+async def entity_table_partial(
+    request: Request,
+    federation_id: int | None = None,
+    entity_type: str | None = None,
+    privacy_filter: str | None = None,
+    security_filter: str | None = None,
+    sort_by: str = "organization",
+    sort_order: str = "asc",
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    """Return filtered and sorted entity table as HTML fragment.
+
+    Args:
+        federation_id: Filter by federation ID
+        entity_type: Filter by SP or IdP
+        privacy_filter: 'yes', 'no', 'na', or None (all)
+        security_filter: 'yes', 'no', or None (all)
+        sort_by: Column to sort by (organization, type, privacy, security)
+        sort_order: 'asc' or 'desc'
+        limit: Max entities to return
+    """
+    snapshot = db.query(Snapshot).order_by(Snapshot.timestamp.desc()).first()
+    if not snapshot:
+        return "<p>No data available</p>"
+
+    # Build query
+    query = db.query(Entity).filter(Entity.snapshot_id == snapshot.id)
+
+    # Apply filters
+    if federation_id:
+        query = query.filter(Entity.federation_id == federation_id)
+
+    if entity_type and entity_type in ["SP", "IdP"]:
+        query = query.filter(Entity.entity_type == entity_type)
+
+    if privacy_filter == "yes":
+        query = query.filter(Entity.has_privacy_statement.is_(True))
+    elif privacy_filter == "no":
+        query = query.filter(
+            Entity.has_privacy_statement.is_(False),
+            Entity.entity_type == "SP",
+        )
+    elif privacy_filter == "na":
+        query = query.filter(Entity.entity_type == "IdP")
+
+    if security_filter == "yes":
+        query = query.filter(Entity.has_security_contact.is_(True))
+    elif security_filter == "no":
+        query = query.filter(Entity.has_security_contact.is_(False))
+
+    # Apply sorting
+    if sort_by == "organization":
+        sort_col = Entity.organization_name
+    elif sort_by == "type":
+        sort_col = Entity.entity_type
+    elif sort_by == "privacy":
+        sort_col = Entity.has_privacy_statement
+    elif sort_by == "security":
+        sort_col = Entity.has_security_contact
+    else:
+        sort_col = Entity.organization_name
+
+    if sort_order == "desc":
+        query = query.order_by(sort_col.desc())
+    else:
+        query = query.order_by(sort_col.asc())
+
+    # Get entities
+    entities = query.limit(limit).all()
+
+    # Get federation info if filtering by federation
+    federation = None
+    if federation_id:
+        federation = db.query(Federation).filter(Federation.id == federation_id).first()
+
+    return templates.TemplateResponse(
+        "partials/entity_table.html",
+        {
+            "request": request,
+            "entities": entities,
+            "federation": federation,
+            "snapshot": snapshot,
+            "entity_type": entity_type,
+            "privacy_filter": privacy_filter,
+            "security_filter": security_filter,
+            "sort_by": sort_by,
+            "sort_order": sort_order,
+        },
+    )
+
+
 # ========================================
 # API Endpoints (JSON)
 # ========================================
@@ -466,6 +587,233 @@ async def get_federations_json(db: Session = Depends(get_db)):
         }
         for f in federations
     ]
+
+
+# ========================================
+# Export Endpoints
+# ========================================
+
+
+@app.get("/api/export/entities")
+async def export_entities(
+    export_format: str = "csv",
+    federation_id: int | None = None,
+    entity_type: str | None = None,
+    privacy_filter: str | None = None,
+    security_filter: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """Export entities as CSV or JSON.
+
+    Args:
+        export_format: 'csv' or 'json'
+        federation_id: Filter by federation ID
+        entity_type: Filter by SP or IdP
+        privacy_filter: 'yes', 'no', 'na', or None
+        security_filter: 'yes', 'no', or None
+    """
+    snapshot = db.query(Snapshot).order_by(Snapshot.timestamp.desc()).first()
+    if not snapshot:
+        return {"error": "No data available"}
+
+    # Build query (same logic as entity_table_partial)
+    query = db.query(Entity).filter(Entity.snapshot_id == snapshot.id)
+
+    if federation_id:
+        query = query.filter(Entity.federation_id == federation_id)
+
+    if entity_type and entity_type in ["SP", "IdP"]:
+        query = query.filter(Entity.entity_type == entity_type)
+
+    if privacy_filter == "yes":
+        query = query.filter(Entity.has_privacy_statement.is_(True))
+    elif privacy_filter == "no":
+        query = query.filter(
+            Entity.has_privacy_statement.is_(False),
+            Entity.entity_type == "SP",
+        )
+    elif privacy_filter == "na":
+        query = query.filter(Entity.entity_type == "IdP")
+
+    if security_filter == "yes":
+        query = query.filter(Entity.has_security_contact.is_(True))
+    elif security_filter == "no":
+        query = query.filter(Entity.has_security_contact.is_(False))
+
+    entities = query.order_by(Entity.organization_name).all()
+
+    # CSV export
+    if export_format == "csv":
+        output = StringIO()
+        writer = csv.writer(output)
+
+        # Write header
+        writer.writerow(
+            [
+                "Federation",
+                "EntityType",
+                "OrganizationName",
+                "EntityID",
+                "HasPrivacyStatement",
+                "PrivacyStatementURL",
+                "HasSecurityContact",
+            ]
+        )
+
+        # Write data
+        for entity in entities:
+            privacy_status = (
+                "N/A"
+                if entity.entity_type == "IdP"
+                else ("Yes" if entity.has_privacy_statement else "No")
+            )
+            privacy_url = (
+                "N/A"
+                if entity.entity_type == "IdP"
+                else (entity.privacy_statement_url or "")
+            )
+
+            writer.writerow(
+                [
+                    entity.federation.name if entity.federation else "Unknown",
+                    entity.entity_type,
+                    entity.organization_name or "",
+                    entity.entity_id,
+                    privacy_status,
+                    privacy_url,
+                    "Yes" if entity.has_security_contact else "No",
+                ]
+            )
+
+        csv_content = output.getvalue()
+        timestamp = snapshot.timestamp.strftime("%Y%m%d")
+        filename = f"edugain_entities_{timestamp}.csv"
+
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+
+    # JSON export
+    else:
+        data = {
+            "snapshot_timestamp": snapshot.timestamp.isoformat(),
+            "total_entities": len(entities),
+            "entities": [
+                {
+                    "federation": e.federation.name if e.federation else "Unknown",
+                    "entity_type": e.entity_type,
+                    "organization_name": e.organization_name,
+                    "entity_id": e.entity_id,
+                    "has_privacy_statement": (
+                        "N/A" if e.entity_type == "IdP" else e.has_privacy_statement
+                    ),
+                    "privacy_statement_url": (
+                        "N/A" if e.entity_type == "IdP" else e.privacy_statement_url
+                    ),
+                    "has_security_contact": e.has_security_contact,
+                }
+                for e in entities
+            ],
+        }
+
+        timestamp = snapshot.timestamp.strftime("%Y%m%d")
+        filename = f"edugain_entities_{timestamp}.json"
+
+        return Response(
+            content=json.dumps(data, indent=2),
+            media_type="application/json",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+
+
+@app.get("/api/export/federations")
+async def export_federations(export_format: str = "csv", db: Session = Depends(get_db)):
+    """Export federation statistics as CSV or JSON."""
+    snapshot = db.query(Snapshot).order_by(Snapshot.timestamp.desc()).first()
+    if not snapshot:
+        return {"error": "No data available"}
+
+    federations = (
+        db.query(Federation)
+        .filter(Federation.snapshot_id == snapshot.id)
+        .order_by(Federation.name)
+        .all()
+    )
+
+    # CSV export
+    if export_format == "csv":
+        output = StringIO()
+        writer = csv.writer(output)
+
+        # Write header
+        writer.writerow(
+            [
+                "Federation",
+                "TotalEntities",
+                "TotalSPs",
+                "TotalIdPs",
+                "SPsWithPrivacy",
+                "SPsHasSecurity",
+                "IdPsHasSecurity",
+                "CoveragePct",
+            ]
+        )
+
+        # Write data
+        for fed in federations:
+            writer.writerow(
+                [
+                    fed.name,
+                    fed.total_entities,
+                    fed.total_sps,
+                    fed.total_idps,
+                    fed.sps_with_privacy,
+                    fed.sps_has_security,
+                    fed.idps_has_security,
+                    round(fed.coverage_pct, 2),
+                ]
+            )
+
+        csv_content = output.getvalue()
+        timestamp = snapshot.timestamp.strftime("%Y%m%d")
+        filename = f"edugain_federations_{timestamp}.csv"
+
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+
+    # JSON export
+    else:
+        data = {
+            "snapshot_timestamp": snapshot.timestamp.isoformat(),
+            "total_federations": len(federations),
+            "federations": [
+                {
+                    "name": f.name,
+                    "total_entities": f.total_entities,
+                    "total_sps": f.total_sps,
+                    "total_idps": f.total_idps,
+                    "sps_with_privacy": f.sps_with_privacy,
+                    "sps_has_security": f.sps_has_security,
+                    "idps_has_security": f.idps_has_security,
+                    "coverage_pct": round(f.coverage_pct, 2),
+                }
+                for f in federations
+            ],
+        }
+
+        timestamp = snapshot.timestamp.strftime("%Y%m%d")
+        filename = f"edugain_federations_{timestamp}.json"
+
+        return Response(
+            content=json.dumps(data, indent=2),
+            media_type="application/json",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
 
 
 # ========================================

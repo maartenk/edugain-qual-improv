@@ -1,0 +1,155 @@
+<!-- Filter Controls -->
+<div class="grid" style="margin-bottom: 1rem;">
+    <div>
+        <label for="entity-type-filter"><small>Entity Type:</small></label>
+        <select id="entity-type-filter"
+                hx-get="/partials/entity_table"
+                hx-target="#entity-table-content"
+                hx-include="[name='privacy-filter'], [name='security-filter']"
+                name="entity_type"
+                {% if federation %}hx-vals='{"federation_id": {{ federation.id }}}'{% endif %}>
+            <option value="">All Types</option>
+            <option value="SP" {% if entity_type == "SP" %}selected{% endif %}>Service Providers (SP)</option>
+            <option value="IdP" {% if entity_type == "IdP" %}selected{% endif %}>Identity Providers (IdP)</option>
+        </select>
+    </div>
+
+    <div>
+        <label for="privacy-filter"><small>Privacy Statement:</small></label>
+        <select id="privacy-filter"
+                hx-get="/partials/entity_table"
+                hx-target="#entity-table-content"
+                hx-include="[name='entity_type'], [name='security-filter']"
+                name="privacy_filter"
+                {% if federation %}hx-vals='{"federation_id": {{ federation.id }}}'{% endif %}>
+            <option value="">All</option>
+            <option value="yes" {% if privacy_filter == "yes" %}selected{% endif %}>✅ Has Privacy</option>
+            <option value="no" {% if privacy_filter == "no" %}selected{% endif %}>❌ Missing Privacy</option>
+            <option value="na" {% if privacy_filter == "na" %}selected{% endif %}>N/A (IdPs)</option>
+        </select>
+    </div>
+
+    <div>
+        <label for="security-filter"><small>Security Contact:</small></label>
+        <select id="security-filter"
+                hx-get="/partials/entity_table"
+                hx-target="#entity-table-content"
+                hx-include="[name='entity_type'], [name='privacy-filter']"
+                name="security_filter"
+                {% if federation %}hx-vals='{"federation_id": {{ federation.id }}}'{% endif %}>
+            <option value="">All</option>
+            <option value="yes" {% if security_filter == "yes" %}selected{% endif %}>✅ Has Security</option>
+            <option value="no" {% if security_filter == "no" %}selected{% endif %}>❌ Missing Security</option>
+        </select>
+    </div>
+
+    <div style="display: flex; align-items: flex-end;">
+        <button onclick="document.getElementById('entity-type-filter').value=''; document.getElementById('privacy-filter').value=''; document.getElementById('security-filter').value=''; htmx.trigger('#entity-type-filter', 'change');"
+                class="secondary outline"
+                style="width: 100%; margin: 0;">
+            Clear Filters
+        </button>
+    </div>
+</div>
+
+<!-- Entity Table -->
+<div id="entity-table-content">
+    {% if entities %}
+    <figure>
+        <table role="grid">
+            <thead>
+                <tr>
+                    <th>
+                        <a hx-get="/partials/entity_table?sort_by=organization&sort_order={% if sort_by == 'organization' and sort_order == 'asc' %}desc{% else %}asc{% endif %}{% if federation %}&federation_id={{ federation.id }}{% endif %}"
+                           hx-target="#entity-table-content"
+                           hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
+                           style="cursor: pointer; text-decoration: none;">
+                            Organization {% if sort_by == "organization" %}{{ "▼" if sort_order == "desc" else "▲" }}{% endif %}
+                        </a>
+                    </th>
+                    <th>
+                        <a hx-get="/partials/entity_table?sort_by=type&sort_order={% if sort_by == 'type' and sort_order == 'asc' %}desc{% else %}asc{% endif %}{% if federation %}&federation_id={{ federation.id }}{% endif %}"
+                           hx-target="#entity-table-content"
+                           hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
+                           style="cursor: pointer; text-decoration: none;">
+                            Type {% if sort_by == "type" %}{{ "▼" if sort_order == "desc" else "▲" }}{% endif %}
+                        </a>
+                    </th>
+                    <th>
+                        <a hx-get="/partials/entity_table?sort_by=privacy&sort_order={% if sort_by == 'privacy' and sort_order == 'asc' %}desc{% else %}asc{% endif %}{% if federation %}&federation_id={{ federation.id }}{% endif %}"
+                           hx-target="#entity-table-content"
+                           hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
+                           style="cursor: pointer; text-decoration: none;">
+                            Privacy {% if sort_by == "privacy" %}{{ "▼" if sort_order == "desc" else "▲" }}{% endif %}
+                        </a>
+                    </th>
+                    <th>
+                        <a hx-get="/partials/entity_table?sort_by=security&sort_order={% if sort_by == 'security' and sort_order == 'asc' %}desc{% else %}asc{% endif %}{% if federation %}&federation_id={{ federation.id }}{% endif %}"
+                           hx-target="#entity-table-content"
+                           hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
+                           style="cursor: pointer; text-decoration: none;">
+                            Security {% if sort_by == "security" %}{{ "▼" if sort_order == "desc" else "▲" }}{% endif %}
+                        </a>
+                    </th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for entity in entities %}
+                <tr>
+                    <td>
+                        <strong>{{ entity.organization_name or "N/A" }}</strong><br>
+                        <small style="word-break: break-all;">{{ entity.entity_id[:60] }}{% if entity.entity_id|length > 60 %}...{% endif %}</small>
+                    </td>
+                    <td>
+                        <span class="badge">{{ entity.entity_type }}</span>
+                    </td>
+                    <td>
+                        {% if entity.entity_type == "IdP" %}
+                            <span style="color: #888;">N/A</span>
+                        {% elif entity.has_privacy_statement %}
+                            <span style="color: var(--pico-ins-color);">✅ Yes</span>
+                        {% else %}
+                            <span style="color: var(--pico-del-color);">❌ No</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if entity.has_security_contact %}
+                            <span style="color: var(--pico-ins-color);">✅ Yes</span>
+                        {% else %}
+                            <span style="color: var(--pico-del-color);">❌ No</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="/entities/{{ entity.entity_id }}" role="button" class="outline secondary" style="font-size: 0.8em; padding: 0.25rem 0.5rem; margin: 0;">View Details</a>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </figure>
+    <p><small>Showing {{ entities|length }} entities</small></p>
+    {% else %}
+    <p>No entities found matching the selected filters.</p>
+    {% endif %}
+</div>
+
+<!-- Export Buttons -->
+<div class="grid" style="margin-top: 1rem;">
+    <div>
+        <a href="/api/export/entities?export_format=csv{% if federation %}&federation_id={{ federation.id }}{% endif %}{% if entity_type %}&entity_type={{ entity_type }}{% endif %}{% if privacy_filter %}&privacy_filter={{ privacy_filter }}{% endif %}{% if security_filter %}&security_filter={{ security_filter }}{% endif %}"
+           role="button"
+           class="secondary"
+           style="width: 100%; text-align: center;">
+            📊 Export to CSV
+        </a>
+    </div>
+    <div>
+        <a href="/api/export/entities?export_format=json{% if federation %}&federation_id={{ federation.id }}{% endif %}{% if entity_type %}&entity_type={{ entity_type }}{% endif %}{% if privacy_filter %}&privacy_filter={{ privacy_filter }}{% endif %}{% if security_filter %}&security_filter={{ security_filter }}{% endif %}"
+           role="button"
+           class="secondary outline"
+           style="width: 100%; text-align: center;">
+            📋 Export to JSON
+        </a>
+    </div>
+</div>

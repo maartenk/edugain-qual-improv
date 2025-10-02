@@ -45,29 +45,30 @@
   - ✅ Visual indicators for privacy/security status with color coding
   - Files: `src/edugain_analysis/web/app.py`, `templates/entity_detail.html`
 
-### Priority 3: Enhanced Interactivity
+### Priority 3: Enhanced Interactivity ✅
 
-- [ ] **Add interactive filtering/sorting for entity tables**
-  - Add filter controls for entity type (SP/IdP), privacy status, security status
-  - Implement multi-column sorting with visual indicators
-  - Add "Show only missing privacy" and "Show only missing security" toggles
-  - Create `/partials/entity_table` HTMX endpoint with filter/sort params
+- [x] **Add interactive filtering/sorting for entity tables**
+  - ✅ Added filter controls for entity type (SP/IdP), privacy status, security status
+  - ✅ Implemented multi-column sorting with visual indicators (▲/▼)
+  - ✅ Added "Show only missing privacy" and "Show only missing security" toggles
+  - ✅ Created `/partials/entity_table` HTMX endpoint with filter/sort params
+  - ✅ Added clear filters button and integrated with federation detail page
   - Files: `src/edugain_analysis/web/app.py`, `templates/partials/entity_table.html`
 
-- [ ] **Enhance visualizations with interactive charts/graphs**
-  - Replace static trend chart with interactive Chart.js implementation
-  - Add federation coverage comparison bar chart (top 20 federations)
-  - Create coverage distribution histogram
-  - Add privacy/security compliance pie charts
-  - Add chart interactivity: tooltips, zoom, data point selection
-  - Files: `templates/partials/trend_chart.html`, `static/js/charts.js`
+- [x] **Enhance visualizations with interactive charts/graphs**
+  - ✅ Enhanced trend chart with multi-dataset support (privacy + security contacts for SPs/IdPs)
+  - ✅ Added federation coverage comparison bar chart (top 20 federations by size)
+  - ✅ Implemented interactive tooltips with detailed information
+  - ✅ Added legend with dataset toggles
+  - ✅ Improved chart aesthetics with color coding and labels
+  - Files: `templates/partials/trend_chart.html`, `templates/partials/federation_comparison_chart.html`
 
-- [ ] **Add export functionality for filtered data (CSV/JSON)**
-  - Implement `/api/export/entities` endpoint with format parameter (csv/json)
-  - Support filter parameters matching table filters
-  - Add "Export to CSV" and "Export to JSON" buttons on entity tables
-  - Include federation breakdown export option
-  - Generate downloadable files with proper Content-Disposition headers
+- [x] **Add export functionality for filtered data (CSV/JSON)**
+  - ✅ Implemented `/api/export/entities` endpoint with format parameter (csv/json)
+  - ✅ Implemented `/api/export/federations` endpoint for federation statistics
+  - ✅ Support all filter parameters matching table filters (type, privacy, security)
+  - ✅ Added "Export to CSV" and "Export to JSON" buttons on entity tables and federation page
+  - ✅ Generate downloadable files with proper Content-Disposition headers and timestamped filenames
   - File: `src/edugain_analysis/web/app.py`
 
 ### Priority 4: User Experience

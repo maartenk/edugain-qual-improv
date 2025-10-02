@@ -64,61 +64,14 @@
     </article>
 </section>
 
-<!-- Entities Table -->
+<!-- Entities Table with Filtering/Sorting -->
 <section>
-    <h2>Entities ({{ entities|length }} shown)</h2>
-    {% if entities %}
-    <figure>
-        <table role="grid">
-            <thead>
-                <tr>
-                    <th>Organization</th>
-                    <th>Type</th>
-                    <th>Privacy Statement</th>
-                    <th>Security Contact</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-            {% for entity in entities %}
-                <tr>
-                    <td>
-                        <strong>{{ entity.organization_name or "N/A" }}</strong><br>
-                        <small style="word-break: break-all;">{{ entity.entity_id[:60] }}{% if entity.entity_id|length > 60 %}...{% endif %}</small>
-                    </td>
-                    <td>
-                        <span class="badge">{{ entity.entity_type }}</span>
-                    </td>
-                    <td>
-                        {% if entity.entity_type == "IdP" %}
-                            <span style="color: #888;">N/A</span>
-                        {% elif entity.has_privacy_statement %}
-                            <span style="color: var(--pico-ins-color);">✅ Yes</span>
-                        {% else %}
-                            <span style="color: var(--pico-del-color);">❌ No</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if entity.has_security_contact %}
-                            <span style="color: var(--pico-ins-color);">✅ Yes</span>
-                        {% else %}
-                            <span style="color: var(--pico-del-color);">❌ No</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <a href="/entities/{{ entity.entity_id }}" role="button" class="outline secondary">View Details</a>
-                    </td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    </figure>
-    {% if entities|length >= 100 %}
-    <p><em>Showing first 100 entities. More pagination coming soon.</em></p>
-    {% endif %}
-    {% else %}
-    <p>No entities found for this federation.</p>
-    {% endif %}
+    <h2>📋 Entities</h2>
+    <div hx-get="/partials/entity_table?federation_id={{ federation.id }}"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+        <p aria-busy="true">Loading entities...</p>
+    </div>
 </section>
 
 <footer>

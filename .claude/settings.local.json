@@ -51,7 +51,19 @@
       "Bash(.venv/bin/pytest tests/unit/ -v --no-cov)",
       "Bash(.venv/bin/pip:*)",
       "Bash(.venv/bin/pytest tests/unit/ -v --cov=src/edugain_analysis --cov-report=term-missing --cov-report=html)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(.venv/bin/ruff check src/ tests/)",
+      "Bash(.venv/bin/black --check src/ tests/)",
+      "Bash(.venv/bin/mypy src/)",
+      "Bash(.venv/bin/black:*)",
+      "Bash(.venv/bin/ruff check --fix src/edugain_analysis/web/import_data.py src/edugain_analysis/web/app.py tests/unit/test_web_models.py)",
+      "Bash(.venv/bin/pytest tests/unit/ -v --no-cov -x)",
+      "Bash(.venv/bin/ruff format src/ tests/)",
+      "Bash(.venv/bin/ruff check src/ tests/ --select F401,F841 --output-format=concise)",
+      "Bash(grep:*)",
+      "Bash(test:*)",
+      "Bash(.venv/bin/ruff check src/ tests/ --select F401,F841)",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": []

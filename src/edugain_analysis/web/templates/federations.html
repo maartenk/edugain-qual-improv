@@ -40,6 +40,27 @@
         <div id="federation-table">
             {% include "partials/federation_table.html" %}
         </div>
+
+        <footer>
+            <div class="grid">
+                <div>
+                    <a href="/api/export/federations?export_format=csv"
+                       role="button"
+                       class="secondary"
+                       style="width: 100%; text-align: center;">
+                        📊 Export Federations to CSV
+                    </a>
+                </div>
+                <div>
+                    <a href="/api/export/federations?export_format=json"
+                       role="button"
+                       class="secondary outline"
+                       style="width: 100%; text-align: center;">
+                        📋 Export Federations to JSON
+                    </a>
+                </div>
+            </div>
+        </footer>
     </article>
 </section>
 {% endblock %}
