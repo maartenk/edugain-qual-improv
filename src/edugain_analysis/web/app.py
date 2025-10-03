@@ -1674,7 +1674,7 @@ def run_refresh(validate_urls: bool = False):
                     entity_type=entity_data[1],
                     organization_name=entity_data[2],
                     entity_id=entity_data[3],
-                    has_privacy_statement=entity_data[4]
+                    has_privacy_statement=entity_data[4] == "Yes"
                     if entity_data[4] != "N/A"
                     else None,
                     privacy_statement_url=entity_data[5]
