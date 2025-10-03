@@ -51,7 +51,7 @@ class TestPrintSummary:
             print_summary(stats)
             result = mock_stderr.getvalue()
 
-        assert "eduGAIN Privacy Statement and Security Contact Coverage" in result
+        assert "eduGAIN Quality Analysis: Privacy, Security & SIRTFI Coverage" in result
         assert "Total entities analyzed: 100" in result
         assert "SPs: 60, IdPs: 40" in result
         assert "45 out of 60 (75.0%)" in result

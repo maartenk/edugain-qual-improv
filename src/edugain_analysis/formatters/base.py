@@ -22,11 +22,11 @@ def print_summary(stats: dict) -> None:
         return
 
     print(
-        "\n=== eduGAIN Privacy Statement and Security Contact Coverage ===",
+        "\n=== eduGAIN Quality Analysis: Privacy, Security & SIRTFI Coverage ===",
         file=sys.stderr,
     )
     print(
-        f"Total entities analyzed: {total} (SPs: {total_sps}, IdPs: {total_idps})",
+        f"Total entities analyzed: {total:,} (SPs: {total_sps:,}, IdPs: {total_idps:,})",
         file=sys.stderr,
     )
     print("", file=sys.stderr)
@@ -37,11 +37,11 @@ def print_summary(stats: dict) -> None:
         sp_missing_privacy_pct = (stats["sps_missing_privacy"] / total_sps) * 100
         print("📊 Privacy Statement URL Coverage (SPs only):", file=sys.stderr)
         print(
-            f"  ✅ SPs with privacy statements: {stats['sps_has_privacy']} out of {total_sps} ({sp_privacy_pct:.1f}%)",
+            f"  ✅ SPs with privacy statements: {stats['sps_has_privacy']:,} out of {total_sps:,} ({sp_privacy_pct:.1f}%)",
             file=sys.stderr,
         )
         print(
-            f"  ❌ SPs missing privacy statements: {stats['sps_missing_privacy']} out of {total_sps} ({sp_missing_privacy_pct:.1f}%)",
+            f"  ❌ SPs missing privacy statements: {stats['sps_missing_privacy']:,} out of {total_sps:,} ({sp_missing_privacy_pct:.1f}%)",
             file=sys.stderr,
         )
         print("", file=sys.stderr)
@@ -51,11 +51,11 @@ def print_summary(stats: dict) -> None:
     total_missing_security_pct = (stats["total_missing_security"] / total) * 100
     print("🔒 Security Contact Coverage:", file=sys.stderr)
     print(
-        f"  ✅ Total entities with security contacts: {stats['total_has_security']} out of {total} ({total_security_pct:.1f}%)",
+        f"  ✅ Total entities with security contacts: {stats['total_has_security']:,} out of {total:,} ({total_security_pct:.1f}%)",
         file=sys.stderr,
     )
     print(
-        f"  ❌ Total entities missing security contacts: {stats['total_missing_security']} out of {total} ({total_missing_security_pct:.1f}%)",
+        f"  ❌ Total entities missing security contacts: {stats['total_missing_security']:,} out of {total:,} ({total_missing_security_pct:.1f}%)",
         file=sys.stderr,
     )
 
@@ -63,14 +63,14 @@ def print_summary(stats: dict) -> None:
     if total_sps > 0:
         sp_security_pct = (stats["sps_has_security"] / total_sps) * 100
         print(
-            f"    📊 SPs: {stats['sps_has_security']} with / {stats['sps_missing_security']} without ({sp_security_pct:.1f}% coverage)",
+            f"    📊 SPs: {stats['sps_has_security']:,} with / {stats['sps_missing_security']:,} without ({sp_security_pct:.1f}% coverage)",
             file=sys.stderr,
         )
 
     if total_idps > 0:
         idp_security_pct = (stats["idps_has_security"] / total_idps) * 100
         print(
-            f"    📊 IdPs: {stats['idps_has_security']} with / {stats['idps_missing_security']} without ({idp_security_pct:.1f}% coverage)",
+            f"    📊 IdPs: {stats['idps_has_security']:,} with / {stats['idps_missing_security']:,} without ({idp_security_pct:.1f}% coverage)",
             file=sys.stderr,
         )
 
@@ -81,11 +81,11 @@ def print_summary(stats: dict) -> None:
     total_missing_sirtfi_pct = (stats["total_missing_sirtfi"] / total) * 100
     print("🔰 SIRTFI Certification Coverage:", file=sys.stderr)
     print(
-        f"  ✅ Total entities with SIRTFI: {stats['total_has_sirtfi']} out of {total} ({total_sirtfi_pct:.1f}%)",
+        f"  ✅ Total entities with SIRTFI: {stats['total_has_sirtfi']:,} out of {total:,} ({total_sirtfi_pct:.1f}%)",
         file=sys.stderr,
     )
     print(
-        f"  ❌ Total entities without SIRTFI: {stats['total_missing_sirtfi']} out of {total} ({total_missing_sirtfi_pct:.1f}%)",
+        f"  ❌ Total entities without SIRTFI: {stats['total_missing_sirtfi']:,} out of {total:,} ({total_missing_sirtfi_pct:.1f}%)",
         file=sys.stderr,
     )
 
@@ -93,14 +93,14 @@ def print_summary(stats: dict) -> None:
     if total_sps > 0:
         sp_sirtfi_pct = (stats["sps_has_sirtfi"] / total_sps) * 100
         print(
-            f"    📊 SPs: {stats['sps_has_sirtfi']} with / {stats['sps_missing_sirtfi']} without ({sp_sirtfi_pct:.1f}% coverage)",
+            f"    📊 SPs: {stats['sps_has_sirtfi']:,} with / {stats['sps_missing_sirtfi']:,} without ({sp_sirtfi_pct:.1f}% coverage)",
             file=sys.stderr,
         )
 
     if total_idps > 0:
         idp_sirtfi_pct = (stats["idps_has_sirtfi"] / total_idps) * 100
         print(
-            f"    📊 IdPs: {stats['idps_has_sirtfi']} with / {stats['idps_missing_sirtfi']} without ({idp_sirtfi_pct:.1f}% coverage)",
+            f"    📊 IdPs: {stats['idps_has_sirtfi']:,} with / {stats['idps_missing_sirtfi']:,} without ({idp_sirtfi_pct:.1f}% coverage)",
             file=sys.stderr,
         )
 
@@ -115,15 +115,15 @@ def print_summary(stats: dict) -> None:
 
         print("📈 Combined Coverage Summary (SPs only):", file=sys.stderr)
         print(
-            f"  🌟 SPs with BOTH (fully compliant): {stats['sps_has_both']} out of {total_sps} ({sp_both_pct:.1f}%)",
+            f"  🌟 SPs with BOTH privacy & security: {stats['sps_has_both']:,} out of {total_sps:,} ({sp_both_pct:.1f}%)",
             file=sys.stderr,
         )
         print(
-            f"  ⚡ SPs with AT LEAST ONE: {sp_has_at_least_one} out of {total_sps} ({sp_at_least_one_pct:.1f}%)",
+            f"  ⚡ SPs with AT LEAST ONE (privacy or security): {sp_has_at_least_one:,} out of {total_sps:,} ({sp_at_least_one_pct:.1f}%)",
             file=sys.stderr,
         )
         print(
-            f"  ❌ SPs missing both: {stats['sps_missing_both']} out of {total_sps} ({sp_missing_both_pct:.1f}%)",
+            f"  ❌ SPs missing BOTH privacy & security: {stats['sps_missing_both']:,} out of {total_sps:,} ({sp_missing_both_pct:.1f}%)",
             file=sys.stderr,
         )
         print("", file=sys.stderr)
