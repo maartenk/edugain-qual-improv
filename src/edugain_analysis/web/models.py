@@ -148,8 +148,8 @@ class Settings(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
-def get_database_path() -> str:
-    """Get XDG-compliant database path."""
+def get_database_file_path() -> Path:
+    """Get XDG-compliant database file path as Path object."""
     try:
         from platformdirs import user_cache_dir
 
@@ -158,7 +158,12 @@ def get_database_path() -> str:
         cache_dir = Path.home() / ".cache" / "edugain-analysis"
 
     cache_dir.mkdir(parents=True, exist_ok=True)
-    return f"sqlite:///{cache_dir / 'webapp.db'}"
+    return cache_dir / "webapp.db"
+
+
+def get_database_path() -> str:
+    """Get XDG-compliant database path as SQLite URL."""
+    return f"sqlite:///{get_database_file_path()}"
 
 
 def create_database():

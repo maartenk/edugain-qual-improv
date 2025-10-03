@@ -345,20 +345,19 @@ checkRefreshStatus();
         <div class="grid" style="margin-top: 1rem;">
             <div>
                 <h6 style="margin-bottom: 0.5rem;">📥 Export Database</h6>
+                <p style="margin-bottom: 0.5rem;"><small>Download complete database as SQLite file</small></p>
                 <button type="button" onclick="exportDatabase()" style="width: 100%;">
                     Download Database File
                 </button>
-                <p style="margin-top: 0.5rem;"><small>Download complete database as SQLite file</small></p>
             </div>
 
             <div>
-                <h6 style="margin-bottom: 0.5rem;">📤 Import Database</h6>
-                <form id="import-form" enctype="multipart/form-data">
+                <h6 style="margin-bottom: 0.5rem;">📤 Import Database <small style="color: var(--pico-del-color);">⚠️ Replaces all data!</small></h6>
+                <form id="import-form" enctype="multipart/form-data" style="margin-bottom: 0;">
                     <input type="file" id="database-file" name="database_file" accept=".db,.sqlite,.sqlite3" style="margin-bottom: 0.5rem;">
-                    <button type="button" onclick="importDatabase()" style="width: 100%;">
+                    <button type="button" onclick="importDatabase()" style="width: 100%; margin-bottom: 0;">
                         Upload & Replace Database
                     </button>
-                    <p style="margin-top: 0.5rem;"><small style="color: var(--pico-del-color);">⚠️ This will replace all existing data!</small></p>
                 </form>
             </div>
         </div>

@@ -1873,16 +1873,19 @@ async def export_database(db: Session = Depends(get_db)):
     Returns the database file as a downloadable attachment.
     Useful for backup and sharing data.
     """
-    from .models import DATABASE_PATH
+    from .models import get_database_file_path
 
     # Close the database connection to ensure file is not locked
     db.close()
 
+    # Get database file path
+    db_path = get_database_file_path()
+
     # Read database file
-    if not Path(DATABASE_PATH).exists():
+    if not db_path.exists():
         return {"error": "Database file not found"}
 
-    with open(DATABASE_PATH, "rb") as f:
+    with open(db_path, "rb") as f:
         db_content = f.read()
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1935,7 +1938,7 @@ async def import_database(request: Request):
     }
     ```
     """
-    from .models import DATABASE_PATH, engine
+    from .models import engine, get_database_file_path
 
     try:
         # Parse uploaded file
@@ -1955,16 +1958,19 @@ async def import_database(request: Request):
         # Close all database connections
         engine.dispose()
 
+        # Get database file path
+        db_path = get_database_file_path()
+
         # Backup current database
         backup_path = (
-            Path(DATABASE_PATH).parent
+            db_path.parent
             / f"edugain_analysis_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
         )
-        if Path(DATABASE_PATH).exists():
-            Path(DATABASE_PATH).rename(backup_path)
+        if db_path.exists():
+            db_path.rename(backup_path)
 
         # Write new database
-        with open(DATABASE_PATH, "wb") as f:
+        with open(db_path, "wb") as f:
             f.write(db_content)
 
         return {
