@@ -1,6 +1,14 @@
-# eduGAIN Quality Improvement - TODO
+# eduGAIN Quality Improvement - Changelog
 
-## Web Dashboard MVP Enhancements
+## Web Dashboard MVP - All Priorities Complete ✅
+
+This document tracks the completion of the web dashboard MVP (v2.0.0), which successfully implemented all 6 priority levels with comprehensive features for interactive federation monitoring and entity-level tracking.
+
+**Status**: All MVP priorities (1-6) completed as of October 2025.
+
+---
+
+## Web Dashboard MVP Implementation History
 
 ### Priority 1: Data Layer & Infrastructure ✅
 
