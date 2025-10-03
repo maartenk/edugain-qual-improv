@@ -389,7 +389,25 @@ See [TODO.md](TODO.md) for a comprehensive roadmap. All MVP priorities (1-6) are
 - PDF report generation
 - Integration with external monitoring systems
 
-### Recent Improvements (v2.0.0)
+### Recent Improvements (v3.0.0)
+
+**SIRTFI Compliance Analysis:**
+- 🆕 Added `edugain-sirtfi` CLI for SIRTFI compliance validation
+- 🔍 Detects entities with SIRTFI certification but missing security contacts (compliance violations)
+- 📊 Complements existing `edugain-seccon` CLI for comprehensive security contact analysis
+- ✅ 15 comprehensive test cases with 94.87% code coverage
+
+**Tooling & Code Quality:**
+- 🧹 Removed Black and mypy dependencies - using Ruff exclusively for all linting and formatting
+- 📝 Streamlined development workflow with single unified toolchain
+- ✅ All 225 tests passing with comprehensive coverage
+
+**Documentation:**
+- 📚 Updated README.md, CLAUDE.md, and docs/index.md with SIRTFI CLI documentation
+- 🔧 Cleaned up all references to deprecated tooling
+- 📖 Enhanced developer guide with detailed data processing flows
+
+### Previous Improvements (v2.0.0)
 
 **Tooling & Code Quality:**
 - ⚡ Using Ruff for unified linting + formatting

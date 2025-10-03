@@ -2,7 +2,7 @@
 
 ## Overview
 
-The eduGAIN Analysis package (v2.0.0) provides comprehensive tools for analyzing eduGAIN metadata quality, focusing on privacy statement and security contact coverage across federations. Features a modern HTMX-powered web dashboard for interactive federation monitoring.
+The eduGAIN Analysis package (v3.0.0) provides comprehensive tools for analyzing eduGAIN metadata quality, focusing on privacy statement and security contact coverage across federations. Features a modern HTMX-powered web dashboard for interactive federation monitoring.
 
 ## Quick Start
 
