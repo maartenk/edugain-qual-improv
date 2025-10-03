@@ -67,7 +67,16 @@
       "Bash(.venv/bin/pytest tests/unit/test_web_app.py tests/unit/test_web_import_data.py -v --no-cov)",
       "Bash(.venv/bin/pytest tests/unit/test_web_app.py tests/unit/test_web_import_data.py -v --no-cov -x)",
       "Bash(.venv/bin/pytest tests/unit/test_web_app.py tests/unit/test_web_import_data.py -v --cov=src/edugain_analysis --cov-report=term-missing)",
-      "Bash(.venv/bin/pytest tests/unit/ -v --cov=src/edugain_analysis --cov-report=term-missing)"
+      "Bash(.venv/bin/pytest tests/unit/ -v --cov=src/edugain_analysis --cov-report=term-missing)",
+      "Bash(.venv/bin/pytest tests/unit/test_web_app.py::TestMainRoutes::test_validation_page -v --no-cov)",
+      "Bash(.venv/bin/pytest tests/unit/ --cov=src/edugain_analysis --cov-report=term-missing --no-cov-on-fail)",
+      "Bash(.venv/bin/pytest tests/unit/ --cov=src/edugain_analysis --cov-report=term-missing)",
+      "Bash(.venv/bin/ruff check src/ --select C90 --config \"lint.mccabe.max-complexity = 10\")",
+      "Bash(.venv/bin/pytest tests/unit/test_web_app.py -v --no-cov -k \"TestRefreshEndpoints or TestErrorConditions or test_api_settings_validation or test_api_cache_status_no_data\")",
+      "Bash(.venv/bin/pytest tests/unit/test_web_app.py::TestAPIEndpoints::test_api_refresh_status_idle -v --no-cov)",
+      "Bash(.venv/bin/pytest tests/unit/test_web_app.py::TestEdgeCases::test_empty_state_routes -v --no-cov)",
+      "Bash(.venv/bin/pytest tests/unit/test_web_app.py -v --cov=src/edugain_analysis/web --cov-report=term-missing)",
+      "Bash(.venv/bin/pytest tests/unit/test_web_app.py::TestAPIEndpoints::test_api_settings_validation_invalid_range -v --no-cov)"
     ],
     "deny": [],
     "ask": []

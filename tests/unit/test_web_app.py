@@ -411,6 +411,34 @@ class TestAPIEndpoints:
         assert data["total_federations"] == 2
         assert len(data["federations"]) == 2
 
+    def test_api_refresh_status_idle(self, client):
+        """Test refresh status when idle."""
+        response = client.get("/api/refresh/status")
+        assert response.status_code == 200
+        data = response.json()
+        assert "running" in data
+        assert "status" in data
+
+    def test_api_settings_validation_invalid_range(self, client):
+        """Test settings validation with values outside allowed ranges."""
+        # Test invalid auto_refresh_interval (too high)
+        response = client.post("/api/settings?auto_refresh_interval=200")
+        assert response.status_code == 200
+        data = response.json()
+        # Should return error or ignore invalid value
+        if "error" not in data:
+            # If no error, value should be clamped or unchanged
+            settings = client.get("/api/settings").json()
+            assert settings["auto_refresh_interval"] <= 168
+
+    def test_api_cache_status_no_snapshot(self, client):
+        """Test cache status when no snapshot exists."""
+        response = client.get("/api/cache/status")
+        assert response.status_code == 200
+        data = response.json()
+        # Should handle gracefully when no snapshot
+        assert "status" in data or "error" in data
+
 
 class TestEdgeCases:
     """Test edge cases and error handling."""
@@ -447,6 +475,28 @@ class TestEdgeCases:
             responses.append(client.get("/"))
 
         assert all(r.status_code == 200 for r in responses)
+
+    def test_empty_state_all_routes(self, client):
+        """Test all main routes with no data (empty state)."""
+        # Dashboard
+        response = client.get("/")
+        assert response.status_code == 200
+
+        # Federations
+        response = client.get("/federations")
+        assert response.status_code == 200
+
+        # Validation
+        response = client.get("/validation")
+        assert response.status_code == 200
+
+        # History
+        response = client.get("/history")
+        assert response.status_code == 200
+
+        # Config
+        response = client.get("/config")
+        assert response.status_code == 200
 
     def test_large_result_set(self, client, test_db):
         """Test with large number of entities."""
