@@ -7,10 +7,11 @@
 
 ## 🎯 Overview
 
-A comprehensive Python package for analyzing eduGAIN federation metadata quality, privacy statement coverage, and security compliance. Built following modern Python standards with PEP 517/518/621 compliance.
+A comprehensive Python package for analyzing eduGAIN federation metadata quality, privacy statement coverage, security compliance, and SIRTFI certification. Built following modern Python standards with PEP 517/518/621 compliance.
 
 ### Key Features
-- 🔍 **SIRTFI Compliance Analysis**: Two specialized tools for security contact and SIRTFI certification validation
+- 🔰 **SIRTFI Coverage Tracking**: Comprehensive SIRTFI certification tracking across all CLI outputs (summary, CSV, markdown reports)
+- 🔍 **SIRTFI Compliance Tools**: Two specialized CLI tools for security contact and SIRTFI certification validation
 - 🔒 **Privacy Statement Monitoring**: HTTP accessibility validation for privacy statement URLs
 - 🌐 **Web Dashboard**: Interactive HTMX-powered dashboard for real-time federation monitoring
 - 🌍 **Federation Intelligence**: Automatic mapping from registration authorities to friendly names via eduGAIN API
@@ -44,13 +45,13 @@ pip install -e .[dev,web]
 ### Basic Usage
 
 ```bash
-# Analyze eduGAIN metadata for privacy and security compliance
+# Analyze eduGAIN metadata for privacy, security, and SIRTFI coverage
 python analyze.py
 
-# Generate detailed markdown report
+# Generate detailed markdown report (includes SIRTFI statistics)
 python analyze.py --report
 
-# Export entities missing privacy statements
+# Export entities missing privacy statements (includes SIRTFI column)
 python analyze.py --csv missing-privacy
 
 # Enable comprehensive URL validation (slower but thorough)
@@ -202,6 +203,63 @@ When using `--csv urls --validate`, you get detailed technical information:
 | `ValidationError` | Error details | `Connection timeout` |
 
 This gives technical staff the specific information needed to fix broken links.
+
+## 🔰 SIRTFI Coverage Tracking
+
+The main analysis tools (`edugain-analyze`, `python analyze.py`) now include comprehensive SIRTFI (Security Incident Response Trust Framework for Federated Identity) certification tracking across all output formats.
+
+### What is SIRTFI?
+
+SIRTFI is a framework that enables the coordination of incident response activities for federated identity services. Entities with SIRTFI certification have committed to specific incident response capabilities and communication practices.
+
+### Output Examples
+
+**Summary Statistics** (includes SIRTFI section):
+```
+=== eduGAIN Quality Analysis: Privacy, Security & SIRTFI Coverage ===
+Total entities analyzed: 10,234 (SPs: 6,145, IdPs: 4,089)
+
+🔰 SIRTFI Certification Coverage:
+  ✅ Total entities with SIRTFI: 4,623 out of 10,234 (45.2%)
+  ❌ Total entities without SIRTFI: 5,611 out of 10,234 (54.8%)
+    📊 SPs: 2,768 with / 3,377 without (45.0% coverage)
+    📊 IdPs: 1,855 with / 2,234 without (45.4% coverage)
+```
+
+**CSV Entity Export** (includes `HasSIRTFI` column):
+```csv
+Federation,EntityType,OrganizationName,EntityID,HasPrivacyStatement,PrivacyStatementURL,HasSecurityContact,HasSIRTFI
+InCommon,SP,Example University,https://sp.example.edu,Yes,https://example.edu/privacy,Yes,Yes
+DFN-AAI,IdP,Test Institute,https://idp.test.de,N/A,N/A,Yes,No
+```
+
+**Federation Statistics CSV** (includes SIRTFI columns):
+```csv
+Federation,TotalEntities,TotalSPs,TotalIdPs,SPsWithPrivacy,SPsMissingPrivacy,EntitiesWithSecurity,EntitiesMissingSecurity,SPsWithSecurity,SPsMissingSecurity,IdPsWithSecurity,IdPsMissingSecurity,EntitiesWithSIRTFI,EntitiesMissingSIRTFI,SPsWithSIRTFI,SPsMissingSIRTFI,IdPsWithSIRTFI,IdPsMissingSIRTFI,SPsWithBoth,SPsWithAtLeastOne,SPsMissingBoth
+InCommon,3450,2100,1350,1890,210,2760,690,1680,420,1080,270,1552,1898,945,1155,607,743,1575,2058,42
+```
+
+**Markdown Reports** (includes per-federation SIRTFI statistics):
+```markdown
+## Federation Analysis
+
+### InCommon (3,450 entities: 2,100 SPs, 1,350 IdPs)
+
+**SIRTFI Certification:** 🟢 1,552/3,450 (45.0%)
+  ├─ SPs: 🟡 945/2,100 (45.0%)
+  └─ IdPs: 🟡 607/1,350 (45.0%)
+```
+
+### Key Points
+
+- **Applies to Both SPs and IdPs**: Unlike privacy statements (SP-only), SIRTFI applies to both entity types
+- **Always Included**: The `HasSIRTFI` column is automatically included in all entity CSV exports
+- **Federation Breakdown**: Per-federation statistics show SIRTFI coverage at the federation level
+- **Color-Coded Status**: 🟢 (≥80%), 🟡 (50-79%), 🔴 (<50%) for visual feedback
+
+For SIRTFI compliance validation and finding violations, use the specialized tools:
+- `edugain-seccon`: Find entities with security contacts but without SIRTFI (potential candidates)
+- `edugain-sirtfi`: Find entities with SIRTFI but without security contacts (compliance violations)
 
 ## 🌐 Web Dashboard
 

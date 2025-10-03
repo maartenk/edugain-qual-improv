@@ -52,10 +52,11 @@ python analyze.py --csv missing-both           # Entities missing both
 ```
 
 **Output Format Notes:**
-- CSV columns: `Federation,EntityType,OrganizationName,EntityID,HasPrivacyStatement,PrivacyStatementURL,HasSecurityContact`
+- CSV columns: `Federation,EntityType,OrganizationName,EntityID,HasPrivacyStatement,PrivacyStatementURL,HasSecurityContact,HasSIRTFI`
 - Federation names automatically mapped via eduGAIN API (e.g., "InCommon" instead of "https://incommon.org")
 - Privacy statements: Only analyzed for SPs
 - Security contacts: Analyzed for both SPs and IdPs
+- SIRTFI certification: Analyzed for both SPs and IdPs
 - URL validation adds columns: `URLStatusCode,FinalURL,URLAccessible,RedirectCount,ValidationError`
 
 ### Usage - SIRTFI Compliance Analysis
@@ -176,7 +177,8 @@ src/edugain_analysis/
 #### Core Logic (`core/`)
 - **analysis.py**: Entity analysis engine
   - `analyze_privacy_security()`: Main analysis function
-  - Processes entities for privacy statements (SPs) and security contacts (both SPs/IdPs)
+  - Processes entities for privacy statements (SPs), security contacts (both SPs/IdPs), and SIRTFI certification (both SPs/IdPs)
+  - SIRTFI detection via XPath: `./md:Extensions/mdattr:EntityAttributes/saml:Attribute[@Name="urn:oasis:names:tc:SAML:attribute:assurance-certification"]/saml:AttributeValue` checking for value `https://refeds.org/sirtfi`
   - Generates per-entity data, summary stats, and federation statistics
 - **metadata.py**: Metadata operations
   - `get_metadata()`: Smart caching (XDG-compliant, 12h expiry)
@@ -204,9 +206,9 @@ src/edugain_analysis/
 
 #### Web Layer (`web/`) - Optional
 - **models.py**: SQLAlchemy database models
-  - `Snapshot`: Analysis snapshots with timestamps (historical tracking)
-  - `Federation`: Per-federation statistics linked to snapshots
-  - `Entity`: Individual SP/IdP entities with privacy/security status
+  - `Snapshot`: Analysis snapshots with timestamps (historical tracking), includes SIRTFI coverage statistics
+  - `Federation`: Per-federation statistics linked to snapshots, includes SIRTFI counts (sps_has_sirtfi, idps_has_sirtfi, etc.)
+  - `Entity`: Individual SP/IdP entities with privacy/security/SIRTFI status (has_sirtfi column)
   - `URLValidation`: Privacy statement URL validation results with status codes
   - All models use proper indexes and foreign key relationships
 - **import_data.py**: Data import pipeline
@@ -223,15 +225,21 @@ src/edugain_analysis/
 
 ### Data Processing Flow
 
-**Privacy/Security Analysis:**
+**Privacy/Security/SIRTFI Analysis:**
 1. **Argument Parsing**: Parse CLI options, determine output format and validation mode
 2. **Cache Loading**: Load federation mapping and URL validation cache (if applicable)
 3. **Metadata Acquisition**: Download or use cached metadata (12h expiry)
 4. **XML Parsing**: Parse with namespace-aware ElementTree
-5. **Entity Analysis**: Extract privacy statements, security contacts, federation info
+5. **Entity Analysis**: Extract privacy statements, security contacts, SIRTFI certification, and federation info
+   - Privacy statements: SP-only (remd:PrivacyStatementURL)
+   - Security contacts: Both SPs/IdPs (remd:SecurityContact or md:ContactPerson[type=security])
+   - SIRTFI: Both SPs/IdPs (Entity Category `https://refeds.org/sirtfi`)
 6. **URL Validation** (optional): Parallel HTTP checks for privacy statement URLs
-7. **Statistics Generation**: Aggregate totals and per-federation breakdowns
+7. **Statistics Generation**: Aggregate totals and per-federation breakdowns (includes SIRTFI counts)
 8. **Output**: Format as summary, CSV, or markdown based on user selection
+   - Summary: Displays SIRTFI coverage with color-coded percentages (🟢 ≥80%, 🟡 50-79%, 🔴 <50%)
+   - CSV: Includes `HasSIRTFI` column (position 7, after HasSecurityContact)
+   - Markdown: Per-federation SIRTFI statistics in tables
 9. **Cache Saving**: Persist updated URL validation cache
 
 **SIRTFI Compliance Analysis:**
@@ -253,7 +261,8 @@ src/edugain_analysis/
 - **XDG Base Directory Compliance**: Cache files stored in `~/.cache/edugain-analysis/` (respects `XDG_CACHE_HOME`)
 - **Smart Caching**: Metadata (12h), federation names (30d), URL validation (persistent)
 - **Federation Mapping**: Automatic resolution via eduGAIN API with graceful fallback
-- **Entity Type Differentiation**: Privacy statements for SPs only, security contacts for both
+- **Entity Type Differentiation**: Privacy statements for SPs only, security contacts and SIRTFI for both SPs/IdPs
+- **SIRTFI Coverage Tracking**: Comprehensive tracking of SIRTFI certification across all output formats (summary, CSV, markdown)
 - **Parallel URL Validation**: Configurable thread pool (default: 10 threads)
 - **Multiple Output Formats**: Summary, CSV (filtered/unfiltered), markdown reports
 
