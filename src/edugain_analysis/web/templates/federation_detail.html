@@ -67,9 +67,67 @@
 <!-- Entities Table with Filtering/Sorting -->
 <section>
     <h2>📋 Entities</h2>
-    <div hx-get="/partials/entity_table?federation_id={{ federation.id }}"
+
+    <!-- Filter Controls -->
+    <div class="grid" style="margin-bottom: 1rem;">
+        <div>
+            <label for="entity-type-filter"><small>Entity Type:</small></label>
+            <select id="entity-type-filter"
+                    hx-get="/partials/entity_table"
+                    hx-target="#entity-table-wrapper"
+                    hx-include="[name='privacy-filter'], [name='security-filter']"
+                    name="entity_type"
+                    hx-vals='{"federation_id": {{ federation.id }}}'>
+                <option value="">All Types</option>
+                <option value="SP">Service Providers (SP)</option>
+                <option value="IdP">Identity Providers (IdP)</option>
+            </select>
+        </div>
+
+        <div>
+            <label for="privacy-filter"><small>Privacy Statement:</small></label>
+            <select id="privacy-filter"
+                    hx-get="/partials/entity_table"
+                    hx-target="#entity-table-wrapper"
+                    hx-include="[name='entity_type'], [name='security-filter']"
+                    name="privacy_filter"
+                    hx-vals='{"federation_id": {{ federation.id }}}'>
+                <option value="">All</option>
+                <option value="yes">✅ Has Privacy</option>
+                <option value="no">❌ Missing Privacy</option>
+                <option value="na">N/A (IdPs)</option>
+            </select>
+        </div>
+
+        <div>
+            <label for="security-filter"><small>Security Contact:</small></label>
+            <select id="security-filter"
+                    hx-get="/partials/entity_table"
+                    hx-target="#entity-table-wrapper"
+                    hx-include="[name='entity_type'], [name='privacy-filter']"
+                    name="security_filter"
+                    hx-vals='{"federation_id": {{ federation.id }}}'>
+                <option value="">All</option>
+                <option value="yes">✅ Has Security</option>
+                <option value="no">❌ Missing Security</option>
+            </select>
+        </div>
+
+        <div>
+            <label><small>&nbsp;</small></label>
+            <button onclick="document.getElementById('entity-type-filter').value=''; document.getElementById('privacy-filter').value=''; document.getElementById('security-filter').value=''; htmx.trigger('#entity-type-filter', 'change');"
+                    class="secondary outline"
+                    style="width: 100%;">
+                Clear Filters
+            </button>
+        </div>
+    </div>
+
+    <!-- Entity Table -->
+    <div id="entity-table-wrapper"
+         hx-get="/partials/entity_table?federation_id={{ federation.id }}"
          hx-trigger="load"
-         hx-swap="outerHTML">
+         hx-swap="innerHTML">
         <p aria-busy="true">Loading entities...</p>
     </div>
 </section>

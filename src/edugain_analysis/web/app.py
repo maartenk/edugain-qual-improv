@@ -4,20 +4,110 @@
 
 import csv
 import json
+import threading
 from datetime import datetime, timedelta
 from io import StringIO
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, Request
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from .models import Entity, Federation, Settings, Snapshot, URLValidation, get_db
+from .models import (
+    Entity,
+    Federation,
+    SessionLocal,
+    Settings,
+    Snapshot,
+    URLValidation,
+    get_db,
+)
 
-# Initialize FastAPI app
-app = FastAPI(title="eduGAIN Quality Dashboard", version="1.0.0")
+# Initialize FastAPI app with enhanced API documentation
+app = FastAPI(
+    title="eduGAIN Quality Dashboard API",
+    description="""
+# eduGAIN Quality Dashboard API
+
+The eduGAIN Quality Dashboard provides comprehensive analysis and monitoring of privacy statement coverage
+and security contact information across all eduGAIN federation entities (Service Providers and Identity Providers).
+
+## Features
+
+- **Real-time Statistics**: Get up-to-date metrics on privacy coverage and security contacts
+- **Federation Analytics**: Detailed breakdowns by federation
+- **Entity Management**: Search, filter, and export entity data
+- **Historical Tracking**: Monitor trends and changes over time
+- **URL Validation**: Track accessibility of privacy statement URLs
+- **Export Capabilities**: CSV and JSON export for all data
+- **Database Backup/Restore**: Full database export and import
+
+## Data Model
+
+- **Snapshot**: Point-in-time analysis results with aggregate statistics
+- **Federation**: Per-federation metrics linked to snapshots
+- **Entity**: Individual SP/IdP entities with privacy and security status
+- **URLValidation**: Privacy statement URL validation results
+
+## Usage
+
+All API endpoints are available at `/api/*`. Interactive documentation is available at:
+- Swagger UI: `/docs`
+- ReDoc: `/redoc`
+
+## Rate Limits
+
+Some endpoints may have rate limits to prevent abuse:
+- `/api/database/export`: 10 requests/hour
+- `/api/database/import`: 5 requests/hour
+- `/api/refresh`: 2 requests/hour
+""",
+    version="1.0.0",
+    contact={
+        "name": "eduGAIN Quality Improvement Project",
+        "url": "https://github.com/your-org/edugain-qual-improv",
+    },
+    license_info={
+        "name": "License",
+        "url": "https://github.com/your-org/edugain-qual-improv/blob/main/LICENSE",
+    },
+    openapi_tags=[
+        {
+            "name": "Pages",
+            "description": "Full HTML page routes for the web dashboard",
+        },
+        {
+            "name": "Partials",
+            "description": "HTMX partial routes for dynamic content updates",
+        },
+        {
+            "name": "API - Data",
+            "description": "JSON API endpoints for retrieving snapshot and federation data",
+        },
+        {
+            "name": "API - Export",
+            "description": "Export entities and federations as CSV or JSON",
+        },
+        {
+            "name": "API - Settings",
+            "description": "Configuration and cache management endpoints",
+        },
+        {
+            "name": "API - Refresh",
+            "description": "Trigger data refresh and check import status",
+        },
+        {
+            "name": "API - Database",
+            "description": "Database backup and restore operations",
+        },
+        {
+            "name": "Health",
+            "description": "System health check endpoints",
+        },
+    ],
+)
 
 # Get templates directory
 TEMPLATE_DIR = Path(__file__).parent / "templates"
@@ -253,20 +343,16 @@ async def validation_page(
             {"request": request, "title": "URL Validation"},
         )
 
-    # Get all URL validations for the latest snapshot
+    # Get all URL validations for the latest snapshot (only SPs have privacy statements)
     query = (
         db.query(URLValidation, Entity)
         .join(Entity, URLValidation.entity_id == Entity.id)
-        .filter(Entity.snapshot_id == snapshot.id)
+        .filter(Entity.snapshot_id == snapshot.id, Entity.entity_type == "SP")
     )
 
     # Apply status filter
     if status_filter == "accessible":
         query = query.filter(URLValidation.accessible.is_(True))
-    elif status_filter == "redirect":
-        query = query.filter(
-            URLValidation.status_code >= 300, URLValidation.status_code < 400
-        )
     elif status_filter == "error":
         query = query.filter(URLValidation.status_code >= 400)
     elif status_filter == "timeout":
@@ -274,33 +360,31 @@ async def validation_page(
 
     validations = query.order_by(URLValidation.validated_at.desc()).limit(500).all()
 
-    # Get validation stats
+    # Get validation stats (only for SPs)
     total_validations = (
         db.query(URLValidation)
         .join(Entity)
-        .filter(Entity.snapshot_id == snapshot.id)
+        .filter(Entity.snapshot_id == snapshot.id, Entity.entity_type == "SP")
         .count()
     )
     accessible_count = (
         db.query(URLValidation)
         .join(Entity)
-        .filter(Entity.snapshot_id == snapshot.id, URLValidation.accessible.is_(True))
-        .count()
-    )
-    redirect_count = (
-        db.query(URLValidation)
-        .join(Entity)
         .filter(
             Entity.snapshot_id == snapshot.id,
-            URLValidation.status_code >= 300,
-            URLValidation.status_code < 400,
+            Entity.entity_type == "SP",
+            URLValidation.accessible.is_(True),
         )
         .count()
     )
     error_count = (
         db.query(URLValidation)
         .join(Entity)
-        .filter(Entity.snapshot_id == snapshot.id, URLValidation.status_code >= 400)
+        .filter(
+            Entity.snapshot_id == snapshot.id,
+            Entity.entity_type == "SP",
+            URLValidation.status_code >= 400,
+        )
         .count()
     )
 
@@ -313,7 +397,6 @@ async def validation_page(
             "status_filter": status_filter,
             "total_validations": total_validations,
             "accessible_count": accessible_count,
-            "redirect_count": redirect_count,
             "error_count": error_count,
             "title": "URL Validation Results",
             "now": datetime.now(),
@@ -788,14 +871,57 @@ async def entity_table_partial(
 # ========================================
 
 
-@app.get("/api/search")
-async def search(q: str = "", limit: int = 20, db: Session = Depends(get_db)):
+@app.get(
+    "/api/search",
+    tags=["API - Data"],
+    summary="Search entities and federations",
+    description="""
+    Perform a full-text search across entities and federations.
+
+    Search is performed on:
+    - Entity organization names
+    - Entity IDs
+    - Federation names
+
+    Returns matching entities and federations with their key metrics.
+    """,
+    response_description="Search results containing matching entities and federations",
+)
+async def search(
+    q: str = "",
+    limit: int = 20,
+    db: Session = Depends(get_db),
+):
     """Search for entities and federations.
 
     Full-text search on:
     - Entity names (organization_name)
     - Entity IDs
     - Federation names
+
+    **Example Response:**
+    ```json
+    {
+      "query": "incommon",
+      "entities": [
+        {
+          "id": "https://example.edu/shibboleth",
+          "organization_name": "Example University",
+          "entity_type": "SP",
+          "federation": "InCommon",
+          "has_privacy": true,
+          "has_security": true
+        }
+      ],
+      "federations": [
+        {
+          "name": "InCommon",
+          "total_entities": 5234,
+          "coverage_pct": 78.5
+        }
+      ]
+    }
+    ```
     """
     if not q or len(q) < 2:
         return {"entities": [], "federations": [], "query": q}
@@ -850,9 +976,31 @@ async def search(q: str = "", limit: int = 20, db: Session = Depends(get_db)):
     }
 
 
-@app.get("/api/snapshot/latest")
+@app.get(
+    "/api/snapshot/latest",
+    tags=["API - Data"],
+    summary="Get latest analysis snapshot",
+    description="""
+    Retrieve the most recent analysis snapshot with aggregate statistics.
+
+    Returns key metrics including total entities, coverage percentages, and timestamp.
+    """,
+    response_description="Latest snapshot data with aggregate statistics",
+)
 async def get_latest_snapshot(db: Session = Depends(get_db)):
-    """Get latest snapshot as JSON."""
+    """Get latest snapshot as JSON.
+
+    **Example Response:**
+    ```json
+    {
+      "timestamp": "2025-10-02T14:30:00",
+      "total_entities": 10523,
+      "total_sps": 8234,
+      "total_idps": 2289,
+      "coverage_pct": 76.8
+    }
+    ```
+    """
     snapshot = db.query(Snapshot).order_by(Snapshot.timestamp.desc()).first()
 
     if not snapshot:
@@ -867,9 +1015,36 @@ async def get_latest_snapshot(db: Session = Depends(get_db)):
     }
 
 
-@app.get("/api/federations")
+@app.get(
+    "/api/federations",
+    tags=["API - Data"],
+    summary="Get all federations",
+    description="""
+    Retrieve a list of all federations with their statistics from the latest snapshot.
+
+    Returns federation names, entity counts, and privacy coverage percentages.
+    """,
+    response_description="List of all federations with statistics",
+)
 async def get_federations_json(db: Session = Depends(get_db)):
-    """Get all federations as JSON."""
+    """Get all federations as JSON.
+
+    **Example Response:**
+    ```json
+    [
+      {
+        "name": "InCommon",
+        "total_entities": 5234,
+        "coverage_pct": 78.5
+      },
+      {
+        "name": "UKAMF",
+        "total_entities": 1523,
+        "coverage_pct": 92.3
+      }
+    ]
+    ```
+    """
     snapshot = db.query(Snapshot).order_by(Snapshot.timestamp.desc()).first()
 
     if not snapshot:
@@ -897,7 +1072,27 @@ async def get_federations_json(db: Session = Depends(get_db)):
 # ========================================
 
 
-@app.get("/api/export/entities")
+@app.get(
+    "/api/export/entities",
+    tags=["API - Export"],
+    summary="Export entity data",
+    description="""
+    Export entity data as CSV or JSON with optional filtering.
+
+    **Filters:**
+    - `federation_id`: Filter by specific federation
+    - `entity_type`: Filter by 'SP' or 'IdP'
+    - `privacy_filter`: 'yes', 'no', or 'na' (not applicable for IdPs)
+    - `security_filter`: 'yes' or 'no'
+
+    **Formats:**
+    - `csv`: Comma-separated values (default)
+    - `json`: JSON format with metadata
+
+    Returns a downloadable file with filtered entity data.
+    """,
+    response_description="CSV or JSON file containing entity data",
+)
 async def export_entities(
     export_format: str = "csv",
     federation_id: int | None = None,
@@ -1031,7 +1226,17 @@ async def export_entities(
         )
 
 
-@app.get("/api/export/federations")
+@app.get(
+    "/api/export/federations",
+    tags=["API - Export"],
+    summary="Export federation statistics",
+    description="""
+    Export federation-level statistics as CSV or JSON.
+
+    Includes total entities, privacy coverage, and security contact metrics for all federations.
+    """,
+    response_description="CSV or JSON file containing federation statistics",
+)
 async def export_federations(export_format: str = "csv", db: Session = Depends(get_db)):
     """Export federation statistics as CSV or JSON."""
     snapshot = db.query(Snapshot).order_by(Snapshot.timestamp.desc()).first()
@@ -1124,9 +1329,37 @@ async def export_federations(export_format: str = "csv", db: Session = Depends(g
 # ========================================
 
 
-@app.get("/api/cache/status")
+@app.get(
+    "/api/cache/status",
+    tags=["API - Settings"],
+    summary="Get cache status",
+    description="""
+    Retrieve information about the current data cache status.
+
+    Returns the age of the current snapshot, freshness status, and metadata source information.
+
+    **Status Values:**
+    - `fresh`: Data is up to date (< 12 hours old)
+    - `stale`: Data may be outdated (12-24 hours old)
+    - `expired`: Data is stale and should be refreshed (> 24 hours old)
+    """,
+    response_description="Cache status information",
+)
 async def cache_status(db: Session = Depends(get_db)):
-    """Get cache status information."""
+    """Get cache status information.
+
+    **Example Response:**
+    ```json
+    {
+      "status": "fresh",
+      "message": "Data is up to date",
+      "timestamp": "2025-10-02T14:30:00",
+      "age_hours": 2.5,
+      "metadata_source": "eduGAIN Production",
+      "cache_age_hours": 2.5
+    }
+    ```
+    """
     snapshot = db.query(Snapshot).order_by(Snapshot.timestamp.desc()).first()
 
     if not snapshot:
@@ -1160,9 +1393,32 @@ async def cache_status(db: Session = Depends(get_db)):
     }
 
 
-@app.get("/api/settings")
+@app.get(
+    "/api/settings",
+    tags=["API - Settings"],
+    summary="Get current settings",
+    description="""
+    Retrieve the current configuration settings for the dashboard.
+
+    Includes cache expiry times, validation timeouts, and thread pool settings.
+    """,
+    response_description="Current settings configuration",
+)
 async def get_settings(db: Session = Depends(get_db)):
-    """Get current settings."""
+    """Get current settings.
+
+    **Example Response:**
+    ```json
+    {
+      "auto_refresh_interval": 12,
+      "url_validation_timeout": 10,
+      "url_validation_threads": 10,
+      "metadata_cache_expiry": 12,
+      "federation_cache_expiry": 720,
+      "updated_at": "2025-10-02T14:30:00"
+    }
+    ```
+    """
     settings = db.query(Settings).first()
     if not settings:
         # Return defaults
@@ -1184,7 +1440,22 @@ async def get_settings(db: Session = Depends(get_db)):
     }
 
 
-@app.post("/api/settings")
+@app.post(
+    "/api/settings",
+    tags=["API - Settings"],
+    summary="Update settings",
+    description="""
+    Update configuration settings for the dashboard.
+
+    **Validation Ranges:**
+    - `auto_refresh_interval`: 1-168 hours (max 1 week)
+    - `url_validation_timeout`: 1-60 seconds
+    - `url_validation_threads`: 1-50 threads
+    - `metadata_cache_expiry`: 1-168 hours
+    - `federation_cache_expiry`: 1-8760 hours (max 1 year)
+    """,
+    response_description="Updated settings configuration",
+)
 async def update_settings(
     auto_refresh_interval: int = 12,
     url_validation_timeout: int = 10,
@@ -1236,7 +1507,22 @@ async def update_settings(
     }
 
 
-@app.post("/api/settings/reset")
+@app.post(
+    "/api/settings/reset",
+    tags=["API - Settings"],
+    summary="Reset settings to defaults",
+    description="""
+    Reset all configuration settings to their default values.
+
+    **Default Values:**
+    - `auto_refresh_interval`: 12 hours
+    - `url_validation_timeout`: 10 seconds
+    - `url_validation_threads`: 10 threads
+    - `metadata_cache_expiry`: 12 hours
+    - `federation_cache_expiry`: 720 hours (30 days)
+    """,
+    response_description="Confirmation of settings reset",
+)
 async def reset_settings(db: Session = Depends(get_db)):
     """Reset settings to defaults."""
     settings = db.query(Settings).first()
@@ -1253,11 +1539,469 @@ async def reset_settings(db: Session = Depends(get_db)):
 
 
 # ========================================
+# Data Refresh API
+# ========================================
+
+# Global status tracking for refresh operations
+refresh_status = {
+    "running": False,
+    "started_at": None,
+    "completed_at": None,
+    "status": "idle",
+    "message": "No refresh in progress",
+    "error": None,
+    "progress": 0,
+    "stage": None,
+}
+refresh_lock = threading.Lock()
+
+
+def run_refresh(validate_urls: bool = False):
+    """Run data refresh in background with progress tracking."""
+    global refresh_status
+
+    def update_progress(progress: int, stage: str, message: str):
+        """Update refresh status with progress information."""
+        with refresh_lock:
+            refresh_status["progress"] = progress
+            refresh_status["stage"] = stage
+            refresh_status["message"] = message
+
+    try:
+        with refresh_lock:
+            refresh_status["running"] = True
+            refresh_status["started_at"] = datetime.now().isoformat()
+            refresh_status["status"] = "running"
+            refresh_status["progress"] = 0
+            refresh_status["stage"] = "initializing"
+            refresh_status["message"] = "Starting data import..."
+            refresh_status["error"] = None
+
+        # Import with progress tracking
+        from ..core.analysis import analyze_privacy_security
+        from ..core.metadata import get_federation_mapping, get_metadata, parse_metadata
+
+        # Stage 1: Download metadata (20%)
+        update_progress(10, "downloading", "Downloading eduGAIN metadata...")
+        xml_content = get_metadata()
+        root = parse_metadata(xml_content)
+        update_progress(20, "downloading", "Metadata downloaded successfully")
+
+        # Stage 2: Fetch federation names (10%)
+        update_progress(25, "federations", "Fetching federation names...")
+        federation_mapping = get_federation_mapping()
+        update_progress(30, "federations", "Federation mapping loaded")
+
+        # Stage 3: Analyze entities (30-60%)
+        if validate_urls:
+            update_progress(
+                35, "analyzing", "Analyzing entities and validating URLs..."
+            )
+        else:
+            update_progress(35, "analyzing", "Analyzing entities...")
+
+        entities_list, stats, federation_stats = analyze_privacy_security(
+            root,
+            federation_mapping=federation_mapping,
+            validate_urls=validate_urls,
+            validation_cache=None,
+            max_workers=10,
+        )
+
+        if validate_urls:
+            update_progress(70, "analyzing", "URL validation completed")
+        else:
+            update_progress(65, "analyzing", "Analysis completed")
+
+        # Stage 4: Save to database (20%)
+        update_progress(75, "saving", "Saving results to database...")
+
+        db = SessionLocal()
+        try:
+            # Create snapshot
+            snapshot = Snapshot(
+                timestamp=datetime.now(),
+                total_entities=stats["total_entities"],
+                total_sps=stats["total_sps"],
+                total_idps=stats["total_idps"],
+                sps_with_privacy=stats["sps_has_privacy"],
+                sps_missing_privacy=stats["sps_missing_privacy"],
+                sps_has_security=stats["sps_has_security"],
+                idps_has_security=stats["idps_has_security"],
+                coverage_pct=(
+                    stats["sps_has_privacy"] / stats["total_sps"] * 100
+                    if stats["total_sps"] > 0
+                    else 0
+                ),
+            )
+            db.add(snapshot)
+            db.flush()
+
+            update_progress(80, "saving", "Saving federation data...")
+
+            # Create federation records
+            federation_id_map = {}
+            for fed_name, fed_stats in federation_stats.items():
+                federation = Federation(
+                    snapshot_id=snapshot.id,
+                    name=fed_name,
+                    total_entities=fed_stats["total_entities"],
+                    total_sps=fed_stats["total_sps"],
+                    total_idps=fed_stats["total_idps"],
+                    sps_with_privacy=fed_stats["sps_has_privacy"],
+                    sps_has_security=fed_stats["sps_has_security"],
+                    idps_has_security=fed_stats["idps_has_security"],
+                    coverage_pct=(
+                        fed_stats["sps_has_privacy"] / fed_stats["total_sps"] * 100
+                        if fed_stats["total_sps"] > 0
+                        else 0
+                    ),
+                )
+                db.add(federation)
+                db.flush()
+                federation_id_map[fed_name] = federation.id
+
+            update_progress(90, "saving", "Saving entity data...")
+
+            # Create entity records
+            for entity_data in entities_list:
+                fed_name = entity_data[0]
+                federation_id = federation_id_map.get(fed_name)
+
+                entity = Entity(
+                    snapshot_id=snapshot.id,
+                    federation_id=federation_id,
+                    entity_type=entity_data[1],
+                    organization_name=entity_data[2],
+                    entity_id=entity_data[3],
+                    has_privacy_statement=entity_data[4]
+                    if entity_data[4] != "N/A"
+                    else None,
+                    privacy_statement_url=entity_data[5]
+                    if entity_data[5] not in ["", "N/A"]
+                    else None,
+                    has_security_contact=entity_data[6] == "Yes",
+                )
+                db.add(entity)
+
+                # Add URL validation if present
+                if validate_urls and len(entity_data) > 7:
+                    db.flush()
+
+                    # Parse status code safely
+                    status_code = None
+                    if len(entity_data) > 7 and entity_data[7]:
+                        try:
+                            status_code = (
+                                int(entity_data[7])
+                                if entity_data[7].isdigit()
+                                else None
+                            )
+                        except (ValueError, AttributeError):
+                            status_code = None
+
+                    # Parse redirect count safely
+                    redirect_count = 0
+                    if len(entity_data) > 10 and entity_data[10]:
+                        try:
+                            redirect_count = (
+                                int(entity_data[10])
+                                if str(entity_data[10]).isdigit()
+                                else 0
+                            )
+                        except (ValueError, AttributeError):
+                            redirect_count = 0
+
+                    url_validation = URLValidation(
+                        entity_id=entity.id,
+                        url=entity_data[5],
+                        status_code=status_code,
+                        final_url=entity_data[8]
+                        if len(entity_data) > 8 and entity_data[8] != ""
+                        else None,
+                        accessible=entity_data[9] == "Yes"
+                        if len(entity_data) > 9
+                        else None,
+                        redirect_count=redirect_count,
+                        validation_error=entity_data[11]
+                        if len(entity_data) > 11 and entity_data[11] != ""
+                        else None,
+                        validated_at=datetime.now(),
+                    )
+                    db.add(url_validation)
+
+            update_progress(95, "saving", "Finalizing database commit...")
+            db.commit()
+            db.close()
+
+        except Exception as e:
+            db.rollback()
+            db.close()
+            raise e
+
+        update_progress(100, "completed", "Data import completed successfully")
+
+        with refresh_lock:
+            refresh_status["running"] = False
+            refresh_status["completed_at"] = datetime.now().isoformat()
+            refresh_status["status"] = "completed"
+            refresh_status["progress"] = 100
+            refresh_status["message"] = (
+                f"Import completed: {stats['total_entities']} entities analyzed"
+            )
+
+    except Exception as e:
+        with refresh_lock:
+            refresh_status["running"] = False
+            refresh_status["completed_at"] = datetime.now().isoformat()
+            refresh_status["status"] = "error"
+            refresh_status["message"] = "Data refresh failed"
+            refresh_status["error"] = str(e)
+            refresh_status["progress"] = 0
+
+
+@app.post(
+    "/api/refresh",
+    tags=["API - Refresh"],
+    summary="Trigger data refresh",
+    description="""
+    Trigger a background task to refresh the analysis data from eduGAIN metadata.
+
+    **Parameters:**
+    - `validate_urls`: Enable URL validation (slower but provides accessibility data)
+
+    **Note:** Only one refresh can run at a time. Check `/api/refresh/status` for progress.
+    """,
+    response_description="Confirmation that refresh has been triggered",
+)
+async def trigger_refresh(
+    background_tasks: BackgroundTasks,
+    validate_urls: bool = False,
+):
+    """Trigger a data refresh in the background.
+
+    Args:
+        validate_urls: If True, validate privacy statement URLs (slower)
+
+    **Example Response:**
+    ```json
+    {
+      "success": true,
+      "message": "Data refresh started",
+      "validate_urls": false
+    }
+    ```
+    """
+    global refresh_status
+
+    # Check if already running
+    if refresh_status["running"]:
+        return {
+            "success": False,
+            "message": "Refresh already in progress",
+            "status": refresh_status,
+        }
+
+    # Start background task
+    background_tasks.add_task(run_refresh, validate_urls)
+
+    return {
+        "success": True,
+        "message": "Data refresh started",
+        "validate_urls": validate_urls,
+    }
+
+
+@app.get(
+    "/api/refresh/status",
+    tags=["API - Refresh"],
+    summary="Get refresh status",
+    description="""
+    Get the status of the current or last data refresh operation.
+
+    **Status Values:**
+    - `idle`: No refresh in progress
+    - `running`: Refresh currently in progress
+    - `completed`: Last refresh completed successfully
+    - `error`: Last refresh failed (check error field)
+    """,
+    response_description="Refresh operation status",
+)
+async def get_refresh_status():
+    """Get the status of the current/last refresh operation.
+
+    **Example Response:**
+    ```json
+    {
+      "running": false,
+      "started_at": "2025-10-02T14:30:00",
+      "completed_at": "2025-10-02T14:45:00",
+      "status": "completed",
+      "message": "Data refresh completed successfully",
+      "error": null
+    }
+    ```
+    """
+    return refresh_status
+
+
+# ========================================
+# Database Export/Import
+# ========================================
+
+
+@app.get(
+    "/api/database/export",
+    tags=["API - Database"],
+    summary="Export database",
+    description="""
+    Export the entire SQLite database file for backup or sharing.
+
+    Returns the complete database as a downloadable `.db` file containing all snapshots,
+    entities, federations, and validation results.
+
+    **Use Cases:**
+    - Backup current data
+    - Share data with collaborators
+    - Archive historical snapshots
+    """,
+    response_description="SQLite database file",
+)
+async def export_database(db: Session = Depends(get_db)):
+    """Export the entire SQLite database file.
+
+    Returns the database file as a downloadable attachment.
+    Useful for backup and sharing data.
+    """
+    from .models import DATABASE_PATH
+
+    # Close the database connection to ensure file is not locked
+    db.close()
+
+    # Read database file
+    if not Path(DATABASE_PATH).exists():
+        return {"error": "Database file not found"}
+
+    with open(DATABASE_PATH, "rb") as f:
+        db_content = f.read()
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"edugain_analysis_{timestamp}.db"
+
+    return Response(
+        content=db_content,
+        media_type="application/x-sqlite3",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@app.post(
+    "/api/database/import",
+    tags=["API - Database"],
+    summary="Import database",
+    description="""
+    Import a SQLite database file to replace the current database.
+
+    ⚠️ **WARNING:** This operation will:
+    - Overwrite all existing data
+    - Create a backup of the current database
+    - Replace the database with the uploaded file
+
+    **Requirements:**
+    - File must be a valid SQLite database
+    - File must be uploaded as `multipart/form-data` with field name `database_file`
+
+    **Safety:**
+    - Current database is automatically backed up before replacement
+    - Backup filename includes timestamp for easy recovery
+    """,
+    response_description="Import result with backup location",
+)
+async def import_database(request: Request):
+    """Import a SQLite database file.
+
+    Replaces the current database with the uploaded file.
+    WARNING: This will overwrite all existing data!
+
+    Returns:
+        Success message or error
+
+    **Example Response:**
+    ```json
+    {
+      "success": true,
+      "message": "Database imported successfully",
+      "backup_path": "/path/to/backup/edugain_analysis_backup_20251002_143000.db"
+    }
+    ```
+    """
+    from .models import DATABASE_PATH, engine
+
+    try:
+        # Parse uploaded file
+        form = await request.form()
+        uploaded_file = form.get("database_file")
+
+        if not uploaded_file:
+            return {"success": False, "error": "No file uploaded"}
+
+        # Read file content
+        db_content = await uploaded_file.read()
+
+        # Validate it's a SQLite database (basic check)
+        if not db_content.startswith(b"SQLite format 3"):
+            return {"success": False, "error": "Invalid SQLite database file"}
+
+        # Close all database connections
+        engine.dispose()
+
+        # Backup current database
+        backup_path = (
+            Path(DATABASE_PATH).parent
+            / f"edugain_analysis_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+        )
+        if Path(DATABASE_PATH).exists():
+            Path(DATABASE_PATH).rename(backup_path)
+
+        # Write new database
+        with open(DATABASE_PATH, "wb") as f:
+            f.write(db_content)
+
+        return {
+            "success": True,
+            "message": "Database imported successfully",
+            "backup_path": str(backup_path),
+        }
+
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+# ========================================
 # Health Check
 # ========================================
 
 
-@app.get("/health")
+@app.get(
+    "/health",
+    tags=["Health"],
+    summary="Health check",
+    description="""
+    Basic health check endpoint for monitoring and load balancers.
+
+    Returns a simple status response indicating the API is operational.
+    """,
+    response_description="Health status",
+)
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint.
+
+    **Example Response:**
+    ```json
+    {
+      "status": "healthy",
+      "timestamp": "2025-10-02T14:30:00"
+    }
+    ```
+    """
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}

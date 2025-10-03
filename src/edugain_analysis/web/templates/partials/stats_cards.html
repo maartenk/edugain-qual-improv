@@ -10,6 +10,10 @@
         <div class="stat-value {% if snapshot.coverage_pct >= 80 %}coverage-high{% elif snapshot.coverage_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
             {{ "%.1f"|format(snapshot.coverage_pct) }}%
         </div>
+        <div class="speedometer {% if snapshot.coverage_pct >= 80 %}coverage-high{% elif snapshot.coverage_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+            <div class="speedometer-arc"></div>
+            <div class="speedometer-needle" style="transform: rotate({{ (snapshot.coverage_pct / 100 * 180) - 90 }}deg);"></div>
+        </div>
         <progress value="{{ snapshot.coverage_pct }}" max="100"></progress>
         <small>{{ "{:,}".format(snapshot.sps_with_privacy) }} of {{ "{:,}".format(snapshot.total_sps) }} SPs</small>
     </article>
@@ -20,6 +24,10 @@
         <div class="stat-value {% if sp_sec_pct >= 80 %}coverage-high{% elif sp_sec_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
             {{ "%.1f"|format(sp_sec_pct) }}%
         </div>
+        <div class="speedometer {% if sp_sec_pct >= 80 %}coverage-high{% elif sp_sec_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+            <div class="speedometer-arc"></div>
+            <div class="speedometer-needle" style="transform: rotate({{ (sp_sec_pct / 100 * 180) - 90 }}deg);"></div>
+        </div>
         <progress value="{{ sp_sec_pct }}" max="100"></progress>
         <small>{{ "{:,}".format(snapshot.sps_has_security) }} of {{ "{:,}".format(snapshot.total_sps) }} SPs</small>
     </article>
@@ -29,6 +37,10 @@
         {% set idp_sec_pct = (snapshot.idps_has_security / snapshot.total_idps * 100) if snapshot.total_idps > 0 else 0 %}
         <div class="stat-value {% if idp_sec_pct >= 80 %}coverage-high{% elif idp_sec_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
             {{ "%.1f"|format(idp_sec_pct) }}%
+        </div>
+        <div class="speedometer {% if idp_sec_pct >= 80 %}coverage-high{% elif idp_sec_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+            <div class="speedometer-arc"></div>
+            <div class="speedometer-needle" style="transform: rotate({{ (idp_sec_pct / 100 * 180) - 90 }}deg);"></div>
         </div>
         <progress value="{{ idp_sec_pct }}" max="100"></progress>
         <small>{{ "{:,}".format(snapshot.idps_has_security) }} of {{ "{:,}".format(snapshot.total_idps) }} IdPs</small>

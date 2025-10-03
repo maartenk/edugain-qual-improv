@@ -17,15 +17,18 @@
     </article>
 
     <article>
-        <header class="stat-label">Redirects</header>
-        <div class="stat-value coverage-medium">{{ "{:,}".format(redirect_count) }}</div>
-        <small>{{ "%.1f"|format((redirect_count / total_validations * 100) if total_validations > 0 else 0) }}%</small>
-    </article>
-
-    <article>
         <header class="stat-label">Errors</header>
         <div class="stat-value coverage-low">{{ "{:,}".format(error_count) }}</div>
         <small>{{ "%.1f"|format((error_count / total_validations * 100) if total_validations > 0 else 0) }}%</small>
+    </article>
+
+    <article>
+        <header class="stat-label">Average Coverage</header>
+        {% set coverage_pct = (accessible_count / total_validations * 100) if total_validations > 0 else 0 %}
+        <div class="stat-value {% if coverage_pct >= 80 %}coverage-high{% elif coverage_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+            {{ "%.1f"|format(coverage_pct) }}%
+        </div>
+        <small>SPs with accessible URLs</small>
     </article>
 </section>
 
@@ -50,14 +53,6 @@
                    class="{% if status_filter == 'accessible' %}primary{% else %}secondary outline{% endif %}"
                    style="width: 100%; text-align: center;">
                     ✅ Accessible Only
-                </a>
-            </div>
-            <div>
-                <a href="/validation?status_filter=redirect"
-                   role="button"
-                   class="{% if status_filter == 'redirect' %}primary{% else %}secondary outline{% endif %}"
-                   style="width: 100%; text-align: center;">
-                    ⚠️ Redirects
                 </a>
             </div>
             <div>
@@ -87,7 +82,7 @@
             <strong>URL Validation Details</strong>
             {% if status_filter %}
             <span style="float: right;">
-                <small>Filtered: {% if status_filter == 'accessible' %}Accessible URLs{% elif status_filter == 'redirect' %}Redirected URLs{% elif status_filter == 'error' %}Error URLs{% else %}Timeout/Issues{% endif %}</small>
+                <small>Filtered: {% if status_filter == 'accessible' %}Accessible URLs{% elif status_filter == 'error' %}Error URLs{% else %}Timeout/Issues{% endif %}</small>
             </span>
             {% endif %}
         </header>

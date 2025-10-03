@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>Dashboard</h1>
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+    <h1 style="margin: 0;">Dashboard</h1>
+</div>
 
 <!-- Auto-refreshing stats cards (updates every 60 seconds) -->
 <section hx-get="/partials/stats"
@@ -16,39 +18,28 @@
         <header>
             <strong>📈 Coverage Trends</strong>
             <span style="float: right;">
-                <select hx-get="/partials/trends"
+                <select id="days-select"
+                        hx-get="/partials/trends"
                         hx-target="#trends-chart"
                         hx-swap="innerHTML"
+                        hx-include="this"
+                        hx-trigger="change"
                         name="days"
                         style="display: inline-block; width: auto;">
                     <option value="7">Last 7 days</option>
                     <option value="30" selected>Last 30 days</option>
                     <option value="90">Last 90 days</option>
+                    <option value="180">Last 180 days</option>
+                    <option value="365">Last 365 days</option>
                 </select>
             </span>
         </header>
 
         <div id="trends-chart"
              hx-get="/partials/trends?days=30"
-             hx-trigger="load"
+             hx-trigger="load, revealed"
              hx-swap="innerHTML">
             <p aria-busy="true">Loading trends...</p>
-        </div>
-    </article>
-</section>
-
-<!-- Federation Comparison Chart -->
-<section>
-    <article>
-        <header>
-            <strong>📊 Top 20 Federations by Size</strong>
-        </header>
-
-        <div id="federation-comparison-chart"
-             hx-get="/partials/federation_comparison?limit=20"
-             hx-trigger="load"
-             hx-swap="innerHTML">
-            <p aria-busy="true">Loading comparison chart...</p>
         </div>
     </article>
 </section>

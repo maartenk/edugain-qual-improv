@@ -58,10 +58,150 @@
                 });
         </script>
         <footer>
-            <p><small>To refresh data, run: <code>python -m edugain_analysis.web.import_data</code></small></p>
+            <div class="grid" style="margin-top: 1rem;">
+                <button type="button" id="refresh-button" onclick="refreshData(false)">
+                    🔄 Refresh Data
+                </button>
+                <button type="button" class="secondary outline" id="refresh-validate-button" onclick="refreshData(true)">
+                    🔍 Refresh with URL Validation
+                </button>
+            </div>
+
+            <!-- Progress indicator -->
+            <div id="refresh-progress" style="margin-top: 1rem; display: none;">
+                <div style="margin-bottom: 0.5rem;">
+                    <small id="progress-stage" style="font-weight: bold;"></small>
+                    <small id="progress-percentage" style="float: right;"></small>
+                </div>
+                <progress id="progress-bar" value="0" max="100" style="width: 100%; height: 1.5rem;"></progress>
+                <p id="progress-message" style="margin-top: 0.5rem; font-size: 0.9rem;"></p>
+            </div>
+
+            <div id="refresh-status" style="margin-top: 1rem;"></div>
+            <p style="margin-top: 1rem;"><small>Or manually run: <code>python -m edugain_analysis.web.import_data</code></small></p>
         </footer>
     </article>
 </section>
+
+<script>
+let statusCheckInterval = null;
+
+async function refreshData(validateUrls) {
+    const refreshButton = document.getElementById('refresh-button');
+    const refreshValidateButton = document.getElementById('refresh-validate-button');
+    const statusDiv = document.getElementById('refresh-status');
+    const progressDiv = document.getElementById('refresh-progress');
+
+    // Disable buttons
+    refreshButton.disabled = true;
+    refreshValidateButton.disabled = true;
+
+    // Show progress indicator
+    progressDiv.style.display = 'block';
+    statusDiv.innerHTML = '';
+
+    try {
+        const response = await fetch(`/api/refresh?validate_urls=${validateUrls}`, {
+            method: 'POST',
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            // Start polling for status
+            if (statusCheckInterval) {
+                clearInterval(statusCheckInterval);
+            }
+            statusCheckInterval = setInterval(checkRefreshStatus, 1000);
+        } else {
+            progressDiv.style.display = 'none';
+            statusDiv.innerHTML = `<p style="color: var(--pico-del-color);">❌ ${data.message}</p>`;
+            refreshButton.disabled = false;
+            refreshValidateButton.disabled = false;
+        }
+    } catch (error) {
+        progressDiv.style.display = 'none';
+        statusDiv.innerHTML = `<p style="color: var(--pico-del-color);">❌ Error starting refresh</p>`;
+        refreshButton.disabled = false;
+        refreshValidateButton.disabled = false;
+    }
+}
+
+async function checkRefreshStatus() {
+    const refreshButton = document.getElementById('refresh-button');
+    const refreshValidateButton = document.getElementById('refresh-validate-button');
+    const statusDiv = document.getElementById('refresh-status');
+    const progressDiv = document.getElementById('refresh-progress');
+    const progressBar = document.getElementById('progress-bar');
+    const progressStage = document.getElementById('progress-stage');
+    const progressPercentage = document.getElementById('progress-percentage');
+    const progressMessage = document.getElementById('progress-message');
+
+    try {
+        const response = await fetch('/api/refresh/status');
+        const status = await response.json();
+
+        if (status.status === 'running') {
+            // Update progress bar
+            progressBar.value = status.progress || 0;
+            progressPercentage.textContent = `${status.progress || 0}%`;
+
+            // Update stage indicator
+            const stageIcons = {
+                'initializing': '🔄',
+                'downloading': '📥',
+                'federations': '🏛️',
+                'analyzing': '🔍',
+                'saving': '💾',
+                'completed': '✅'
+            };
+            const icon = stageIcons[status.stage] || '⏳';
+            progressStage.textContent = `${icon} ${status.stage ? status.stage.charAt(0).toUpperCase() + status.stage.slice(1) : 'Processing'}`;
+
+            // Update message
+            progressMessage.textContent = status.message;
+            progressMessage.style.color = 'var(--pico-ins-color)';
+        } else if (status.status === 'completed') {
+            // Show 100% complete
+            progressBar.value = 100;
+            progressPercentage.textContent = '100%';
+            progressStage.textContent = '✅ Completed';
+            progressMessage.textContent = status.message;
+            progressMessage.style.color = 'var(--pico-ins-color)';
+
+            clearInterval(statusCheckInterval);
+            statusCheckInterval = null;
+
+            // Hide progress and show success after delay
+            setTimeout(() => {
+                progressDiv.style.display = 'none';
+                statusDiv.innerHTML = `<p style="color: var(--pico-ins-color);">✅ ${status.message}</p>`;
+                refreshButton.disabled = false;
+                refreshValidateButton.disabled = false;
+
+                // Reload page to show new data
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            }, 1500);
+        } else if (status.status === 'error') {
+            progressDiv.style.display = 'none';
+            statusDiv.innerHTML = `<p style="color: var(--pico-del-color);">❌ ${status.message}</p>`;
+            if (status.error) {
+                statusDiv.innerHTML += `<p><small>${status.error}</small></p>`;
+            }
+            clearInterval(statusCheckInterval);
+            statusCheckInterval = null;
+            refreshButton.disabled = false;
+            refreshValidateButton.disabled = false;
+        }
+    } catch (error) {
+        console.error('Error checking refresh status:', error);
+    }
+}
+
+// Check status on page load in case a refresh is already running
+checkRefreshStatus();
+</script>
 
 <!-- Settings Form -->
 <section>
@@ -192,6 +332,84 @@
                     resetButton.textContent = '🔄 Reset to Defaults';
                 }
             });
+        </script>
+    </article>
+</section>
+
+<!-- Database Backup/Restore -->
+<section>
+    <article>
+        <header><strong>💾 Database Backup & Restore</strong></header>
+        <p>Export or import the entire database for backup, sharing, or migration purposes.</p>
+
+        <div class="grid" style="margin-top: 1rem;">
+            <div>
+                <h6 style="margin-bottom: 0.5rem;">📥 Export Database</h6>
+                <button type="button" onclick="exportDatabase()" style="width: 100%;">
+                    Download Database File
+                </button>
+                <p style="margin-top: 0.5rem;"><small>Download complete database as SQLite file</small></p>
+            </div>
+
+            <div>
+                <h6 style="margin-bottom: 0.5rem;">📤 Import Database</h6>
+                <form id="import-form" enctype="multipart/form-data">
+                    <input type="file" id="database-file" name="database_file" accept=".db,.sqlite,.sqlite3" style="margin-bottom: 0.5rem;">
+                    <button type="button" onclick="importDatabase()" style="width: 100%;">
+                        Upload & Replace Database
+                    </button>
+                    <p style="margin-top: 0.5rem;"><small style="color: var(--pico-del-color);">⚠️ This will replace all existing data!</small></p>
+                </form>
+            </div>
+        </div>
+
+        <div id="database-message" style="margin-top: 1rem;"></div>
+
+        <script>
+            function exportDatabase() {
+                // Direct download via link
+                window.location.href = '/api/database/export';
+            }
+
+            async function importDatabase() {
+                const fileInput = document.getElementById('database-file');
+                const messageDiv = document.getElementById('database-message');
+
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    messageDiv.innerHTML = '<p style="color: var(--pico-del-color);">❌ Please select a database file first</p>';
+                    return;
+                }
+
+                if (!confirm('⚠️ WARNING: This will replace ALL existing data with the imported database. A backup will be created automatically. Continue?')) {
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('database_file', fileInput.files[0]);
+
+                messageDiv.innerHTML = '<p style="color: var(--pico-ins-color);">⏳ Importing database...</p>';
+
+                try {
+                    const response = await fetch('/api/database/import', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        messageDiv.innerHTML = `
+                            <p style="color: var(--pico-ins-color);">✅ ${data.message}</p>
+                            <p><small>Backup saved to: ${data.backup_path}</small></p>
+                            <p><small>Reloading page in 3 seconds...</small></p>
+                        `;
+                        setTimeout(() => window.location.reload(), 3000);
+                    } else {
+                        messageDiv.innerHTML = `<p style="color: var(--pico-del-color);">❌ ${data.error}</p>`;
+                    }
+                } catch (error) {
+                    messageDiv.innerHTML = `<p style="color: var(--pico-del-color);">❌ Error importing database: ${error.message}</p>`;
+                }
+            }
         </script>
     </article>
 </section>

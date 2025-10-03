@@ -1,68 +1,11 @@
-<!-- Filter Controls -->
-<div class="grid" style="margin-bottom: 1rem;">
-    <div>
-        <label for="entity-type-filter"><small>Entity Type:</small></label>
-        <select id="entity-type-filter"
-                hx-get="/partials/entity_table"
-                hx-target="#entity-table-content"
-                hx-include="[name='privacy-filter'], [name='security-filter']"
-                name="entity_type"
-                {% if federation %}hx-vals='{"federation_id": {{ federation.id }}}'{% endif %}>
-            <option value="">All Types</option>
-            <option value="SP" {% if entity_type == "SP" %}selected{% endif %}>Service Providers (SP)</option>
-            <option value="IdP" {% if entity_type == "IdP" %}selected{% endif %}>Identity Providers (IdP)</option>
-        </select>
-    </div>
-
-    <div>
-        <label for="privacy-filter"><small>Privacy Statement:</small></label>
-        <select id="privacy-filter"
-                hx-get="/partials/entity_table"
-                hx-target="#entity-table-content"
-                hx-include="[name='entity_type'], [name='security-filter']"
-                name="privacy_filter"
-                {% if federation %}hx-vals='{"federation_id": {{ federation.id }}}'{% endif %}>
-            <option value="">All</option>
-            <option value="yes" {% if privacy_filter == "yes" %}selected{% endif %}>✅ Has Privacy</option>
-            <option value="no" {% if privacy_filter == "no" %}selected{% endif %}>❌ Missing Privacy</option>
-            <option value="na" {% if privacy_filter == "na" %}selected{% endif %}>N/A (IdPs)</option>
-        </select>
-    </div>
-
-    <div>
-        <label for="security-filter"><small>Security Contact:</small></label>
-        <select id="security-filter"
-                hx-get="/partials/entity_table"
-                hx-target="#entity-table-content"
-                hx-include="[name='entity_type'], [name='privacy-filter']"
-                name="security_filter"
-                {% if federation %}hx-vals='{"federation_id": {{ federation.id }}}'{% endif %}>
-            <option value="">All</option>
-            <option value="yes" {% if security_filter == "yes" %}selected{% endif %}>✅ Has Security</option>
-            <option value="no" {% if security_filter == "no" %}selected{% endif %}>❌ Missing Security</option>
-        </select>
-    </div>
-
-    <div>
-        <label><small>&nbsp;</small></label>
-        <button onclick="document.getElementById('entity-type-filter').value=''; document.getElementById('privacy-filter').value=''; document.getElementById('security-filter').value=''; htmx.trigger('#entity-type-filter', 'change');"
-                class="secondary outline"
-                style="width: 100%;">
-            Clear Filters
-        </button>
-    </div>
-</div>
-
-<!-- Entity Table -->
-<div id="entity-table-content">
-    {% if entities %}
+{% if entities %}
     <div class="table-responsive">
         <table role="grid">
             <thead>
                 <tr>
                     <th>
                         <a hx-get="/partials/entity_table?sort_by=organization&sort_order={% if sort_by == 'organization' and sort_order == 'asc' %}desc{% else %}asc{% endif %}{% if federation %}&federation_id={{ federation.id }}{% endif %}"
-                           hx-target="#entity-table-content"
+                           hx-target="#entity-table-wrapper"
                            hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
                            style="cursor: pointer; text-decoration: none;">
                             Organization {% if sort_by == "organization" %}{{ "▼" if sort_order == "desc" else "▲" }}{% endif %}
@@ -70,7 +13,7 @@
                     </th>
                     <th>
                         <a hx-get="/partials/entity_table?sort_by=type&sort_order={% if sort_by == 'type' and sort_order == 'asc' %}desc{% else %}asc{% endif %}{% if federation %}&federation_id={{ federation.id }}{% endif %}"
-                           hx-target="#entity-table-content"
+                           hx-target="#entity-table-wrapper"
                            hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
                            style="cursor: pointer; text-decoration: none;">
                             Type {% if sort_by == "type" %}{{ "▼" if sort_order == "desc" else "▲" }}{% endif %}
@@ -78,7 +21,7 @@
                     </th>
                     <th>
                         <a hx-get="/partials/entity_table?sort_by=privacy&sort_order={% if sort_by == 'privacy' and sort_order == 'asc' %}desc{% else %}asc{% endif %}{% if federation %}&federation_id={{ federation.id }}{% endif %}"
-                           hx-target="#entity-table-content"
+                           hx-target="#entity-table-wrapper"
                            hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
                            style="cursor: pointer; text-decoration: none;">
                             Privacy {% if sort_by == "privacy" %}{{ "▼" if sort_order == "desc" else "▲" }}{% endif %}
@@ -86,7 +29,7 @@
                     </th>
                     <th>
                         <a hx-get="/partials/entity_table?sort_by=security&sort_order={% if sort_by == 'security' and sort_order == 'asc' %}desc{% else %}asc{% endif %}{% if federation %}&federation_id={{ federation.id }}{% endif %}"
-                           hx-target="#entity-table-content"
+                           hx-target="#entity-table-wrapper"
                            hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
                            style="cursor: pointer; text-decoration: none;">
                             Security {% if sort_by == "security" %}{{ "▼" if sort_order == "desc" else "▲" }}{% endif %}
@@ -139,7 +82,8 @@
         <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 1rem; flex-wrap: wrap;">
             <!-- Previous button -->
             <button hx-get="/partials/entity_table?page={{ page - 1 }}{% if federation %}&federation_id={{ federation.id }}{% endif %}{% if entity_type %}&entity_type={{ entity_type }}{% endif %}{% if privacy_filter %}&privacy_filter={{ privacy_filter }}{% endif %}{% if security_filter %}&security_filter={{ security_filter }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}"
-                    hx-target="#entity-table-content"
+                    hx-target="#entity-table-wrapper"
+                    hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
                     class="secondary outline"
                     style="padding: 0.25rem 0.75rem; margin: 0;"
                     {% if page <= 1 %}disabled{% endif %}>
@@ -153,7 +97,8 @@
 
             {% if start_page > 1 %}
                 <button hx-get="/partials/entity_table?page=1{% if federation %}&federation_id={{ federation.id }}{% endif %}{% if entity_type %}&entity_type={{ entity_type }}{% endif %}{% if privacy_filter %}&privacy_filter={{ privacy_filter }}{% endif %}{% if security_filter %}&security_filter={{ security_filter }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}"
-                        hx-target="#entity-table-content"
+                        hx-target="#entity-table-wrapper"
+                        hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
                         class="secondary outline"
                         style="padding: 0.25rem 0.5rem; margin: 0; min-width: 2.5rem;">
                     1
@@ -165,7 +110,8 @@
 
             {% for p in range(start_page, end_page + 1) %}
                 <button hx-get="/partials/entity_table?page={{ p }}{% if federation %}&federation_id={{ federation.id }}{% endif %}{% if entity_type %}&entity_type={{ entity_type }}{% endif %}{% if privacy_filter %}&privacy_filter={{ privacy_filter }}{% endif %}{% if security_filter %}&security_filter={{ security_filter }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}"
-                        hx-target="#entity-table-content"
+                        hx-target="#entity-table-wrapper"
+                        hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
                         class="{% if p == page %}contrast{% else %}secondary outline{% endif %}"
                         style="padding: 0.25rem 0.5rem; margin: 0; min-width: 2.5rem;"
                         {% if p == page %}disabled{% endif %}>
@@ -178,7 +124,8 @@
                 <span style="padding: 0.25rem 0.5rem;">...</span>
                 {% endif %}
                 <button hx-get="/partials/entity_table?page={{ total_pages }}{% if federation %}&federation_id={{ federation.id }}{% endif %}{% if entity_type %}&entity_type={{ entity_type }}{% endif %}{% if privacy_filter %}&privacy_filter={{ privacy_filter }}{% endif %}{% if security_filter %}&security_filter={{ security_filter }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}"
-                        hx-target="#entity-table-content"
+                        hx-target="#entity-table-wrapper"
+                        hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
                         class="secondary outline"
                         style="padding: 0.25rem 0.5rem; margin: 0; min-width: 2.5rem;">
                     {{ total_pages }}
@@ -188,7 +135,8 @@
 
             <!-- Next button -->
             <button hx-get="/partials/entity_table?page={{ page + 1 }}{% if federation %}&federation_id={{ federation.id }}{% endif %}{% if entity_type %}&entity_type={{ entity_type }}{% endif %}{% if privacy_filter %}&privacy_filter={{ privacy_filter }}{% endif %}{% if security_filter %}&security_filter={{ security_filter }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}"
-                    hx-target="#entity-table-content"
+                    hx-target="#entity-table-wrapper"
+                    hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
                     class="secondary outline"
                     style="padding: 0.25rem 0.75rem; margin: 0;"
                     {% if page >= total_pages %}disabled{% endif %}>
@@ -198,10 +146,9 @@
         {% endif %}
     </div>
     {% endif %}
-    {% else %}
+{% else %}
     <p>No entities found matching the selected filters.</p>
-    {% endif %}
-</div>
+{% endif %}
 
 <!-- Export Buttons -->
 <div class="grid" style="margin-top: 1rem;">

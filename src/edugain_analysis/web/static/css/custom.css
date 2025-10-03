@@ -12,6 +12,10 @@
     font-size: 2.5rem;
     font-weight: 700;
     margin: 0.5rem 0;
+    line-height: 1.2;
+    min-height: 3rem;
+    display: flex;
+    align-items: center;
 }
 
 .stat-label {
@@ -19,6 +23,24 @@
     font-size: 0.875rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+}
+
+/* Align stat cards header heights */
+#stats-cards article header {
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+/* Ensure all stat cards have equal height and aligned content */
+#stats-cards article {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 /* Progress bars */
@@ -35,6 +57,127 @@ progress[value]::-webkit-progress-bar {
 progress[value]::-webkit-progress-value {
     background-color: var(--primary);
     border-radius: 4px;
+}
+
+/* Enhanced progress bar for data refresh */
+#progress-bar {
+    height: 1.5rem;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+#progress-bar::-webkit-progress-bar {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+#progress-bar::-webkit-progress-value {
+    background: linear-gradient(90deg, var(--primary) 0%, rgba(26, 115, 232, 0.8) 100%);
+    border-radius: 8px;
+    transition: width 0.3s ease;
+}
+
+#progress-bar::-moz-progress-bar {
+    background: linear-gradient(90deg, var(--primary) 0%, rgba(26, 115, 232, 0.8) 100%);
+    border-radius: 8px;
+    transition: width 0.3s ease;
+}
+
+#refresh-progress {
+    padding: 1rem;
+    background-color: var(--card-background-color);
+    border-radius: 8px;
+    border: 1px solid var(--muted-border-color);
+}
+
+/* Speedometer gauge */
+.speedometer {
+    width: 120px;
+    height: 60px;
+    position: relative;
+    margin: 0.5rem auto;
+    overflow: hidden;
+    border-radius: 60px 60px 0 0;
+    transition: background-color 0.3s ease;
+}
+
+.speedometer-arc {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 12px solid var(--muted-border-color);
+    border-bottom-color: transparent;
+    border-left-color: transparent;
+    transform: rotate(45deg);
+    position: absolute;
+    bottom: 0;
+    left: 0;
+}
+
+.speedometer-needle {
+    width: 2px;
+    height: 50px;
+    background: var(--primary);
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform-origin: bottom center;
+    transition: transform 0.3s ease;
+    border-radius: 2px;
+}
+
+.speedometer-needle::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: var(--primary);
+    border-radius: 50%;
+    position: absolute;
+    bottom: -4px;
+    left: -3px;
+}
+
+/* Speedometer colors based on percentage */
+.speedometer.coverage-high {
+    background: linear-gradient(180deg, rgba(52, 168, 83, 0.08) 0%, rgba(52, 168, 83, 0.25) 100%);
+}
+
+.speedometer.coverage-high .speedometer-arc {
+    border-top-color: var(--success);
+    border-right-color: var(--success);
+}
+
+.speedometer.coverage-high .speedometer-needle,
+.speedometer.coverage-high .speedometer-needle::after {
+    background: var(--success);
+}
+
+.speedometer.coverage-medium {
+    background: linear-gradient(180deg, rgba(251, 188, 4, 0.08) 0%, rgba(251, 188, 4, 0.25) 100%);
+}
+
+.speedometer.coverage-medium .speedometer-arc {
+    border-top-color: var(--warning);
+    border-right-color: var(--warning);
+}
+
+.speedometer.coverage-medium .speedometer-needle,
+.speedometer.coverage-medium .speedometer-needle::after {
+    background: var(--warning);
+}
+
+.speedometer.coverage-low {
+    background: linear-gradient(180deg, rgba(234, 67, 53, 0.08) 0%, rgba(234, 67, 53, 0.25) 100%);
+}
+
+.speedometer.coverage-low .speedometer-arc {
+    border-top-color: var(--danger);
+    border-right-color: var(--danger);
+}
+
+.speedometer.coverage-low .speedometer-needle,
+.speedometer.coverage-low .speedometer-needle::after {
+    background: var(--danger);
 }
 
 /* Coverage indicators */
@@ -112,6 +255,51 @@ th:hover {
 
 .controls-container > div {
     flex: 1 1 200px;
+}
+
+/* Navigation alignment */
+nav ul {
+    align-items: center;
+}
+
+nav details[role="list"] {
+    margin-bottom: 0;
+    position: relative;
+}
+
+nav details[role="list"] ul {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 1000;
+    margin-top: 0.5rem;
+    min-width: 400px;
+    max-width: 90vw;
+    direction: ltr;
+}
+
+nav details[role="list"] ul li {
+    direction: ltr;
+}
+
+/* Fix search dropdown content overflow */
+#search-results {
+    max-height: 400px;
+    overflow-y: auto;
+    direction: ltr;
+}
+
+/* Ensure search input stays in normal flow */
+nav details[role="list"] input[type="search"] {
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+/* Stats cards equal height */
+.grid article {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
 /* Responsive adjustments for tablets and below (≤1024px) */
