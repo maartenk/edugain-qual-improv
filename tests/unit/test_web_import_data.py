@@ -34,7 +34,7 @@ class TestImportSnapshot:
         mock_parse_metadata.return_value = MagicMock()
         mock_get_fed_mapping.return_value = {}
 
-        # Mock analysis results
+        # Mock analysis results (with SIRTFI column)
         entities_list = [
             [
                 "TestFed",
@@ -44,6 +44,7 @@ class TestImportSnapshot:
                 True,
                 "https://test.org/privacy",
                 True,
+                True,  # HasSIRTFI
             ]
         ]
         stats = {
@@ -54,6 +55,9 @@ class TestImportSnapshot:
             "sps_missing_privacy": 0,
             "sps_has_security": 1,
             "idps_has_security": 0,
+            "sps_has_sirtfi": 1,
+            "idps_has_sirtfi": 0,
+            "total_has_sirtfi": 1,
         }
         fed_stats = {
             "TestFed": {
@@ -64,6 +68,9 @@ class TestImportSnapshot:
                 "sps_missing_privacy": 0,
                 "sps_has_security": 1,
                 "idps_has_security": 0,
+                "sps_has_sirtfi": 1,
+                "idps_has_sirtfi": 0,
+                "total_has_sirtfi": 1,
             }
         }
         mock_analyze.return_value = (entities_list, stats, fed_stats)

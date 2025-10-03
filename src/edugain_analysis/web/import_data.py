@@ -62,6 +62,9 @@ def import_snapshot(validate_urls: bool = False):
                 sps_missing_privacy=stats["sps_missing_privacy"],
                 sps_has_security=stats["sps_has_security"],
                 idps_has_security=stats["idps_has_security"],
+                sps_has_sirtfi=stats["sps_has_sirtfi"],
+                idps_has_sirtfi=stats["idps_has_sirtfi"],
+                total_has_sirtfi=stats["total_has_sirtfi"],
                 coverage_pct=(
                     stats["sps_has_privacy"] / stats["total_sps"] * 100
                     if stats["total_sps"] > 0
@@ -83,6 +86,9 @@ def import_snapshot(validate_urls: bool = False):
                     sps_with_privacy=fed_stats["sps_has_privacy"],
                     sps_has_security=fed_stats["sps_has_security"],
                     idps_has_security=fed_stats["idps_has_security"],
+                    sps_has_sirtfi=fed_stats["sps_has_sirtfi"],
+                    idps_has_sirtfi=fed_stats["idps_has_sirtfi"],
+                    total_has_sirtfi=fed_stats["total_has_sirtfi"],
                     coverage_pct=(
                         fed_stats["sps_has_privacy"] / fed_stats["total_sps"] * 100
                         if fed_stats["total_sps"] > 0
@@ -95,9 +101,9 @@ def import_snapshot(validate_urls: bool = False):
 
             # Create entity records
             # entities_list is a list of lists with format:
-            # [Federation, EntityType, OrgName, EntityID, HasPrivacy, PrivacyURL, HasSecurity]
+            # [Federation, EntityType, OrgName, EntityID, HasPrivacy, PrivacyURL, HasSecurity, HasSIRTFI]
             # or with validation:
-            # [Federation, EntityType, OrgName, EntityID, HasPrivacy, PrivacyURL, HasSecurity,
+            # [Federation, EntityType, OrgName, EntityID, HasPrivacy, PrivacyURL, HasSecurity, HasSIRTFI,
             #  StatusCode, FinalURL, Accessible, RedirectCount, ValidationError]
             entity_id_map = {}
             for entity_row in entities_list:
@@ -111,6 +117,7 @@ def import_snapshot(validate_urls: bool = False):
                         has_privacy,
                         privacy_url,
                         has_security,
+                        has_sirtfi,
                         status_code,
                         final_url,
                         accessible,
@@ -127,6 +134,7 @@ def import_snapshot(validate_urls: bool = False):
                         has_privacy,
                         privacy_url,
                         has_security,
+                        has_sirtfi,
                     ) = entity_row
                     status_code = final_url = accessible = redirect_count = (
                         validation_error
@@ -137,6 +145,7 @@ def import_snapshot(validate_urls: bool = False):
                 # Convert Yes/No to boolean
                 has_privacy_bool = has_privacy == "Yes"
                 has_security_bool = has_security == "Yes"
+                has_sirtfi_bool = has_sirtfi == "Yes"
 
                 entity = Entity(
                     snapshot_id=snapshot.id,
@@ -147,6 +156,7 @@ def import_snapshot(validate_urls: bool = False):
                     has_privacy_statement=has_privacy_bool,
                     privacy_statement_url=privacy_url if privacy_url else None,
                     has_security_contact=has_security_bool,
+                    has_sirtfi=has_sirtfi_bool,
                 )
                 db.add(entity)
                 db.flush()  # Get entity ID
@@ -256,6 +266,9 @@ def generate_test_data(days: int = 30):
             sps_with_privacy = int(total_sps * (coverage / 100))
 
             # Create snapshot
+            sps_has_sirtfi = int(total_sps * 0.45)  # ~45% SIRTFI coverage for SPs
+            idps_has_sirtfi = int(total_idps * 0.55)  # ~55% SIRTFI coverage for IdPs
+
             snapshot = Snapshot(
                 timestamp=timestamp,
                 total_entities=total_entities,
@@ -265,6 +278,9 @@ def generate_test_data(days: int = 30):
                 sps_missing_privacy=total_sps - sps_with_privacy,
                 sps_has_security=int(total_sps * 0.65),
                 idps_has_security=int(total_idps * 0.80),
+                sps_has_sirtfi=sps_has_sirtfi,
+                idps_has_sirtfi=idps_has_sirtfi,
+                total_has_sirtfi=sps_has_sirtfi + idps_has_sirtfi,
                 coverage_pct=coverage,
             )
             db.add(snapshot)
@@ -291,6 +307,9 @@ def generate_test_data(days: int = 30):
                     sps_with_privacy=int(fed_sps * fed_coverage),
                     sps_has_security=int(fed_sps * 0.65),
                     idps_has_security=int(fed_idps * 0.80),
+                    sps_has_sirtfi=int(fed_sps * 0.45),
+                    idps_has_sirtfi=int(fed_idps * 0.55),
+                    total_has_sirtfi=int(fed_entities * 0.48),
                     coverage_pct=fed_coverage * 100,
                 )
                 db.add(federation)

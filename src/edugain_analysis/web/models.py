@@ -34,6 +34,9 @@ class Snapshot(Base):
     sps_missing_privacy = Column(Integer)
     sps_has_security = Column(Integer)
     idps_has_security = Column(Integer)
+    sps_has_sirtfi = Column(Integer, default=0)
+    idps_has_sirtfi = Column(Integer, default=0)
+    total_has_sirtfi = Column(Integer, default=0)
     coverage_pct = Column(Float)
 
     # Cache metadata
@@ -67,6 +70,9 @@ class Federation(Base):
     sps_with_privacy = Column(Integer)
     sps_has_security = Column(Integer)
     idps_has_security = Column(Integer)
+    sps_has_sirtfi = Column(Integer, default=0)
+    idps_has_sirtfi = Column(Integer, default=0)
+    total_has_sirtfi = Column(Integer, default=0)
     coverage_pct = Column(Float)
 
     # Relationships
@@ -94,6 +100,7 @@ class Entity(Base):
     has_privacy_statement = Column(Boolean, default=False)
     privacy_statement_url = Column(Text)  # Can be very long URL
     has_security_contact = Column(Boolean, default=False)
+    has_sirtfi = Column(Boolean, default=False)
 
     # Relationships
     snapshot = relationship("Snapshot", back_populates="entities")
@@ -107,6 +114,7 @@ class Entity(Base):
         Index("idx_entity_federation_type", federation_id, entity_type),
         Index("idx_entity_privacy_status", has_privacy_statement),
         Index("idx_entity_security_status", has_security_contact),
+        Index("idx_entity_sirtfi_status", has_sirtfi),
     )
 
 

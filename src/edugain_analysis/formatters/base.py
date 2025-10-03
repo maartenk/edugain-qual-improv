@@ -76,6 +76,36 @@ def print_summary(stats: dict) -> None:
 
     print("", file=sys.stderr)
 
+    # SIRTFI certification statistics - both SPs and IdPs
+    total_sirtfi_pct = (stats["total_has_sirtfi"] / total) * 100
+    total_missing_sirtfi_pct = (stats["total_missing_sirtfi"] / total) * 100
+    print("🔰 SIRTFI Certification Coverage:", file=sys.stderr)
+    print(
+        f"  ✅ Total entities with SIRTFI: {stats['total_has_sirtfi']} out of {total} ({total_sirtfi_pct:.1f}%)",
+        file=sys.stderr,
+    )
+    print(
+        f"  ❌ Total entities without SIRTFI: {stats['total_missing_sirtfi']} out of {total} ({total_missing_sirtfi_pct:.1f}%)",
+        file=sys.stderr,
+    )
+
+    # Split SIRTFI stats by entity type
+    if total_sps > 0:
+        sp_sirtfi_pct = (stats["sps_has_sirtfi"] / total_sps) * 100
+        print(
+            f"    📊 SPs: {stats['sps_has_sirtfi']} with / {stats['sps_missing_sirtfi']} without ({sp_sirtfi_pct:.1f}% coverage)",
+            file=sys.stderr,
+        )
+
+    if total_idps > 0:
+        idp_sirtfi_pct = (stats["idps_has_sirtfi"] / total_idps) * 100
+        print(
+            f"    📊 IdPs: {stats['idps_has_sirtfi']} with / {stats['idps_missing_sirtfi']} without ({idp_sirtfi_pct:.1f}% coverage)",
+            file=sys.stderr,
+        )
+
+    print("", file=sys.stderr)
+
     # Combined statistics - SP only (since privacy is SP-only)
     if total_sps > 0:
         sp_both_pct = (stats["sps_has_both"] / total_sps) * 100
@@ -235,6 +265,52 @@ def print_summary_markdown(stats: dict, output_file=sys.stderr) -> None:
         )
         print(
             f"  - **{idp_security_status} Identity Providers:** {stats['idps_has_security']:,}/{total_idps:,} ({idp_security_pct:.1f}%)",
+            file=output_file,
+        )
+
+    print("", file=output_file)
+
+    # SIRTFI certification statistics - both entity types
+    total_sirtfi_pct = (stats["total_has_sirtfi"] / total) * 100
+    total_missing_sirtfi_pct = (stats["total_missing_sirtfi"] / total) * 100
+
+    sirtfi_status = (
+        "🟢" if total_sirtfi_pct >= 80 else "🟡" if total_sirtfi_pct >= 50 else "🔴"
+    )
+
+    print("## 🔰 SIRTFI Certification Coverage", file=output_file)
+    print(
+        "*Security Incident Response Trust Framework for Federated Identity*",
+        file=output_file,
+    )
+    print("", file=output_file)
+    print(
+        f"- **{sirtfi_status} Total with SIRTFI:** {stats['total_has_sirtfi']:,}/{total:,} ({total_sirtfi_pct:.1f}%)",
+        file=output_file,
+    )
+    print(
+        f"- **❌ Total without SIRTFI:** {stats['total_missing_sirtfi']:,}/{total:,} ({total_missing_sirtfi_pct:.1f}%)",
+        file=output_file,
+    )
+
+    # Entity type breakdown
+    if total_sps > 0:
+        sp_sirtfi_pct = (stats["sps_has_sirtfi"] / total_sps) * 100
+        sp_sirtfi_status = (
+            "🟢" if sp_sirtfi_pct >= 80 else "🟡" if sp_sirtfi_pct >= 50 else "🔴"
+        )
+        print(
+            f"  - **{sp_sirtfi_status} Service Providers:** {stats['sps_has_sirtfi']:,}/{total_sps:,} ({sp_sirtfi_pct:.1f}%)",
+            file=output_file,
+        )
+
+    if total_idps > 0:
+        idp_sirtfi_pct = (stats["idps_has_sirtfi"] / total_idps) * 100
+        idp_sirtfi_status = (
+            "🟢" if idp_sirtfi_pct >= 80 else "🟡" if idp_sirtfi_pct >= 50 else "🔴"
+        )
+        print(
+            f"  - **{idp_sirtfi_status} Identity Providers:** {stats['idps_has_sirtfi']:,}/{total_idps:,} ({idp_sirtfi_pct:.1f}%)",
             file=output_file,
         )
 
@@ -439,6 +515,54 @@ def print_federation_summary(federation_stats: dict, output_file=sys.stderr) -> 
                 file=output_file,
             )
 
+        # SIRTFI certification coverage (both SPs and IdPs)
+        total_sirtfi_pct = (stats["total_has_sirtfi"] / total) * 100
+        sirtfi_status = (
+            "🟢" if total_sirtfi_pct >= 80 else "🟡" if total_sirtfi_pct >= 50 else "🔴"
+        )
+        print(
+            f"**SIRTFI Certification:** {sirtfi_status} {stats['total_has_sirtfi']:,}/{total:,} ({total_sirtfi_pct:.1f}%)",
+            file=output_file,
+        )
+
+        # Show entity type breakdown if both SPs and IdPs exist
+        if total_sps > 0 and total_idps > 0:
+            sp_sirtfi_pct = (stats["sps_has_sirtfi"] / total_sps) * 100
+            sp_sirtfi_status = (
+                "🟢" if sp_sirtfi_pct >= 80 else "🟡" if sp_sirtfi_pct >= 50 else "🔴"
+            )
+            print(
+                f"  ├─ SPs: {sp_sirtfi_status} {stats['sps_has_sirtfi']:,}/{total_sps:,} ({sp_sirtfi_pct:.1f}%)",
+                file=output_file,
+            )
+
+            idp_sirtfi_pct = (stats["idps_has_sirtfi"] / total_idps) * 100
+            idp_sirtfi_status = (
+                "🟢" if idp_sirtfi_pct >= 80 else "🟡" if idp_sirtfi_pct >= 50 else "🔴"
+            )
+            print(
+                f"  └─ IdPs: {idp_sirtfi_status} {stats['idps_has_sirtfi']:,}/{total_idps:,} ({idp_sirtfi_pct:.1f}%)",
+                file=output_file,
+            )
+        elif total_sps > 0:
+            sp_sirtfi_pct = (stats["sps_has_sirtfi"] / total_sps) * 100
+            sp_sirtfi_status = (
+                "🟢" if sp_sirtfi_pct >= 80 else "🟡" if sp_sirtfi_pct >= 50 else "🔴"
+            )
+            print(
+                f"  └─ SPs: {sp_sirtfi_status} {stats['sps_has_sirtfi']:,}/{total_sps:,} ({sp_sirtfi_pct:.1f}%)",
+                file=output_file,
+            )
+        elif total_idps > 0:
+            idp_sirtfi_pct = (stats["idps_has_sirtfi"] / total_idps) * 100
+            idp_sirtfi_status = (
+                "🟢" if idp_sirtfi_pct >= 80 else "🟡" if idp_sirtfi_pct >= 50 else "🔴"
+            )
+            print(
+                f"  └─ IdPs: {idp_sirtfi_status} {stats['idps_has_sirtfi']:,}/{total_idps:,} ({idp_sirtfi_pct:.1f}%)",
+                file=output_file,
+            )
+
         # Combined compliance for SPs (if any)
         if total_sps > 0:
             sp_both_pct = (stats["sps_has_both"] / total_sps) * 100
@@ -494,6 +618,12 @@ def export_federation_csv(federation_stats: dict, include_headers: bool = True) 
             "SPsMissingSecurity",
             "IdPsWithSecurity",
             "IdPsMissingSecurity",
+            "EntitiesWithSIRTFI",
+            "EntitiesMissingSIRTFI",
+            "SPsWithSIRTFI",
+            "SPsMissingSIRTFI",
+            "IdPsWithSIRTFI",
+            "IdPsMissingSIRTFI",
             "SPsWithBoth",
             "SPsWithAtLeastOne",
             "SPsMissingBoth",
@@ -534,6 +664,12 @@ def export_federation_csv(federation_stats: dict, include_headers: bool = True) 
             stats["sps_missing_security"],
             stats["idps_has_security"],
             stats["idps_missing_security"],
+            stats["total_has_sirtfi"],
+            stats["total_missing_sirtfi"],
+            stats["sps_has_sirtfi"],
+            stats["sps_missing_sirtfi"],
+            stats["idps_has_sirtfi"],
+            stats["idps_missing_sirtfi"],
             stats["sps_has_both"],
             sp_has_at_least_one,
             sp_missing_both,

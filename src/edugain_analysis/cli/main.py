@@ -125,6 +125,7 @@ def handle_csv_export(args, entities_list, stats, federation_stats):
             "HasPrivacyStatement",
             "PrivacyStatementURL",
             "HasSecurityContact",
+            "HasSIRTFI",
         ]
 
         # Add URL validation headers if validation was enabled
