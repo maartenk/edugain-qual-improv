@@ -72,8 +72,11 @@ Add comprehensive SIRTFI (Security Incident Response Trust Framework for Federat
 - [ ] Add SIRTFI coverage examples to output documentation
 
 ### Phase 9: UX Optimization
-- [ ] Review CLI output formatting for readability
-- [ ] Ensure consistent column ordering across formats
+- [x] Review CLI output formatting for readability (thousand separators added)
+- [x] Update CLI help text to mention SIRTFI everywhere
+- [x] Add CSV column list to help text
+- [x] Clarify "BOTH" and "AT LEAST ONE" wording in output
+- [x] Ensure consistent column ordering across formats
 - [ ] Add helpful tooltips/descriptions in web UI
 - [ ] Test with real eduGAIN metadata
 
