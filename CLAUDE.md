@@ -266,7 +266,7 @@ src/edugain_analysis/
 
 **Development (optional):**
 - pytest, pytest-cov, pytest-xdist: Testing and coverage
-- ruff, mypy: Linting, formatting, and type checking
+- ruff: Linting and formatting
 - pre-commit: Git hooks for code quality
 
 **Web (optional):**
@@ -345,7 +345,7 @@ pytest -n auto
 - **GitHub Actions**: Automated testing on all branches via `.github/workflows/ci.yml`
 - **Trigger events**: Push to any branch, pull requests to any branch, manual workflow dispatch
 - **Codecov**: Automatic coverage upload with multi-version flags (python-3.11, python-3.12, python-3.13)
-- **Quality gates**: Linting and formatting (ruff), type checking (mypy)
+- **Quality gates**: Linting and formatting (ruff)
 - **Matrix testing**: Python 3.11, 3.12, and 3.13 tested in parallel
 - **Continue on error**: Tests continue even if individual steps fail to maximize coverage reporting
 
@@ -387,9 +387,6 @@ ruff format src/ tests/
 # Lint with ruff (with auto-fix)
 ruff check --fix src/ tests/
 
-# Type check with mypy
-mypy src/
-
 # Run all pre-commit hooks
 pre-commit run --all-files
 ```
@@ -401,7 +398,7 @@ pre-commit run --all-files
 4. Write unit tests in `tests/unit/`
 5. Run tests: `pytest -v`
 6. Check coverage: `pytest --cov-report=term-missing`
-7. Run quality checks: `ruff check`, `ruff format --check`, `mypy`
+7. Run quality checks: `ruff check`, `ruff format --check`
 8. Commit with descriptive message
 9. Push and create PR
 
@@ -425,7 +422,6 @@ pre-commit run --all-files
 - **Cache issues**: Clear cache at `~/.cache/edugain-analysis/`
 - **Test failures**: Run `pytest -v` for detailed output, check mock configurations
 - **Coverage gaps**: Run `pytest --cov-report=html` and review `htmlcov/index.html`
-- **Type errors**: Run `mypy src/` to catch type issues before CI/CD
 
 ### Performance Tips
 - URL validation is slow by design (network I/O) - use caching

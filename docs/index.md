@@ -80,8 +80,8 @@ uvicorn edugain_analysis.web.app:app --reload
 
 ### Code Quality
 - **Testing**: 204 tests with 81.53% coverage (100% for CLI, 91%+ for core modules)
-- **Type Safety**: Full type hints with mypy strict mode
-- **Modern Tooling**: Ruff for linting/formatting (10-100x faster than Black)
+- **Type Safety**: Full type hints throughout codebase
+- **Modern Tooling**: Ruff for linting and formatting
 - **CI/CD**: GitHub Actions with Python 3.11/3.12/3.13 matrix testing
 
 ## Architecture

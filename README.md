@@ -17,7 +17,7 @@ A comprehensive Python package for analyzing eduGAIN federation metadata quality
 - 💾 **XDG-Compliant Caching**: Smart caching system with configurable expiry (metadata: 12h, federations: 30d, URLs: 7d)
 - 📊 **Multiple Output Formats**: Summary statistics, detailed CSV exports, markdown reports, and web UI
 - 🏗️ **Modern Architecture**: Modular design with comprehensive testing (81.53% coverage, 100% for CLI, 91%+ for core modules)
-- ⚡ **Fast Tooling**: Ruff for linting and formatting (10-100x faster than Black)
+- ⚡ **Fast Tooling**: Ruff for linting and formatting
 - 📈 **Comprehensive Reporting**: Split statistics for SPs vs IdPs with federation-level breakdowns
 - 📦 **Entity-Level Tracking**: Individual entity storage with historical snapshots for trend analysis
 
@@ -305,7 +305,6 @@ pytest --cov=src/edugain_analysis
 # Lint and format code
 ruff check src/ tests/
 ruff format --check src/ tests/
-mypy src/
 
 # Or use the convenience script
 scripts/lint.sh
@@ -335,7 +334,6 @@ pytest -n auto
 
 The project uses modern Python tooling:
 - **Ruff**: Fast linting and code formatting
-- **mypy**: Type checking
 - **pytest**: Testing with coverage
 - **pre-commit**: Git hooks for quality assurance
 
@@ -394,7 +392,7 @@ See [TODO.md](TODO.md) for a comprehensive roadmap. All MVP priorities (1-6) are
 ### Recent Improvements (v2.0.0)
 
 **Tooling & Code Quality:**
-- ⚡ Migrated from Black to Ruff for unified linting + formatting (10-100x faster)
+- ⚡ Using Ruff for unified linting + formatting
 - 🧹 Removed 282 lines of dead code and duplicate documentation
 - 🔧 Fixed CI/CD workflow to test modern package entry points
 - ✅ 204 tests passing with 81.53% overall coverage (100% for CLI, 91%+ for core modules, web modules are integration-level)
@@ -415,7 +413,7 @@ See [TODO.md](TODO.md) for a comprehensive roadmap. All MVP priorities (1-6) are
   - `platformdirs` (≥3.0.0) - XDG-compliant directories
 - **Optional Dependencies**:
   - FastAPI, SQLAlchemy, Jinja2 (install with `[web]`)
-  - pytest, ruff, mypy (install with `[dev]`)
+  - pytest, ruff (install with `[dev]`)
 
 ## 🤝 Contributing
 

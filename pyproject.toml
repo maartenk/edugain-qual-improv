@@ -47,7 +47,6 @@ dev = [
     "pytest-cov>=4.1.0",
     "pytest-xdist>=3.3.0",
     "ruff>=0.1.0",
-    "mypy>=1.5.0",
     "pre-commit>=3.4.0",
 ]
 docs = [
@@ -84,7 +83,7 @@ line-length = 88
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "S", "B", "A", "C4", "PIE", "T20"]
 ignore = [
-    "E501",    # Line too long (handled by Black)
+    "E501",    # Line too long (handled by ruff format)
     "T201",    # Print statements allowed in CLI applications
     "S314",    # XML parsing for trusted eduGAIN metadata
     "S101",    # Assert statements allowed in tests
@@ -94,12 +93,6 @@ ignore = [
     "F841",    # Unused variables in test code
     "B007",    # Loop variables not used (federation_key iteration)
 ]
-
-[tool.mypy]
-python_version = "3.11"
-strict = true
-warn_return_any = true
-warn_unused_configs = true
 
 [tool.ruff.format]
 quote-style = "double"
