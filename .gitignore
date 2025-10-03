@@ -158,6 +158,7 @@ pip-selfcheck.json
 metadata_cache/
 output/
 results/
+enhancements.md
 
 # eduGAIN cache files
 .edugain_metadata_cache.xml
