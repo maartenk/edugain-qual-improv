@@ -135,6 +135,32 @@ class TestPrintSummaryMarkdown:
         assert "100 entities" in result
         assert "60 SPs, 40 IdPs" in result
 
+    def test_print_summary_markdown_empty_metadata(self):
+        """Test markdown summary with zero entities (empty metadata)."""
+        stats = {
+            "total_entities": 0,
+            "total_sps": 0,
+            "total_idps": 0,
+            "sps_has_privacy": 0,
+            "sps_missing_privacy": 0,
+            "sps_has_security": 0,
+            "sps_missing_security": 0,
+            "idps_has_security": 0,
+            "idps_missing_security": 0,
+            "total_has_security": 0,
+            "total_missing_security": 0,
+            "sps_has_both": 0,
+            "sps_missing_both": 0,
+            "validation_enabled": False,
+        }
+
+        output = StringIO()
+        print_summary_markdown(stats, output_file=output)
+        result = output.getvalue()
+
+        assert "eduGAIN Quality Analysis Report" in result
+        assert "No entities found in the metadata" in result
+
     def test_print_summary_markdown_with_validation(self):
         """Test markdown summary with validation."""
         stats = {

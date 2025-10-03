@@ -20,8 +20,8 @@ def db_session():
     """Create an in-memory database session for testing."""
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
-    Session = sessionmaker(bind=engine)
-    session = Session()
+    session_factory = sessionmaker(bind=engine)
+    session = session_factory()
     yield session
     session.close()
 
@@ -321,14 +321,10 @@ def test_entity_filtering(db_session):
     idps = db_session.query(Entity).filter(Entity.entity_type == "IdP").all()
     assert len(idps) == 1
 
-    # Test filtering by privacy status
-    with_privacy = (
-        db_session.query(Entity).filter(Entity.has_privacy_statement == True).all()
-    )
+    # Test filtering by privacy statement
+    with_privacy = db_session.query(Entity).filter(Entity.has_privacy_statement).all()
     assert len(with_privacy) == 1
 
     # Test filtering by security status
-    with_security = (
-        db_session.query(Entity).filter(Entity.has_security_contact == True).all()
-    )
+    with_security = db_session.query(Entity).filter(Entity.has_security_contact).all()
     assert len(with_security) == 3

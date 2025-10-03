@@ -16,7 +16,7 @@ A comprehensive Python package for analyzing eduGAIN federation metadata quality
 - 🌍 **Federation Intelligence**: Automatic mapping from registration authorities to friendly names via eduGAIN API
 - 💾 **XDG-Compliant Caching**: Smart caching system with configurable expiry (metadata: 12h, federations: 30d, URLs: 7d)
 - 📊 **Multiple Output Formats**: Summary statistics, detailed CSV exports, markdown reports, and web UI
-- 🏗️ **Modern Architecture**: Modular design with comprehensive testing (73% coverage, 94%+ for core modules)
+- 🏗️ **Modern Architecture**: Modular design with comprehensive testing (81.53% coverage, 100% for CLI, 91%+ for core modules)
 - ⚡ **Fast Tooling**: Ruff for linting and formatting (10-100x faster than Black)
 - 📈 **Comprehensive Reporting**: Split statistics for SPs vs IdPs with federation-level breakdowns
 - 📦 **Entity-Level Tracking**: Individual entity storage with historical snapshots for trend analysis
@@ -292,7 +292,7 @@ scripts/lint.sh
 pytest
 
 # Run specific test categories
-pytest tests/unit/                          # Unit tests (153 tests)
+pytest tests/unit/                          # Unit tests (204 tests)
 pytest tests/unit/test_web_models.py        # Web model tests only
 
 # Run with coverage reporting
@@ -371,7 +371,7 @@ See [TODO.md](TODO.md) for a comprehensive roadmap. All MVP priorities (1-6) are
 - ⚡ Migrated from Black to Ruff for unified linting + formatting (10-100x faster)
 - 🧹 Removed 282 lines of dead code and duplicate documentation
 - 🔧 Fixed CI/CD workflow to test modern package entry points
-- ✅ 153 tests passing with 61% overall coverage (94%+ for core modules, web modules need integration tests)
+- ✅ 204 tests passing with 81.53% overall coverage (100% for CLI, 91%+ for core modules, web modules are integration-level)
 
 **Web Dashboard (Complete MVP):**
 - 🏗️ Priority 1: Entity-level tracking + URL validation database (SQLAlchemy models, indexes, relationships)

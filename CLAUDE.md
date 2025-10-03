@@ -263,20 +263,22 @@ src/edugain_analysis/
 
 ### Testing Structure
 
-Tests follow pytest best practices with 150+ test cases covering all modules:
+Tests follow pytest best practices with 200+ test cases covering all modules:
 
 ```
 tests/
 ├── unit/
-│   ├── test_cli_main.py           # Privacy/security CLI tests
-│   ├── test_cli_seccon.py         # SIRTFI CLI tests
-│   ├── test_core_analysis.py      # Analysis logic tests
-│   ├── test_core_metadata.py      # Metadata operations tests
-│   ├── test_core_validation.py    # URL validation tests
-│   ├── test_formatters.py         # Output formatter tests
-│   ├── test_web_models.py         # Web database model tests (NEW)
-│   ├── test_package_basic.py      # Import and basic functionality
-│   └── test_main_module.py        # Main module tests
+│   ├── test_cli_main.py           # Privacy/security CLI tests (17 tests)
+│   ├── test_cli_seccon.py         # SIRTFI CLI tests (15 tests)
+│   ├── test_core_analysis.py      # Analysis logic tests (13 tests)
+│   ├── test_core_metadata.py      # Metadata operations tests (43 tests)
+│   ├── test_core_validation.py    # URL validation tests (24 tests)
+│   ├── test_formatters.py         # Output formatter tests (9 tests)
+│   ├── test_web_models.py         # Web database model tests (6 tests)
+│   ├── test_web_app.py            # Web application tests (69 tests)
+│   ├── test_web_import_data.py    # Web import functionality (4 tests)
+│   ├── test_package_basic.py      # Import and basic functionality (10 tests)
+│   └── test_main_module.py        # Main module tests (2 tests)
 └── integration/
     └── (integration tests)
 ```
@@ -304,7 +306,7 @@ pytest --no-cov
 pytest -n auto
 ```
 
-**Coverage:** 73% overall (94%+ for core analysis modules). Web modules (app.py, import_data.py) are untested as they require integration testing.
+**Coverage:** 81.53% overall (100% for CLI, 91%+ for core modules, 62-71% for web modules which contain integration-level code). See [COVERAGE_ANALYSIS.md](COVERAGE_ANALYSIS.md) for detailed breakdown and improvement recommendations.
 
 ### Coverage Configuration
 - **HTML reports**: Generated in `htmlcov/` directory
