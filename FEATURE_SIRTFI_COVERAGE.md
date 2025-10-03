@@ -66,10 +66,10 @@ Add comprehensive SIRTFI (Security Incident Response Trust Framework for Federat
 - [x] All 225 unit tests passing with SIRTFI support
 
 ### Phase 8: Documentation
-- [ ] Update README.md with SIRTFI coverage examples
-- [ ] Update CLAUDE.md with SIRTFI data flow
-- [ ] Update CLI help text for SIRTFI column descriptions
-- [ ] Add SIRTFI coverage examples to output documentation
+- [x] Update README.md with SIRTFI coverage examples
+- [x] Update CLAUDE.md with SIRTFI data flow
+- [x] Update CLI help text for SIRTFI column descriptions
+- [x] Add SIRTFI coverage examples to output documentation
 
 ### Phase 9: UX Optimization
 - [x] Review CLI output formatting for readability (thousand separators added)
@@ -81,11 +81,11 @@ Add comprehensive SIRTFI (Security Incident Response Trust Framework for Federat
 - [ ] Test with real eduGAIN metadata
 
 ### Phase 10: Finalization
-- [ ] Run full test suite
-- [ ] Run code quality checks (ruff format, ruff check)
-- [ ] Update version if needed
-- [ ] Commit all changes
-- [ ] Push to remote
+- [x] Run full test suite (225 tests passing)
+- [x] Run code quality checks (ruff format, ruff check)
+- [ ] Update version if needed (deferred - not critical)
+- [x] Commit all changes
+- [x] Push to remote
 
 ## Technical Details
 
