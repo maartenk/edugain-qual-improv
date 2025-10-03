@@ -46,61 +46,79 @@ def print_summary(stats: dict) -> None:
         )
         print("", file=sys.stderr)
 
-    # Security contact statistics - split by entity type
+    # Security contact statistics - tree format
     total_security_pct = (stats["total_has_security"] / total) * 100
-    total_missing_security_pct = (stats["total_missing_security"] / total) * 100
-    print("🔒 Security Contact Coverage:", file=sys.stderr)
+
+    # Color emoji based on percentage
+    if total_security_pct >= 80:
+        total_security_emoji = "🟢"
+    elif total_security_pct >= 50:
+        total_security_emoji = "🟡"
+    else:
+        total_security_emoji = "🔴"
+
     print(
-        f"  ✅ Total entities with security contacts: {stats['total_has_security']:,} out of {total:,} ({total_security_pct:.1f}%)",
-        file=sys.stderr,
-    )
-    print(
-        f"  ❌ Total entities missing security contacts: {stats['total_missing_security']:,} out of {total:,} ({total_missing_security_pct:.1f}%)",
+        f"🔒 Security Contact Coverage: {total_security_emoji} {stats['total_has_security']:,}/{total:,} ({total_security_pct:.1f}%)",
         file=sys.stderr,
     )
 
-    # Split security stats by entity type
+    # Split security stats by entity type with tree structure
     if total_sps > 0:
         sp_security_pct = (stats["sps_has_security"] / total_sps) * 100
+        sp_security_emoji = (
+            "🟢" if sp_security_pct >= 80 else "🟡" if sp_security_pct >= 50 else "🔴"
+        )
         print(
-            f"    📊 SPs: {stats['sps_has_security']:,} with / {stats['sps_missing_security']:,} without ({sp_security_pct:.1f}% coverage)",
+            f"  ├─ SPs: {sp_security_emoji} {stats['sps_has_security']:,}/{total_sps:,} ({sp_security_pct:.1f}%)",
             file=sys.stderr,
         )
 
     if total_idps > 0:
         idp_security_pct = (stats["idps_has_security"] / total_idps) * 100
+        idp_security_emoji = (
+            "🟢" if idp_security_pct >= 80 else "🟡" if idp_security_pct >= 50 else "🔴"
+        )
         print(
-            f"    📊 IdPs: {stats['idps_has_security']:,} with / {stats['idps_missing_security']:,} without ({idp_security_pct:.1f}% coverage)",
+            f"  └─ IdPs: {idp_security_emoji} {stats['idps_has_security']:,}/{total_idps:,} ({idp_security_pct:.1f}%)",
             file=sys.stderr,
         )
 
     print("", file=sys.stderr)
 
-    # SIRTFI certification statistics - both SPs and IdPs
+    # SIRTFI certification statistics - tree format
     total_sirtfi_pct = (stats["total_has_sirtfi"] / total) * 100
-    total_missing_sirtfi_pct = (stats["total_missing_sirtfi"] / total) * 100
-    print("🔰 SIRTFI Certification Coverage:", file=sys.stderr)
+
+    # Color emoji based on percentage
+    if total_sirtfi_pct >= 80:
+        total_sirtfi_emoji = "🟢"
+    elif total_sirtfi_pct >= 50:
+        total_sirtfi_emoji = "🟡"
+    else:
+        total_sirtfi_emoji = "🔴"
+
     print(
-        f"  ✅ Total entities with SIRTFI: {stats['total_has_sirtfi']:,} out of {total:,} ({total_sirtfi_pct:.1f}%)",
-        file=sys.stderr,
-    )
-    print(
-        f"  ❌ Total entities without SIRTFI: {stats['total_missing_sirtfi']:,} out of {total:,} ({total_missing_sirtfi_pct:.1f}%)",
+        f"🔰 SIRTFI Certification Coverage: {total_sirtfi_emoji} {stats['total_has_sirtfi']:,}/{total:,} ({total_sirtfi_pct:.1f}%)",
         file=sys.stderr,
     )
 
-    # Split SIRTFI stats by entity type
+    # Split SIRTFI stats by entity type with tree structure
     if total_sps > 0:
         sp_sirtfi_pct = (stats["sps_has_sirtfi"] / total_sps) * 100
+        sp_sirtfi_emoji = (
+            "🟢" if sp_sirtfi_pct >= 80 else "🟡" if sp_sirtfi_pct >= 50 else "🔴"
+        )
         print(
-            f"    📊 SPs: {stats['sps_has_sirtfi']:,} with / {stats['sps_missing_sirtfi']:,} without ({sp_sirtfi_pct:.1f}% coverage)",
+            f"  ├─ SPs: {sp_sirtfi_emoji} {stats['sps_has_sirtfi']:,}/{total_sps:,} ({sp_sirtfi_pct:.1f}%)",
             file=sys.stderr,
         )
 
     if total_idps > 0:
         idp_sirtfi_pct = (stats["idps_has_sirtfi"] / total_idps) * 100
+        idp_sirtfi_emoji = (
+            "🟢" if idp_sirtfi_pct >= 80 else "🟡" if idp_sirtfi_pct >= 50 else "🔴"
+        )
         print(
-            f"    📊 IdPs: {stats['idps_has_sirtfi']:,} with / {stats['idps_missing_sirtfi']:,} without ({idp_sirtfi_pct:.1f}% coverage)",
+            f"  └─ IdPs: {idp_sirtfi_emoji} {stats['idps_has_sirtfi']:,}/{total_idps:,} ({idp_sirtfi_pct:.1f}%)",
             file=sys.stderr,
         )
 
@@ -138,7 +156,7 @@ def print_summary(stats: dict) -> None:
             file=sys.stderr,
         )
         print(
-            f"  • {sp_both_pct:.1f}% of SPs achieve full compliance with both requirements",
+            f"  • {sp_both_pct:.1f}% of SPs achieve full compliance (security contact + privacy statement)",
             file=sys.stderr,
         )
 
