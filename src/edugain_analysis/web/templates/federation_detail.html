@@ -61,6 +61,36 @@
                 </small>
             </div>
         </div>
+        <hr>
+        <div class="grid">
+            <div>
+                <small>SPs with SIRTFI</small>
+                {% set sp_sirtfi_pct = (federation.sps_has_sirtfi / federation.total_sps * 100) if federation.total_sps > 0 else 0 %}
+                <p><strong>{{ federation.sps_has_sirtfi }} / {{ federation.total_sps }}</strong></p>
+                <progress value="{{ sp_sirtfi_pct }}" max="100"></progress>
+                <small class="{% if sp_sirtfi_pct >= 80 %}coverage-high{% elif sp_sirtfi_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+                    {{ "%.1f"|format(sp_sirtfi_pct) }}%
+                </small>
+            </div>
+            <div>
+                <small>IdPs with SIRTFI</small>
+                {% set idp_sirtfi_pct = (federation.idps_has_sirtfi / federation.total_idps * 100) if federation.total_idps > 0 else 0 %}
+                <p><strong>{{ federation.idps_has_sirtfi }} / {{ federation.total_idps }}</strong></p>
+                <progress value="{{ idp_sirtfi_pct }}" max="100"></progress>
+                <small class="{% if idp_sirtfi_pct >= 80 %}coverage-high{% elif idp_sirtfi_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+                    {{ "%.1f"|format(idp_sirtfi_pct) }}%
+                </small>
+            </div>
+            <div>
+                <small>Total SIRTFI Coverage</small>
+                {% set total_sirtfi_pct = (federation.total_has_sirtfi / federation.total_entities * 100) if federation.total_entities > 0 else 0 %}
+                <p><strong>{{ federation.total_has_sirtfi }} / {{ federation.total_entities }}</strong></p>
+                <progress value="{{ total_sirtfi_pct }}" max="100"></progress>
+                <small class="{% if total_sirtfi_pct >= 80 %}coverage-high{% elif total_sirtfi_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+                    {{ "%.1f"|format(total_sirtfi_pct) }}%
+                </small>
+            </div>
+        </div>
     </article>
 </section>
 

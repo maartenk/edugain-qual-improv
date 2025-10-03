@@ -824,6 +824,8 @@ async def entity_table_partial(
         sort_col = Entity.has_privacy_statement
     elif sort_by == "security":
         sort_col = Entity.has_security_contact
+    elif sort_by == "sirtfi":
+        sort_col = Entity.has_sirtfi
     else:
         sort_col = Entity.organization_name
 

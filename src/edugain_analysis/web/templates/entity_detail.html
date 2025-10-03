@@ -64,22 +64,50 @@
                 <p><small>No security contact found in metadata</small></p>
             {% endif %}
         </article>
+
+        <article>
+            <header>
+                <strong>🔰 SIRTFI Certification</strong>
+            </header>
+            {% if entity.has_sirtfi %}
+                <p style="color: var(--pico-ins-color);">✅ <strong>Certified</strong></p>
+                <p><small>SIRTFI Entity Category found in metadata</small></p>
+            {% else %}
+                <p style="color: var(--pico-del-color);">❌ <strong>Not Certified</strong></p>
+                <p><small>No SIRTFI certification in metadata</small></p>
+            {% endif %}
+        </article>
     </div>
     {% else %}
-    <!-- IdP only shows security contact -->
-    <article>
-        <header>
-            <strong>🛡️ Security Contact</strong>
-        </header>
-        {% if entity.has_security_contact %}
-            <p style="color: var(--pico-ins-color);">✅ <strong>Present</strong></p>
-            <p><small>Security contact information found in metadata</small></p>
-        {% else %}
-            <p style="color: var(--pico-del-color);">❌ <strong>Missing</strong></p>
-            <p><small>No security contact found in metadata</small></p>
-        {% endif %}
-        <p><small><em>Note: Privacy statements are not applicable to Identity Providers (IdPs)</em></small></p>
-    </article>
+    <!-- IdP shows security contact and SIRTFI -->
+    <div class="grid">
+        <article>
+            <header>
+                <strong>🛡️ Security Contact</strong>
+            </header>
+            {% if entity.has_security_contact %}
+                <p style="color: var(--pico-ins-color);">✅ <strong>Present</strong></p>
+                <p><small>Security contact information found in metadata</small></p>
+            {% else %}
+                <p style="color: var(--pico-del-color);">❌ <strong>Missing</strong></p>
+                <p><small>No security contact found in metadata</small></p>
+            {% endif %}
+            <p><small><em>Note: Privacy statements are not applicable to Identity Providers (IdPs)</em></small></p>
+        </article>
+
+        <article>
+            <header>
+                <strong>🔰 SIRTFI Certification</strong>
+            </header>
+            {% if entity.has_sirtfi %}
+                <p style="color: var(--pico-ins-color);">✅ <strong>Certified</strong></p>
+                <p><small>SIRTFI Entity Category found in metadata</small></p>
+            {% else %}
+                <p style="color: var(--pico-del-color);">❌ <strong>Not Certified</strong></p>
+                <p><small>No SIRTFI certification in metadata</small></p>
+            {% endif %}
+        </article>
+    </div>
     {% endif %}
 </section>
 
@@ -152,6 +180,7 @@
                     <th>Privacy Statement</th>
                     {% endif %}
                     <th>Security Contact</th>
+                    <th>SIRTFI</th>
                 </tr>
             </thead>
             <tbody>
@@ -173,6 +202,13 @@
                         <span style="color: var(--pico-del-color);">❌ No</span>
                     {% endif %}
                 </td>
+                <td>
+                    {% if entity.has_sirtfi %}
+                        <span style="color: var(--pico-ins-color);">✅ Yes</span>
+                    {% else %}
+                        <span style="color: var(--pico-del-color);">❌ No</span>
+                    {% endif %}
+                </td>
             </tr>
             {% for hist_entity in historical_entities %}
             <tr>
@@ -188,6 +224,13 @@
                 {% endif %}
                 <td>
                     {% if hist_entity.has_security_contact %}
+                        <span style="color: var(--pico-ins-color);">✅ Yes</span>
+                    {% else %}
+                        <span style="color: var(--pico-del-color);">❌ No</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if hist_entity.has_sirtfi %}
                         <span style="color: var(--pico-ins-color);">✅ Yes</span>
                     {% else %}
                         <span style="color: var(--pico-del-color);">❌ No</span>
