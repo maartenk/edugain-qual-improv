@@ -10,7 +10,7 @@
 A comprehensive Python package for analyzing eduGAIN federation metadata quality, privacy statement coverage, and security compliance. Built following modern Python standards with PEP 517/518/621 compliance.
 
 ### Key Features
-- 🔍 **Security Contact Analysis**: Identify entities with security contacts lacking SIRTFI certification
+- 🔍 **SIRTFI Compliance Analysis**: Two specialized tools for security contact and SIRTFI certification validation
 - 🔒 **Privacy Statement Monitoring**: HTTP accessibility validation for privacy statement URLs
 - 🌐 **Web Dashboard**: Interactive HTMX-powered dashboard for real-time federation monitoring
 - 🌍 **Federation Intelligence**: Automatic mapping from registration authorities to friendly names via eduGAIN API
@@ -87,6 +87,30 @@ python analyze.py --source metadata.xml        # Use local XML file
 python analyze.py --url CUSTOM_URL             # Use custom metadata URL
 ```
 
+### SIRTFI Compliance Analysis
+
+The package includes two specialized commands for analyzing SIRTFI compliance:
+
+```bash
+# Find entities WITH security contacts but WITHOUT SIRTFI certification
+edugain-seccon                              # Analyze current metadata
+edugain-seccon --local-file metadata.xml    # Use local file
+edugain-seccon --no-headers                 # Omit CSV headers
+edugain-seccon > seccon_report.csv          # Save to file
+
+# Find entities WITH SIRTFI certification but WITHOUT security contacts (compliance violation)
+edugain-sirtfi                              # Analyze current metadata
+edugain-sirtfi --local-file metadata.xml    # Use local file
+edugain-sirtfi --no-headers                 # Omit CSV headers
+edugain-sirtfi > sirtfi_violations.csv      # Save to file
+```
+
+**Output Format:** CSV with columns `RegistrationAuthority,EntityType,OrganizationName,EntityID`
+
+**Use Cases:**
+- `edugain-seccon`: Identify potential candidates for SIRTFI certification (entities already with security contacts)
+- `edugain-sirtfi`: Detect SIRTFI compliance violations (entities claiming SIRTFI without publishing security contacts)
+
 ### Using the Package Directly
 
 ```bash
@@ -96,6 +120,7 @@ python -m edugain_analysis
 # Run specific components
 python -m edugain_analysis.cli.main
 python -m edugain_analysis.cli.seccon
+python -m edugain_analysis.cli.sirtfi
 ```
 
 ## 🏗️ Package Architecture
@@ -112,7 +137,8 @@ src/edugain_analysis/
 │   └── base.py             # Text, CSV, and markdown formatters
 ├── cli/                     # Command-line interfaces
 │   ├── main.py             # Primary CLI (edugain-analyze)
-│   └── seccon.py           # Security contact CLI (edugain-seccon)
+│   ├── seccon.py           # Security contact CLI (edugain-seccon)
+│   └── sirtfi.py           # SIRTFI compliance CLI (edugain-sirtfi)
 ├── web/                     # Web dashboard (optional)
 │   ├── app.py              # FastAPI application
 │   ├── models.py           # SQLAlchemy database models

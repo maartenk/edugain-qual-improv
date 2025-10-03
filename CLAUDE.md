@@ -8,7 +8,7 @@ A modern Python package for eduGAIN quality improvement analysis. The codebase f
 
 - **`src/edugain_analysis/`**: Main package with modular components (CLI, core logic, formatters, config, web)
 - **`analyze.py`**: Convenience wrapper that calls the main CLI entry point
-- **CLI Commands**: `edugain-analyze` and `edugain-seccon` (installed via package entry points)
+- **CLI Commands**: `edugain-analyze`, `edugain-seccon`, and `edugain-sirtfi` (installed via package entry points)
 - **Web Dashboard**: Optional FastAPI + HTMX dashboard for interactive analysis
 
 ## Setup and Installation
@@ -58,20 +58,31 @@ python analyze.py --csv missing-both           # Entities missing both
 - Security contacts: Analyzed for both SPs and IdPs
 - URL validation adds columns: `URLStatusCode,FinalURL,URLAccessible,RedirectCount,ValidationError`
 
-### Usage - SIRTFI Security Contact Analysis
+### Usage - SIRTFI Compliance Analysis
+
+The package includes two specialized CLI commands for SIRTFI compliance analysis:
 
 ```bash
-# Using installed CLI command (recommended)
+# edugain-seccon: Find entities WITH security contacts but WITHOUT SIRTFI certification
 edugain-seccon                                 # Analyze current metadata
 edugain-seccon --local-file metadata.xml       # Use local XML file
 edugain-seccon --no-headers                    # Omit CSV headers
 edugain-seccon --url CUSTOM_URL                # Use custom metadata URL
+edugain-seccon > entities_without_sirtfi.csv   # Save output
 
-# Save output to file
-edugain-seccon > entities_without_sirtfi.csv
+# edugain-sirtfi: Find entities WITH SIRTFI but WITHOUT security contacts (compliance violation)
+edugain-sirtfi                                 # Analyze current metadata
+edugain-sirtfi --local-file metadata.xml       # Use local XML file
+edugain-sirtfi --no-headers                    # Omit CSV headers
+edugain-sirtfi --url CUSTOM_URL                # Use custom metadata URL
+edugain-sirtfi > sirtfi_violations.csv         # Save output
 ```
 
-**Output:** CSV with columns `RegistrationAuthority,EntityType,OrganizationName,EntityID` containing entities with security contacts but no SIRTFI certification.
+**Output:** CSV with columns `RegistrationAuthority,EntityType,OrganizationName,EntityID`
+
+**Use Cases:**
+- `edugain-seccon`: Identify potential candidates for SIRTFI certification (entities with security contacts)
+- `edugain-sirtfi`: Detect SIRTFI compliance violations (SIRTFI entities missing required security contacts)
 
 ### Usage - Web Dashboard
 
@@ -119,7 +130,8 @@ src/edugain_analysis/
 ├── __main__.py              # Python -m edugain_analysis support
 ├── cli/
 │   ├── main.py              # Privacy/security analysis CLI (edugain-analyze)
-│   └── seccon.py            # SIRTFI security contact CLI (edugain-seccon)
+│   ├── seccon.py            # Security contact analysis CLI (edugain-seccon)
+│   └── sirtfi.py            # SIRTFI compliance validation CLI (edugain-sirtfi)
 ├── config/
 │   └── settings.py          # Configuration constants, namespaces, URLs
 ├── core/
@@ -152,8 +164,13 @@ src/edugain_analysis/
   - Default: summary statistics
   - Options: markdown reports, CSV exports, URL validation
   - Unified `--source` argument for local files or custom URLs
-- **seccon.py**: SIRTFI security contact analysis
-  - Identifies entities with security contacts but no SIRTFI certification
+- **seccon.py**: Security contact analysis tool
+  - Identifies entities WITH security contacts but WITHOUT SIRTFI certification
+  - Use case: Find SIRTFI certification candidates
+  - Standalone tool with minimal dependencies
+- **sirtfi.py**: SIRTFI compliance validation tool
+  - Identifies entities WITH SIRTFI certification but WITHOUT security contacts
+  - Use case: Detect SIRTFI compliance violations
   - Standalone tool with minimal dependencies
 
 #### Core Logic (`core/`)
@@ -217,11 +234,19 @@ src/edugain_analysis/
 8. **Output**: Format as summary, CSV, or markdown based on user selection
 9. **Cache Saving**: Persist updated URL validation cache
 
-**SIRTFI Analysis:**
+**SIRTFI Compliance Analysis:**
+
+*edugain-seccon (Security Contact Analysis):*
 1. Download/parse metadata
-2. Find entities with security contacts
+2. Find entities with security contacts (REFEDS or InCommon format)
 3. Check SIRTFI Entity Category certification
-4. Output CSV of non-SIRTFI entities with security contacts
+4. Output CSV of entities with security contacts but WITHOUT SIRTFI
+
+*edugain-sirtfi (SIRTFI Validation):*
+1. Download/parse metadata
+2. Find entities with SIRTFI Entity Category certification
+3. Check for security contact presence (REFEDS or InCommon format)
+4. Output CSV of entities with SIRTFI but WITHOUT security contacts (violations)
 
 ### Key Features
 
@@ -269,7 +294,8 @@ Tests follow pytest best practices with 200+ test cases covering all modules:
 tests/
 ├── unit/
 │   ├── test_cli_main.py           # Privacy/security CLI tests (17 tests)
-│   ├── test_cli_seccon.py         # SIRTFI CLI tests (15 tests)
+│   ├── test_cli_seccon.py         # Security contact CLI tests (15 tests)
+│   ├── test_cli_sirtfi.py         # SIRTFI compliance CLI tests (15 tests)
 │   ├── test_core_analysis.py      # Analysis logic tests (13 tests)
 │   ├── test_core_metadata.py      # Metadata operations tests (43 tests)
 │   ├── test_core_validation.py    # URL validation tests (24 tests)
