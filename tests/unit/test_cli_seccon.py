@@ -268,6 +268,90 @@ class TestAnalyzeEntities:
 
         assert len(entities) == 0
 
+    def test_analyze_entities_missing_entity_id(self):
+        """Test analysis of entities without entityID."""
+        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+        <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+                               xmlns:remd="http://refeds.org/metadata"
+                               xmlns:mdrpi="urn:oasis:names:tc:SAML:metadata:rpi">
+            <md:EntityDescriptor>
+                <md:Extensions>
+                    <mdrpi:RegistrationInfo registrationAuthority="https://example.org"/>
+                </md:Extensions>
+                <md:ContactPerson remd:contactType="http://refeds.org/metadata/contactType/security">
+                    <md:EmailAddress>security@example.org</md:EmailAddress>
+                </md:ContactPerson>
+                <md:SPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"/>
+            </md:EntityDescriptor>
+        </md:EntitiesDescriptor>"""
+
+        root = ET.fromstring(xml_content)
+        entities = analyze_entities(root)
+
+        assert len(entities) == 0  # Should be excluded - no entityID
+
+    def test_analyze_entities_missing_registration_info(self):
+        """Test analysis of entities without registration info."""
+        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+        <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+                               xmlns:remd="http://refeds.org/metadata">
+            <md:EntityDescriptor entityID="https://sp.example.org">
+                <md:ContactPerson remd:contactType="http://refeds.org/metadata/contactType/security">
+                    <md:EmailAddress>security@example.org</md:EmailAddress>
+                </md:ContactPerson>
+                <md:SPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"/>
+            </md:EntityDescriptor>
+        </md:EntitiesDescriptor>"""
+
+        root = ET.fromstring(xml_content)
+        entities = analyze_entities(root)
+
+        assert len(entities) == 0  # Should be excluded - no registration info
+
+    def test_analyze_entities_empty_registration_authority(self):
+        """Test analysis of entities with empty registration authority."""
+        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+        <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+                               xmlns:remd="http://refeds.org/metadata"
+                               xmlns:mdrpi="urn:oasis:names:tc:SAML:metadata:rpi">
+            <md:EntityDescriptor entityID="https://sp.example.org">
+                <md:Extensions>
+                    <mdrpi:RegistrationInfo registrationAuthority=""/>
+                </md:Extensions>
+                <md:ContactPerson remd:contactType="http://refeds.org/metadata/contactType/security">
+                    <md:EmailAddress>security@example.org</md:EmailAddress>
+                </md:ContactPerson>
+                <md:SPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"/>
+            </md:EntityDescriptor>
+        </md:EntitiesDescriptor>"""
+
+        root = ET.fromstring(xml_content)
+        entities = analyze_entities(root)
+
+        assert len(entities) == 0  # Should be excluded - empty registration authority
+
+    def test_analyze_entities_no_descriptor(self):
+        """Test analysis of entities with neither SP nor IdP descriptor."""
+        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+        <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+                               xmlns:remd="http://refeds.org/metadata"
+                               xmlns:mdrpi="urn:oasis:names:tc:SAML:metadata:rpi">
+            <md:EntityDescriptor entityID="https://unknown.example.org">
+                <md:Extensions>
+                    <mdrpi:RegistrationInfo registrationAuthority="https://example.org"/>
+                </md:Extensions>
+                <md:ContactPerson remd:contactType="http://refeds.org/metadata/contactType/security">
+                    <md:EmailAddress>security@example.org</md:EmailAddress>
+                </md:ContactPerson>
+            </md:EntityDescriptor>
+        </md:EntitiesDescriptor>"""
+
+        root = ET.fromstring(xml_content)
+        entities = analyze_entities(root)
+
+        assert len(entities) == 1
+        assert entities[0][1] is None  # entity type should be None
+
 
 class TestCSVOutput:
     """Test CSV output functionality within main function."""

@@ -39,7 +39,13 @@
       "Bash(python3.12:*)",
       "Bash(python3.11:*)",
       "Read(//Users/kreme003/Library/Caches/edugain-analysis/**)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
+      "WebFetch(domain:app.codecov.io)",
+      "Bash(grep:*)",
+      "Bash(gh release:*)",
+      "Bash(git tag:*)"
     ],
     "deny": [],
     "ask": []

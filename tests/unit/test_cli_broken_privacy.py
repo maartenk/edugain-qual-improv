@@ -208,6 +208,17 @@ class TestValidateURL:
         assert result["accessible"] is False
         assert result["error"] == ""
 
+    @patch("requests.head")
+    def test_validate_url_generic_exception(self, mock_head):
+        """Test URL validation with generic exception."""
+        mock_head.side_effect = ValueError("Unexpected error")
+
+        result = validate_url("https://example.org/privacy")
+
+        assert result["status_code"] == 0
+        assert result["accessible"] is False
+        assert result["error"] == "Unexpected error"
+
 
 class TestCategorizeError:
     """Test the categorize_error function."""
@@ -266,6 +277,16 @@ class TestCategorizeError:
         """Test categorizing unknown errors."""
         result = categorize_error(0, "")
         assert result == "Unknown Error"
+
+    def test_categorize_custom_error_message(self):
+        """Test categorizing custom error messages."""
+        result = categorize_error(0, "Some weird error happened")
+        assert result == "Error: Some weird error happened"
+
+    def test_categorize_unexpected_status_code(self):
+        """Test categorizing unexpected status codes."""
+        result = categorize_error(302, "")
+        assert result == "Unexpected Status 302"
 
 
 class TestCollectSPPrivacyURLs:
@@ -386,6 +407,56 @@ class TestCollectSPPrivacyURLs:
                     <md:Extensions>
                         <mdui:UIInfo>
                             <mdui:PrivacyStatementURL></mdui:PrivacyStatementURL>
+                        </mdui:UIInfo>
+                    </md:Extensions>
+                </md:SPSSODescriptor>
+            </md:EntityDescriptor>
+        </md:EntitiesDescriptor>"""
+
+        root = ET.fromstring(xml_content)
+        result = collect_sp_privacy_urls(root)
+
+        assert len(result) == 0
+
+    def test_collect_sp_missing_entity_id(self):
+        """Test collecting SPs without entityID."""
+        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+        <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+                              xmlns:mdui="urn:oasis:names:tc:SAML:metadata:ui"
+                              xmlns:mdrpi="urn:oasis:names:tc:SAML:metadata:rpi">
+            <md:EntityDescriptor>
+                <md:Extensions>
+                    <mdrpi:RegistrationInfo registrationAuthority="https://example.org"/>
+                </md:Extensions>
+                <md:SPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+                    <md:Extensions>
+                        <mdui:UIInfo>
+                            <mdui:PrivacyStatementURL>https://example.org/privacy</mdui:PrivacyStatementURL>
+                        </mdui:UIInfo>
+                    </md:Extensions>
+                </md:SPSSODescriptor>
+            </md:EntityDescriptor>
+        </md:EntitiesDescriptor>"""
+
+        root = ET.fromstring(xml_content)
+        result = collect_sp_privacy_urls(root)
+
+        assert len(result) == 0
+
+    def test_collect_sp_empty_reg_authority(self):
+        """Test collecting SPs with empty registration authority."""
+        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+        <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+                              xmlns:mdui="urn:oasis:names:tc:SAML:metadata:ui"
+                              xmlns:mdrpi="urn:oasis:names:tc:SAML:metadata:rpi">
+            <md:EntityDescriptor entityID="https://example.org/sp">
+                <md:Extensions>
+                    <mdrpi:RegistrationInfo registrationAuthority=""/>
+                </md:Extensions>
+                <md:SPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+                    <md:Extensions>
+                        <mdui:UIInfo>
+                            <mdui:PrivacyStatementURL>https://example.org/privacy</mdui:PrivacyStatementURL>
                         </mdui:UIInfo>
                     </md:Extensions>
                 </md:SPSSODescriptor>
@@ -554,6 +625,41 @@ class TestAnalyzeBrokenLinks:
 
         assert len(result) == 0
 
+    def test_analyze_broken_links_missing_validation_result(self):
+        """Test that SPs without validation results are skipped."""
+        sp_data = [
+            (
+                "https://example.org",
+                "SP1",
+                "https://example.org/sp1",
+                "https://privacy1.org",
+            ),
+            (
+                "https://example.org",
+                "SP2",
+                "https://example.org/sp2",
+                "https://privacy2.org",
+            ),
+        ]
+
+        # Only have validation result for privacy2.org
+        validation_results = {
+            "https://privacy2.org": {
+                "status_code": 404,
+                "accessible": False,
+                "error": "",
+                "checked_at": "2025-01-01T00:00:00Z",
+            }
+        }
+
+        federation_mapping = {}
+
+        result = analyze_broken_links(sp_data, validation_results, federation_mapping)
+
+        # Should only have SP2
+        assert len(result) == 1
+        assert result[0][1] == "SP2"
+
 
 class TestMain:
     """Test the main function."""
@@ -685,3 +791,44 @@ class TestMain:
 
         # argparse calls sys.exit(0) after printing help
         mock_exit.assert_called_once_with(0)
+
+    @patch("sys.exit")
+    @patch("sys.argv", ["broken_privacy.py", "--local-file", "/tmp/invalid.xml"])
+    def test_main_xml_parse_error_local_file(self, mock_exit):
+        """Test main with XML parse error from local file."""
+        import tempfile
+
+        # Create a temporary file with invalid XML
+        temp_file = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".xml")
+        temp_file.write("This is not valid XML")
+        temp_file.close()
+
+        try:
+            with patch(
+                "sys.argv", ["broken_privacy.py", "--local-file", temp_file.name]
+            ):
+                with patch("sys.stderr", new_callable=StringIO) as mock_stderr:
+                    main()
+
+            # Should exit with error
+            mock_exit.assert_called_once_with(1)
+            stderr_output = mock_stderr.getvalue()
+            assert "Error parsing XML" in stderr_output
+        finally:
+            os.unlink(temp_file.name)
+
+    @patch("edugain_analysis.cli.broken_privacy.download_metadata")
+    @patch("sys.exit")
+    @patch("sys.argv", ["broken_privacy.py"])
+    def test_main_xml_parse_error_downloaded(self, mock_exit, mock_download):
+        """Test main with XML parse error from downloaded content."""
+        # Return invalid XML
+        mock_download.return_value = b"This is not valid XML"
+
+        with patch("sys.stderr", new_callable=StringIO) as mock_stderr:
+            main()
+
+        # Should exit with error
+        mock_exit.assert_called_once_with(1)
+        stderr_output = mock_stderr.getvalue()
+        assert "Error parsing XML" in stderr_output
