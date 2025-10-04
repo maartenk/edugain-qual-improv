@@ -324,6 +324,7 @@ def main() -> None:
     print(f"Loaded {len(federation_mapping)} federation names", file=sys.stderr)
 
     # Get metadata
+    root: ET.Element | None = None
     if args.local_file:
         print(f"Parsing local metadata: {args.local_file}", file=sys.stderr)
         try:
@@ -331,6 +332,7 @@ def main() -> None:
         except ET.ParseError as e:
             print(f"Error parsing XML: {e}", file=sys.stderr)
             sys.exit(1)
+            return
     else:
         print(f"Downloading metadata from {args.url}...", file=sys.stderr)
         xml_content = download_metadata(args.url)
@@ -339,6 +341,10 @@ def main() -> None:
         except ET.ParseError as e:
             print(f"Error parsing XML: {e}", file=sys.stderr)
             sys.exit(1)
+            return
+
+    if root is None:
+        return
 
     # Collect SPs with privacy URLs
     print("Collecting SPs with privacy statement URLs...", file=sys.stderr)
