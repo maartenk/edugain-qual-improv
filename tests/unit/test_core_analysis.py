@@ -257,11 +257,12 @@ class TestAnalyzePrivacySecurity:
         assert stats["urls_accessible"] == 1
         assert stats["urls_broken"] == 0
 
-        # Check extended entity data format
+        # Check extended entity data format (now includes HasSIRTFI column)
         entity = entities_list[0]
-        assert len(entity) == 12  # Extended format with validation data
-        assert entity[7] == "200"  # Status code
-        assert entity[9] == "Yes"  # URL accessible
+        assert len(entity) == 13  # Extended format with validation data + SIRTFI
+        assert entity[7] == "No"  # HasSIRTFI
+        assert entity[8] == "200"  # Status code
+        assert entity[10] == "Yes"  # URL accessible
 
     def test_entity_without_entityid(self):
         """Test handling of entity without entityID attribute."""

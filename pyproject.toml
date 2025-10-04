@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "edugain-analysis"
-version = "2.0.0"
+version = "3.0.0"
 description = "Comprehensive eduGAIN metadata quality analysis"
 readme = "README.md"
 license = {text = "MIT"}
@@ -14,7 +14,6 @@ keywords = ["edugain", "saml", "metadata", "federation"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
-    "Environment :: Web Environment",
     "Intended Audience :: System Administrators",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -22,7 +21,6 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
     "Topic :: System :: Systems Administration",
     "Topic :: Software Development :: Quality Assurance",
     "Typing :: Typed",
@@ -34,14 +32,19 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-web = ["streamlit>=1.28.0"]
+web = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.6",
+    "sqlalchemy>=2.0.0",
+]
+streamlit = ["streamlit>=1.28.0"]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
     "pytest-xdist>=3.3.0",
-    "black>=23.9.0",
     "ruff>=0.1.0",
-    "mypy>=1.5.0",
     "pre-commit>=3.4.0",
 ]
 docs = [
@@ -58,6 +61,8 @@ Documentation = "https://edugain-analysis.readthedocs.io"
 [project.scripts]
 edugain-analyze = "edugain_analysis.cli.main:main"
 edugain-seccon = "edugain_analysis.cli.seccon:main"
+edugain-sirtfi = "edugain_analysis.cli.sirtfi:main"
+edugain-broken-privacy = "edugain_analysis.cli.broken_privacy:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -73,7 +78,7 @@ line-length = 88
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "S", "B", "A", "C4", "PIE", "T20"]
 ignore = [
-    "E501",    # Line too long (handled by Black)
+    "E501",    # Line too long (handled by ruff format)
     "T201",    # Print statements allowed in CLI applications
     "S314",    # XML parsing for trusted eduGAIN metadata
     "S101",    # Assert statements allowed in tests
@@ -84,29 +89,10 @@ ignore = [
     "B007",    # Loop variables not used (federation_key iteration)
 ]
 
-[tool.mypy]
-python_version = "3.11"
-strict = true
-warn_return_any = true
-warn_unused_configs = true
-
-[tool.black]
-line-length = 88
-target-version = ['py311', 'py312']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  # directories
-  \.eggs
-  | \.git
-  | \.hg
-  | \.pytest_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-)/
-'''
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
 
 [tool.pytest.ini_options]
 minversion = "7.0"

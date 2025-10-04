@@ -8,7 +8,7 @@ A modern Python package for eduGAIN quality improvement analysis. The codebase f
 
 - **`src/edugain_analysis/`**: Main package with modular components (CLI, core logic, formatters, config)
 - **`analyze.py`**: Convenience wrapper that calls the main CLI entry point
-- **CLI Commands**: `edugain-analyze` and `edugain-seccon` (installed via package entry points)
+- **CLI Commands**: `edugain-analyze`, `edugain-seccon`, `edugain-sirtfi`, and `edugain-broken-privacy` (installed via package entry points)
 
 ## Setup and Installation
 
@@ -51,26 +51,60 @@ python analyze.py --csv missing-both           # Entities missing both
 ```
 
 **Output Format Notes:**
-- CSV columns: `Federation,EntityType,OrganizationName,EntityID,HasPrivacyStatement,PrivacyStatementURL,HasSecurityContact`
+- CSV columns: `Federation,EntityType,OrganizationName,EntityID,HasPrivacyStatement,PrivacyStatementURL,HasSecurityContact,HasSIRTFI`
 - Federation names automatically mapped via eduGAIN API (e.g., "InCommon" instead of "https://incommon.org")
 - Privacy statements: Only analyzed for SPs
 - Security contacts: Analyzed for both SPs and IdPs
+- SIRTFI certification: Analyzed for both SPs and IdPs
 - URL validation adds columns: `URLStatusCode,FinalURL,URLAccessible,RedirectCount,ValidationError`
 
-### Usage - SIRTFI Security Contact Analysis
+### Usage - SIRTFI Compliance Analysis
+
+The package includes two specialized CLI commands for SIRTFI compliance analysis:
 
 ```bash
-# Using installed CLI command (recommended)
+# edugain-seccon: Find entities WITH security contacts but WITHOUT SIRTFI certification
 edugain-seccon                                 # Analyze current metadata
 edugain-seccon --local-file metadata.xml       # Use local XML file
 edugain-seccon --no-headers                    # Omit CSV headers
 edugain-seccon --url CUSTOM_URL                # Use custom metadata URL
+edugain-seccon > entities_without_sirtfi.csv   # Save output
 
-# Save output to file
-edugain-seccon > entities_without_sirtfi.csv
+# edugain-sirtfi: Find entities WITH SIRTFI but WITHOUT security contacts (compliance violation)
+edugain-sirtfi                                 # Analyze current metadata
+edugain-sirtfi --local-file metadata.xml       # Use local XML file
+edugain-sirtfi --no-headers                    # Omit CSV headers
+edugain-sirtfi --url CUSTOM_URL                # Use custom metadata URL
+edugain-sirtfi > sirtfi_violations.csv         # Save output
 ```
 
-**Output:** CSV with columns `RegistrationAuthority,EntityType,OrganizationName,EntityID` containing entities with security contacts but no SIRTFI certification.
+**Output:** CSV with columns `RegistrationAuthority,EntityType,OrganizationName,EntityID`
+
+**Use Cases:**
+- `edugain-seccon`: Identify potential candidates for SIRTFI certification (entities with security contacts)
+- `edugain-sirtfi`: Detect SIRTFI compliance violations (SIRTFI entities missing required security contacts)
+
+### Usage - Broken Privacy Links Analysis
+
+```bash
+# edugain-broken-privacy: Find SPs with broken (inaccessible) privacy statement URLs
+edugain-broken-privacy                           # Analyze current metadata (always runs live validation)
+edugain-broken-privacy --local-file metadata.xml # Use local XML file
+edugain-broken-privacy --no-headers              # Omit CSV headers
+edugain-broken-privacy --url CUSTOM_URL          # Use custom metadata URL
+edugain-broken-privacy > broken_links.csv        # Save output
+```
+
+**Output:** CSV with columns `Federation,SP,EntityID,PrivacyLink,ErrorCode,ErrorType,CheckedAt`
+
+**Features:**
+- **Live Validation**: Always performs real-time HTTP checks with 10 parallel workers
+- **Error Categorization**: SSL errors, 404s, timeouts, connection errors, etc.
+- **Federation Mapping**: Automatic federation name resolution
+- **Progress Reporting**: Real-time validation progress updates
+
+**Use Case:**
+- Identify broken privacy statement links across eduGAIN federations for remediation
 
 ## Architecture
 
@@ -82,7 +116,9 @@ src/edugain_analysis/
 ├── __main__.py              # Python -m edugain_analysis support
 ├── cli/
 │   ├── main.py              # Privacy/security analysis CLI (edugain-analyze)
-│   └── seccon.py            # SIRTFI security contact CLI (edugain-seccon)
+│   ├── seccon.py            # Security contact analysis CLI (edugain-seccon)
+│   ├── sirtfi.py            # SIRTFI compliance validation CLI (edugain-sirtfi)
+│   └── broken_privacy.py    # Broken privacy links CLI (edugain-broken-privacy)
 ├── config/
 │   └── settings.py          # Configuration constants, namespaces, URLs
 ├── core/
@@ -100,14 +136,25 @@ src/edugain_analysis/
   - Default: summary statistics
   - Options: markdown reports, CSV exports, URL validation
   - Unified `--source` argument for local files or custom URLs
-- **seccon.py**: SIRTFI security contact analysis
-  - Identifies entities with security contacts but no SIRTFI certification
+- **seccon.py**: Security contact analysis tool
+  - Identifies entities WITH security contacts but WITHOUT SIRTFI certification
+  - Use case: Find SIRTFI certification candidates
   - Standalone tool with minimal dependencies
+- **sirtfi.py**: SIRTFI compliance validation tool
+  - Identifies entities WITH SIRTFI certification but WITHOUT security contacts
+  - Use case: Detect SIRTFI compliance violations
+  - Standalone tool with minimal dependencies
+- **broken_privacy.py**: Broken privacy links analysis tool
+  - Identifies SPs with broken (inaccessible) privacy statement URLs
+  - Use case: Find privacy links that need fixing
+  - Self-contained with live URL validation (10 parallel workers)
+  - Error categorization (SSL, 404, timeouts, connection errors)
 
 #### Core Logic (`core/`)
 - **analysis.py**: Entity analysis engine
   - `analyze_privacy_security()`: Main analysis function
-  - Processes entities for privacy statements (SPs) and security contacts (both SPs/IdPs)
+  - Processes entities for privacy statements (SPs), security contacts (both SPs/IdPs), and SIRTFI certification (both SPs/IdPs)
+  - SIRTFI detection via XPath: `./md:Extensions/mdattr:EntityAttributes/saml:Attribute[@Name="urn:oasis:names:tc:SAML:attribute:assurance-certification"]/saml:AttributeValue` checking for value `https://refeds.org/sirtfi`
   - Generates per-entity data, summary stats, and federation statistics
 - **metadata.py**: Metadata operations
   - `get_metadata()`: Smart caching (XDG-compliant, 12h expiry)
@@ -135,29 +182,44 @@ src/edugain_analysis/
 
 ### Data Processing Flow
 
-**Privacy/Security Analysis:**
+**Privacy/Security/SIRTFI Analysis:**
 1. **Argument Parsing**: Parse CLI options, determine output format and validation mode
 2. **Cache Loading**: Load federation mapping and URL validation cache (if applicable)
 3. **Metadata Acquisition**: Download or use cached metadata (12h expiry)
 4. **XML Parsing**: Parse with namespace-aware ElementTree
-5. **Entity Analysis**: Extract privacy statements, security contacts, federation info
+5. **Entity Analysis**: Extract privacy statements, security contacts, SIRTFI certification, and federation info
+   - Privacy statements: SP-only (remd:PrivacyStatementURL)
+   - Security contacts: Both SPs/IdPs (remd:SecurityContact or md:ContactPerson[type=security])
+   - SIRTFI: Both SPs/IdPs (Entity Category `https://refeds.org/sirtfi`)
 6. **URL Validation** (optional): Parallel HTTP checks for privacy statement URLs
-7. **Statistics Generation**: Aggregate totals and per-federation breakdowns
+7. **Statistics Generation**: Aggregate totals and per-federation breakdowns (includes SIRTFI counts)
 8. **Output**: Format as summary, CSV, or markdown based on user selection
+   - Summary: Displays SIRTFI coverage with color-coded percentages (🟢 ≥80%, 🟡 50-79%, 🔴 <50%)
+   - CSV: Includes `HasSIRTFI` column (position 7, after HasSecurityContact)
+   - Markdown: Per-federation SIRTFI statistics in tables
 9. **Cache Saving**: Persist updated URL validation cache
 
-**SIRTFI Analysis:**
+**SIRTFI Compliance Analysis:**
+
+*edugain-seccon (Security Contact Analysis):*
 1. Download/parse metadata
-2. Find entities with security contacts
+2. Find entities with security contacts (REFEDS or InCommon format)
 3. Check SIRTFI Entity Category certification
-4. Output CSV of non-SIRTFI entities with security contacts
+4. Output CSV of entities with security contacts but WITHOUT SIRTFI
+
+*edugain-sirtfi (SIRTFI Validation):*
+1. Download/parse metadata
+2. Find entities with SIRTFI Entity Category certification
+3. Check for security contact presence (REFEDS or InCommon format)
+4. Output CSV of entities with SIRTFI but WITHOUT security contacts (violations)
 
 ### Key Features
 
 - **XDG Base Directory Compliance**: Cache files stored in `~/.cache/edugain-analysis/` (respects `XDG_CACHE_HOME`)
 - **Smart Caching**: Metadata (12h), federation names (30d), URL validation (persistent)
 - **Federation Mapping**: Automatic resolution via eduGAIN API with graceful fallback
-- **Entity Type Differentiation**: Privacy statements for SPs only, security contacts for both
+- **Entity Type Differentiation**: Privacy statements for SPs only, security contacts and SIRTFI for both SPs/IdPs
+- **SIRTFI Coverage Tracking**: Comprehensive tracking of SIRTFI certification across all output formats (summary, CSV, markdown)
 - **Parallel URL Validation**: Configurable thread pool (default: 10 threads)
 - **Multiple Output Formats**: Summary, CSV (filtered/unfiltered), markdown reports
 
@@ -170,11 +232,8 @@ src/edugain_analysis/
 
 **Development (optional):**
 - pytest, pytest-cov, pytest-xdist: Testing and coverage
-- black, ruff, mypy: Code formatting, linting, type checking
+- ruff: Linting and formatting
 - pre-commit: Git hooks for code quality
-
-**Web (optional):**
-- streamlit ≥1.28.0: Future web interface support
 
 ## Development Notes
 
@@ -188,18 +247,21 @@ src/edugain_analysis/
 
 ### Testing Structure
 
-Tests follow pytest best practices with 200+ test cases covering all modules:
+Tests follow pytest best practices with comprehensive test coverage for all CLI and core modules:
 
 ```
 tests/
 ├── unit/
-│   ├── test_cli_main.py           # Privacy/security CLI tests
-│   ├── test_cli_seccon.py         # SIRTFI CLI tests
-│   ├── test_core_analysis.py      # Analysis logic tests
-│   ├── test_core_metadata.py      # Metadata operations tests
-│   ├── test_core_validation.py    # URL validation tests
-│   ├── test_formatters.py         # Output formatter tests
-│   └── test_package_basic.py      # Import and basic functionality
+│   ├── test_cli_main.py           # Privacy/security CLI tests (17 tests)
+│   ├── test_cli_seccon.py         # Security contact CLI tests (15 tests)
+│   ├── test_cli_sirtfi.py         # SIRTFI compliance CLI tests (15 tests)
+│   ├── test_cli_broken_privacy.py # Broken privacy links CLI tests (38 tests)
+│   ├── test_core_analysis.py      # Analysis logic tests (13 tests)
+│   ├── test_core_metadata.py      # Metadata operations tests (43 tests)
+│   ├── test_core_validation.py    # URL validation tests (24 tests)
+│   ├── test_formatters.py         # Output formatter tests (9 tests)
+│   ├── test_package_basic.py      # Import and basic functionality (10 tests)
+│   └── test_main_module.py        # Main module tests (2 tests)
 └── integration/
     └── (integration tests)
 ```
@@ -227,7 +289,7 @@ pytest --no-cov
 pytest -n auto
 ```
 
-**Coverage:** 92.17% overall with comprehensive testing across all modules.
+**Coverage:** High coverage across all modules (100% for CLI, 90%+ for core modules).
 
 ### Coverage Configuration
 - **HTML reports**: Generated in `htmlcov/` directory
@@ -237,10 +299,12 @@ pytest -n auto
 - **Exclusions**: Test files, `__main__` blocks, abstract methods, debug code
 
 ### CI/CD Integration
-- **GitHub Actions**: Automated testing on push/PR via `.github/workflows/ci.yml`
-- **Codecov**: Automatic coverage upload with multi-version flags
-- **Quality gates**: Linting (ruff), type checking (mypy), formatting (black)
-- **Matrix testing**: All supported Python versions tested in parallel
+- **GitHub Actions**: Automated testing on all branches via `.github/workflows/ci.yml`
+- **Trigger events**: Push to any branch, pull requests to any branch, manual workflow dispatch
+- **Codecov**: Automatic coverage upload with multi-version flags (python-3.11, python-3.12, python-3.13)
+- **Quality gates**: Linting and formatting (ruff)
+- **Matrix testing**: Python 3.11, 3.12, and 3.13 tested in parallel
+- **Continue on error**: Tests continue even if individual steps fail to maximize coverage reporting
 
 ## Key Features
 
@@ -274,14 +338,11 @@ pytest -n auto
 
 ### Code Quality Checks
 ```bash
-# Format code with black
-black src/ tests/
+# Format code with ruff
+ruff format src/ tests/
 
-# Lint with ruff
-ruff check src/ tests/
-
-# Type check with mypy
-mypy src/
+# Lint with ruff (with auto-fix)
+ruff check --fix src/ tests/
 
 # Run all pre-commit hooks
 pre-commit run --all-files
@@ -294,7 +355,7 @@ pre-commit run --all-files
 4. Write unit tests in `tests/unit/`
 5. Run tests: `pytest -v`
 6. Check coverage: `pytest --cov-report=term-missing`
-7. Run quality checks: `ruff check`, `mypy`, `black --check`
+7. Run quality checks: `ruff check`, `ruff format --check`
 8. Commit with descriptive message
 9. Push and create PR
 
@@ -318,7 +379,6 @@ pre-commit run --all-files
 - **Cache issues**: Clear cache at `~/.cache/edugain-analysis/`
 - **Test failures**: Run `pytest -v` for detailed output, check mock configurations
 - **Coverage gaps**: Run `pytest --cov-report=html` and review `htmlcov/index.html`
-- **Type errors**: Run `mypy src/` to catch type issues before CI/CD
 
 ### Performance Tips
 - URL validation is slow by design (network I/O) - use caching

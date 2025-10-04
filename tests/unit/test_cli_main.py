@@ -210,6 +210,80 @@ class TestCLIMain:
         # Should call filter_entities with correct mode
         mock_filter.assert_called_once_with(entities_list, "missing_privacy")
 
+    @patch("edugain_analysis.cli.main.get_federation_mapping")
+    @patch("edugain_analysis.cli.main.get_metadata")
+    @patch("edugain_analysis.cli.main.parse_metadata")
+    @patch("edugain_analysis.cli.main.analyze_privacy_security")
+    @patch("edugain_analysis.cli.main.filter_entities")
+    @patch("sys.stdout", new_callable=StringIO)
+    def test_main_csv_missing_security(
+        self,
+        mock_stdout,
+        mock_filter,
+        mock_analyze,
+        mock_parse,
+        mock_get_metadata,
+        mock_get_federation,
+    ):
+        """Test main function with --csv missing-security option."""
+        # Mock return values
+        mock_get_federation.return_value = {}
+        mock_get_metadata.return_value = b"<xml>metadata</xml>"
+        mock_parse.return_value = MagicMock()
+
+        entities_list = [
+            [
+                "InCommon",
+                "SP",
+                "Test Org",
+                "https://test.org",
+                "Yes",
+                "https://test.org/privacy",
+                "No",
+            ]
+        ]
+        mock_analyze.return_value = (entities_list, {"total_entities": 1}, {})
+        mock_filter.return_value = entities_list
+
+        with patch("sys.argv", ["analyze.py", "--csv", "missing-security"]):
+            main()
+
+        # Should call filter_entities with correct mode
+        mock_filter.assert_called_once_with(entities_list, "missing_security")
+
+    @patch("edugain_analysis.cli.main.get_federation_mapping")
+    @patch("edugain_analysis.cli.main.get_metadata")
+    @patch("edugain_analysis.cli.main.parse_metadata")
+    @patch("edugain_analysis.cli.main.analyze_privacy_security")
+    @patch("edugain_analysis.cli.main.filter_entities")
+    @patch("sys.stdout", new_callable=StringIO)
+    def test_main_csv_missing_both(
+        self,
+        mock_stdout,
+        mock_filter,
+        mock_analyze,
+        mock_parse,
+        mock_get_metadata,
+        mock_get_federation,
+    ):
+        """Test main function with --csv missing-both option."""
+        # Mock return values
+        mock_get_federation.return_value = {}
+        mock_get_metadata.return_value = b"<xml>metadata</xml>"
+        mock_parse.return_value = MagicMock()
+
+        entities_list = [
+            ["InCommon", "SP", "Test Org", "https://test.org", "No", "", "No"]
+        ]
+        mock_analyze.return_value = (entities_list, {"total_entities": 1}, {})
+        mock_filter.return_value = entities_list
+
+        with patch("sys.argv", ["analyze.py", "--csv", "missing-both"]):
+            main()
+
+        # Should call filter_entities with correct mode
+        mock_filter.assert_called_once_with(entities_list, "missing_both")
+
     @patch("edugain_analysis.cli.main.parse_metadata")
     @patch("edugain_analysis.cli.main.analyze_privacy_security")
     @patch("edugain_analysis.cli.main.print_summary")
@@ -454,6 +528,28 @@ class TestCLIMain:
         with patch("sys.argv", ["analyze.py"]):
             with pytest.raises(SystemExit):
                 main()
+
+    @patch("edugain_analysis.cli.main.get_federation_mapping")
+    @patch("edugain_analysis.cli.main.get_metadata")
+    @patch("edugain_analysis.cli.main.parse_metadata")
+    def test_main_keyboard_interrupt(
+        self, mock_parse, mock_get_metadata, mock_get_federation
+    ):
+        """Test main function handles KeyboardInterrupt gracefully."""
+        # Mock KeyboardInterrupt during parsing
+        mock_get_federation.return_value = {}
+        mock_get_metadata.return_value = b"<xml>metadata</xml>"
+        mock_parse.side_effect = KeyboardInterrupt()
+
+        with patch("sys.argv", ["analyze.py"]):
+            with patch("sys.stderr", new_callable=StringIO) as mock_stderr:
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+
+                # Should exit with code 1
+                assert exc_info.value.code == 1
+                # Should print user-friendly message
+                assert "interrupted by user" in mock_stderr.getvalue()
 
     def test_main_help(self):
         """Test main function with --help option."""

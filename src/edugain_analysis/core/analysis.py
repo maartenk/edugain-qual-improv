@@ -50,6 +50,13 @@ def analyze_privacy_security(
         "total_missing_security": 0,
         "sps_has_both": 0,
         "sps_missing_both": 0,
+        # SIRTFI statistics
+        "total_has_sirtfi": 0,
+        "sps_has_sirtfi": 0,
+        "idps_has_sirtfi": 0,
+        "total_missing_sirtfi": 0,
+        "sps_missing_sirtfi": 0,
+        "idps_missing_sirtfi": 0,
         # URL validation statistics
         "urls_checked": 0,
         "urls_accessible": 0,
@@ -66,10 +73,14 @@ def analyze_privacy_security(
     privacy_xpath = ".//mdui:PrivacyStatementURL"
     sec_contact_refeds = './md:ContactPerson[@remd:contactType="http://refeds.org/metadata/contactType/security"]'
     sec_contact_incommon = './md:ContactPerson[@icmd:contactType="http://id.incommon.org/metadata/contactType/security"]'
+    sirtfi_xpath = './md:Extensions/mdattr:EntityAttributes/saml:Attribute[@Name="urn:oasis:names:tc:SAML:attribute:assurance-certification"]/saml:AttributeValue'
     reg_info_xpath = "./md:Extensions/mdrpi:RegistrationInfo"
     org_name_xpath = "./md:Organization/md:OrganizationDisplayName"
     sp_descriptor_xpath = "./md:SPSSODescriptor"
     idp_descriptor_xpath = "./md:IDPSSODescriptor"
+
+    # SIRTFI value to match
+    sirtfi_value = "https://refeds.org/sirtfi"
 
     # Collect all privacy URLs for parallel validation
     if validate_urls:
@@ -184,6 +195,27 @@ def analyze_privacy_security(
             elif is_idp:
                 stats["idps_missing_security"] += 1
 
+        # Check for SIRTFI certification (for both SPs and IdPs)
+        has_sirtfi = any(
+            ec.text == sirtfi_value
+            for ec in entity.findall(sirtfi_xpath, NAMESPACES)
+            if ec.text
+        )
+
+        # Update SIRTFI statistics by entity type
+        if has_sirtfi:
+            stats["total_has_sirtfi"] += 1
+            if is_sp:
+                stats["sps_has_sirtfi"] += 1
+            elif is_idp:
+                stats["idps_has_sirtfi"] += 1
+        else:
+            stats["total_missing_sirtfi"] += 1
+            if is_sp:
+                stats["sps_missing_sirtfi"] += 1
+            elif is_idp:
+                stats["idps_missing_sirtfi"] += 1
+
         # Update combined statistics (only for SPs since privacy is SP-only)
         if is_sp:
             if has_privacy and has_security:
@@ -221,6 +253,13 @@ def analyze_privacy_security(
                     "total_missing_security": 0,
                     "sps_has_both": 0,
                     "sps_missing_both": 0,
+                    # SIRTFI statistics
+                    "total_has_sirtfi": 0,
+                    "sps_has_sirtfi": 0,
+                    "idps_has_sirtfi": 0,
+                    "total_missing_sirtfi": 0,
+                    "sps_missing_sirtfi": 0,
+                    "idps_missing_sirtfi": 0,
                     # URL validation statistics
                     "urls_checked": 0,
                     "urls_accessible": 0,
@@ -251,6 +290,12 @@ def analyze_privacy_security(
                 else:
                     fed_stats["sps_missing_security"] += 1
 
+                # SP SIRTFI stats
+                if has_sirtfi:
+                    fed_stats["sps_has_sirtfi"] += 1
+                else:
+                    fed_stats["sps_missing_sirtfi"] += 1
+
                 if has_privacy and has_security:
                     fed_stats["sps_has_both"] += 1
                 elif not has_privacy and not has_security:
@@ -263,11 +308,23 @@ def analyze_privacy_security(
                 else:
                     fed_stats["idps_missing_security"] += 1
 
+                # IdP SIRTFI stats
+                if has_sirtfi:
+                    fed_stats["idps_has_sirtfi"] += 1
+                else:
+                    fed_stats["idps_missing_sirtfi"] += 1
+
             # Overall federation security stats
             if has_security:
                 fed_stats["total_has_security"] += 1
             else:
                 fed_stats["total_missing_security"] += 1
+
+            # Overall federation SIRTFI stats
+            if has_sirtfi:
+                fed_stats["total_has_sirtfi"] += 1
+            else:
+                fed_stats["total_missing_sirtfi"] += 1
 
         # Prepare validation data for entity list
         if validate_urls and url_validation_result:
@@ -294,9 +351,12 @@ def analyze_privacy_security(
                     ent_type,
                     orgname,
                     ent_id,
-                    "Yes" if has_privacy else "No",
-                    privacy_url if has_privacy else "",
+                    "Yes" if has_privacy else ("N/A" if ent_type == "IdP" else "No"),
+                    privacy_url
+                    if has_privacy
+                    else ("N/A" if ent_type == "IdP" else ""),
                     "Yes" if has_security else "No",
+                    "Yes" if has_sirtfi else "No",
                     str(url_status),
                     final_url,
                     url_accessible,
@@ -312,9 +372,12 @@ def analyze_privacy_security(
                     ent_type,
                     orgname,
                     ent_id,
-                    "Yes" if has_privacy else "No",
-                    privacy_url if has_privacy else "",
+                    "Yes" if has_privacy else ("N/A" if ent_type == "IdP" else "No"),
+                    privacy_url
+                    if has_privacy
+                    else ("N/A" if ent_type == "IdP" else ""),
                     "Yes" if has_security else "No",
+                    "Yes" if has_sirtfi else "No",
                 ]
             )
 
