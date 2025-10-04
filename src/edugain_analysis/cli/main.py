@@ -30,19 +30,29 @@ from ..formatters import (
 def setup_argument_parser() -> argparse.ArgumentParser:
     """Set up and configure the command-line argument parser."""
     parser = argparse.ArgumentParser(
-        description="Analyze eduGAIN metadata for privacy statements and security contacts. Default: shows summary statistics.",
+        description="Analyze eduGAIN metadata for privacy statements, security contacts, and SIRTFI certification. Default: shows summary statistics.",
         epilog="""
 Examples:
-  %(prog)s                              # Show summary statistics
+  %(prog)s                              # Show summary statistics (includes SIRTFI)
   %(prog)s --report                     # Generate detailed markdown report
   %(prog)s --report-with-validation     # Generate detailed report with URL validation
-  %(prog)s --csv entities               # Export all entities to CSV
-  %(prog)s --csv federations            # Export federation statistics
+  %(prog)s --csv entities               # Export all entities to CSV (includes SIRTFI column)
+  %(prog)s --csv federations            # Export federation statistics (includes SIRTFI stats)
+  %(prog)s --csv missing-privacy        # Export only SPs missing privacy statements
+  %(prog)s --csv missing-security       # Export only entities missing security contacts
+  %(prog)s --csv missing-both           # Export only SPs missing both privacy and security
   %(prog)s --csv urls                   # Export basic URL list (SPs with privacy statements)
   %(prog)s --csv urls-validated         # Export URL validation results (enables validation)
   %(prog)s --validate                   # Enable URL validation with summary
   %(prog)s --source metadata.xml        # Use local XML file
   %(prog)s --source https://custom.url  # Use custom metadata URL
+
+CSV Columns (entities):
+  Federation, EntityType, OrganizationName, EntityID, HasPrivacyStatement,
+  PrivacyStatementURL, HasSecurityContact, HasSIRTFI
+
+  With --validate: Also includes URLStatusCode, FinalURL, URLAccessible,
+                   RedirectCount, ValidationError
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -66,22 +76,27 @@ Examples:
             "urls",
             "urls-validated",
         ],
-        help="Export CSV data: entities=all entities, federations=federation stats, missing-*=filtered entities, urls=basic URL list, urls-validated=URL validation results (enables validation)",
+        help=(
+            "Export CSV data (includes SIRTFI column). "
+            "Choices: entities (all), federations (stats), "
+            "missing-privacy/security/both (filtered), "
+            "urls (basic list), urls-validated (with validation)"
+        ),
     )
     output_group.add_argument(
         "--report",
         action="store_true",
-        help="Generate detailed markdown report with federation breakdown",
+        help="Generate detailed markdown report with privacy, security, and SIRTFI coverage by federation",
     )
     output_group.add_argument(
         "--report-with-validation",
         action="store_true",
-        help="Generate detailed markdown report with federation breakdown and URL validation",
+        help="Generate detailed markdown report with URL validation (checks privacy statement URLs)",
     )
     output_group.add_argument(
         "--validate",
         action="store_true",
-        help="Enable comprehensive URL validation and show summary statistics",
+        help="Enable URL validation (checks privacy statement accessibility) and show summary statistics",
     )
 
     # CSV output options
@@ -125,6 +140,7 @@ def handle_csv_export(args, entities_list, stats, federation_stats):
             "HasPrivacyStatement",
             "PrivacyStatementURL",
             "HasSecurityContact",
+            "HasSIRTFI",
         ]
 
         # Add URL validation headers if validation was enabled

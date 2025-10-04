@@ -37,6 +37,12 @@ class TestPrintSummary:
             "total_missing_security": 35,
             "sps_has_both": 25,
             "sps_missing_both": 10,
+            "total_has_sirtfi": 50,
+            "sps_has_sirtfi": 27,
+            "idps_has_sirtfi": 23,
+            "total_missing_sirtfi": 50,
+            "sps_missing_sirtfi": 33,
+            "idps_missing_sirtfi": 17,
             "validation_enabled": False,
         }
 
@@ -45,7 +51,7 @@ class TestPrintSummary:
             print_summary(stats)
             result = mock_stderr.getvalue()
 
-        assert "eduGAIN Privacy Statement and Security Contact Coverage" in result
+        assert "eduGAIN Quality Analysis: Privacy, Security & SIRTFI Coverage" in result
         assert "Total entities analyzed: 100" in result
         assert "SPs: 60, IdPs: 40" in result
         assert "45 out of 60 (75.0%)" in result
@@ -66,6 +72,12 @@ class TestPrintSummary:
             "total_missing_security": 12,
             "sps_has_both": 18,
             "sps_missing_both": 2,
+            "total_has_sirtfi": 24,
+            "sps_has_sirtfi": 13,
+            "idps_has_sirtfi": 11,
+            "total_missing_sirtfi": 26,
+            "sps_missing_sirtfi": 17,
+            "idps_missing_sirtfi": 9,
             "validation_enabled": True,
             "urls_checked": 25,
             "urls_accessible": 20,
@@ -124,6 +136,12 @@ class TestPrintSummaryMarkdown:
             "total_missing_security": 35,
             "sps_has_both": 25,
             "sps_missing_both": 10,
+            "total_has_sirtfi": 50,
+            "sps_has_sirtfi": 27,
+            "idps_has_sirtfi": 23,
+            "total_missing_sirtfi": 50,
+            "sps_missing_sirtfi": 33,
+            "idps_missing_sirtfi": 17,
             "validation_enabled": False,
         }
 
@@ -134,6 +152,32 @@ class TestPrintSummaryMarkdown:
         assert "eduGAIN Quality Analysis Report" in result
         assert "100 entities" in result
         assert "60 SPs, 40 IdPs" in result
+
+    def test_print_summary_markdown_empty_metadata(self):
+        """Test markdown summary with zero entities (empty metadata)."""
+        stats = {
+            "total_entities": 0,
+            "total_sps": 0,
+            "total_idps": 0,
+            "sps_has_privacy": 0,
+            "sps_missing_privacy": 0,
+            "sps_has_security": 0,
+            "sps_missing_security": 0,
+            "idps_has_security": 0,
+            "idps_missing_security": 0,
+            "total_has_security": 0,
+            "total_missing_security": 0,
+            "sps_has_both": 0,
+            "sps_missing_both": 0,
+            "validation_enabled": False,
+        }
+
+        output = StringIO()
+        print_summary_markdown(stats, output_file=output)
+        result = output.getvalue()
+
+        assert "eduGAIN Quality Analysis Report" in result
+        assert "No entities found in the metadata" in result
 
     def test_print_summary_markdown_with_validation(self):
         """Test markdown summary with validation."""
@@ -151,6 +195,12 @@ class TestPrintSummaryMarkdown:
             "total_missing_security": 12,
             "sps_has_both": 18,
             "sps_missing_both": 2,
+            "total_has_sirtfi": 24,
+            "sps_has_sirtfi": 13,
+            "idps_has_sirtfi": 11,
+            "total_missing_sirtfi": 26,
+            "sps_missing_sirtfi": 17,
+            "idps_missing_sirtfi": 9,
             "validation_enabled": True,
             "urls_checked": 25,
             "urls_accessible": 20,
@@ -186,6 +236,12 @@ class TestPrintFederationSummary:
                 "total_missing_security": 12,
                 "sps_has_both": 18,
                 "sps_missing_both": 2,
+                "total_has_sirtfi": 24,
+                "sps_has_sirtfi": 13,
+                "idps_has_sirtfi": 11,
+                "total_missing_sirtfi": 26,
+                "sps_missing_sirtfi": 17,
+                "idps_missing_sirtfi": 9,
                 "urls_checked": 0,
                 "urls_accessible": 0,
                 "urls_broken": 0,
@@ -229,6 +285,12 @@ class TestExportFederationCSV:
                 "total_missing_security": 12,
                 "sps_has_both": 18,
                 "sps_missing_both": 2,
+                "total_has_sirtfi": 24,
+                "sps_has_sirtfi": 13,
+                "idps_has_sirtfi": 11,
+                "total_missing_sirtfi": 26,
+                "sps_missing_sirtfi": 17,
+                "idps_missing_sirtfi": 9,
                 "urls_checked": 0,
                 "urls_accessible": 0,
                 "urls_broken": 0,
@@ -262,6 +324,12 @@ class TestExportFederationCSV:
                 "total_missing_security": 12,
                 "sps_has_both": 18,
                 "sps_missing_both": 2,
+                "total_has_sirtfi": 24,
+                "sps_has_sirtfi": 13,
+                "idps_has_sirtfi": 11,
+                "total_missing_sirtfi": 26,
+                "sps_missing_sirtfi": 17,
+                "idps_missing_sirtfi": 9,
                 "urls_checked": 0,
                 "urls_accessible": 0,
                 "urls_broken": 0,
