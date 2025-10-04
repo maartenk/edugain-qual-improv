@@ -13,7 +13,13 @@ import sys
 from datetime import datetime, timedelta
 
 from ..core.analysis import analyze_privacy_security
-from ..core.metadata import get_federation_mapping, get_metadata, parse_metadata
+from ..core.metadata import (
+    get_federation_mapping,
+    get_metadata,
+    load_url_validation_cache,
+    parse_metadata,
+    save_url_validation_cache,
+)
 from .models import Entity, Federation, SessionLocal, Snapshot, URLValidation
 
 
@@ -35,6 +41,15 @@ def import_snapshot(validate_urls: bool = False):
         print("  → Fetching federation names...")
         federation_mapping = get_federation_mapping()
 
+        # Load URL validation cache if validation is enabled
+        validation_cache = None
+        if validate_urls:
+            validation_cache = load_url_validation_cache() or {}
+            if validation_cache:
+                print(
+                    f"  → Loaded {len(validation_cache)} cached URL validation results"
+                )
+
         # Run analysis (with optional URL validation)
         print("  → Analyzing entities...")
         if validate_urls:
@@ -44,9 +59,18 @@ def import_snapshot(validate_urls: bool = False):
             root,
             federation_mapping=federation_mapping,
             validate_urls=validate_urls,  # Let core analysis handle validation
-            validation_cache=None,  # Could load cache here if desired
+            validation_cache=validation_cache,  # Use cache to avoid redundant checks
             max_workers=10,  # Configurable thread pool size
         )
+
+        # Save updated URL validation cache if validation was performed
+        if validate_urls and validation_cache is not None:
+            urls_validated = stats.get("urls_checked", 0)
+            if urls_validated > 0:
+                print(
+                    f"  → Saving URL validation cache with {len(validation_cache)} entries"
+                )
+                save_url_validation_cache(validation_cache)
 
         # Save to database
         print("  → Saving to database...")

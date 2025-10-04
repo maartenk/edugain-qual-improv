@@ -64,6 +64,7 @@ Documentation = "https://edugain-analysis.readthedocs.io"
 edugain-analyze = "edugain_analysis.cli.main:main"
 edugain-seccon = "edugain_analysis.cli.seccon:main"
 edugain-sirtfi = "edugain_analysis.cli.sirtfi:main"
+edugain-broken-privacy = "edugain_analysis.cli.broken_privacy:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
