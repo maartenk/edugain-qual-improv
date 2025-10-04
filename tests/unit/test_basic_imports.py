@@ -13,7 +13,7 @@ def test_package_imports():
     """Test that basic package imports work."""
     from edugain_analysis import __version__
 
-    assert __version__ == "2.0.0"
+    assert __version__ == "2.1.0"
 
 
 def test_core_imports():
