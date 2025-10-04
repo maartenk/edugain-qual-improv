@@ -6,7 +6,7 @@ SPs with broken privacy statement URLs. It uses the URL validation cache if avai
 
 If no cache exists, run with --validate to build it, or run 'edugain-analyze --validate' first.
 
-Output: CSV format with columns: Federation, SP, PrivacyLink, ErrorCode
+Output: CSV format with columns: Federation, SP, EntityID, PrivacyLink, ErrorCode, ErrorType, CheckedAt
 
 Usage:
     edugain-broken-privacy                    # Download and analyze current metadata (requires cache)
@@ -74,6 +74,67 @@ def parse_metadata(
     except ET.ParseError as e:
         print(f"Error parsing XML: {e}", file=sys.stderr)
         sys.exit(1)
+
+
+def categorize_error(status_code: int, error_msg: str) -> str:
+    """
+    Categorize error into actionable types.
+
+    Args:
+        status_code: HTTP status code (0 if not available)
+        error_msg: Error message from validation
+
+    Returns:
+        Human-readable error category
+    """
+    # Network/connection errors (highest priority - fundamental issues)
+    if error_msg:
+        error_lower = error_msg.lower()
+        if "ssl" in error_lower or "certificate" in error_lower:
+            return "SSL Certificate Error"
+        if "connection" in error_lower or "dns" in error_lower:
+            return "Connection Error"
+        if "timeout" in error_lower:
+            return "Timeout"
+        if "redirect" in error_lower:
+            return "Too Many Redirects"
+        # Generic error message
+        return f"Error: {error_msg}"
+
+    # HTTP status code categorization
+    if status_code == 0:
+        return "Unknown Error"
+    elif 400 <= status_code < 500:
+        # Client errors - URL is broken/moved
+        if status_code == 400:
+            return "Bad Request (4xx)"
+        elif status_code == 401:
+            return "Unauthorized (4xx)"
+        elif status_code == 403:
+            return "Forbidden (4xx)"
+        elif status_code == 404:
+            return "Not Found (4xx)"
+        elif status_code == 405:
+            return "Method Not Allowed (4xx)"
+        elif status_code == 410:
+            return "Gone Permanently (4xx)"
+        else:
+            return f"Client Error {status_code} (4xx)"
+    elif 500 <= status_code < 600:
+        # Server errors - may be temporary
+        if status_code == 500:
+            return "Internal Server Error (5xx)"
+        elif status_code == 502:
+            return "Bad Gateway (5xx)"
+        elif status_code == 503:
+            return "Service Unavailable (5xx)"
+        elif status_code == 504:
+            return "Gateway Timeout (5xx)"
+        else:
+            return f"Server Error {status_code} (5xx)"
+    else:
+        # Unexpected status code
+        return f"Unexpected Status {status_code}"
 
 
 def analyze_broken_privacy_links(
@@ -163,7 +224,23 @@ def analyze_broken_privacy_links(
         else:
             error_code = "Unknown error"
 
-        broken_links_list.append([federation_name, orgname, privacy_url, error_code])
+        # Categorize error type
+        error_type = categorize_error(status_code, error_msg)
+
+        # Get timestamp from validation cache
+        checked_at = validation_result.get("checked_at", "Unknown")
+
+        broken_links_list.append(
+            [
+                federation_name,
+                orgname,
+                ent_id,
+                privacy_url,
+                error_code,
+                error_type,
+                checked_at,
+            ]
+        )
 
     return broken_links_list
 
@@ -261,7 +338,17 @@ def main() -> None:
     # Output results
     writer = csv.writer(sys.stdout)
     if not args.no_headers:
-        writer.writerow(["Federation", "SP", "PrivacyLink", "ErrorCode"])
+        writer.writerow(
+            [
+                "Federation",
+                "SP",
+                "EntityID",
+                "PrivacyLink",
+                "ErrorCode",
+                "ErrorType",
+                "CheckedAt",
+            ]
+        )
     writer.writerows(broken_links_list)
 
 
