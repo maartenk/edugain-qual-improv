@@ -83,7 +83,10 @@
       "Bash(.venv/bin/pytest tests/unit/test_core_analysis.py -v --no-cov -x)",
       "Bash(.venv/bin/pytest tests/unit/test_core_analysis.py -v --no-cov)",
       "Bash(.venv/bin/pytest tests/unit/test_formatters.py -v --no-cov)",
-      "Bash(.venv/bin/pytest tests/unit/test_formatters.py tests/unit/test_cli_main.py -v --no-cov)"
+      "Bash(.venv/bin/pytest tests/unit/test_formatters.py tests/unit/test_cli_main.py -v --no-cov)",
+      "Bash(.venv/bin/pytest tests/unit/test_cli_broken_privacy.py -v --no-cov)",
+      "Bash(.venv/bin/edugain-broken-privacy:*)",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": []

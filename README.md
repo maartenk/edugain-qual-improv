@@ -12,7 +12,7 @@ A comprehensive Python package for analyzing eduGAIN federation metadata quality
 ### Key Features
 - 🔰 **SIRTFI Coverage Tracking**: Comprehensive SIRTFI certification tracking across all CLI outputs (summary, CSV, markdown reports)
 - 🔍 **SIRTFI Compliance Tools**: Two specialized CLI tools for security contact and SIRTFI certification validation
-- 🔒 **Privacy Statement Monitoring**: HTTP accessibility validation for privacy statement URLs
+- 🔒 **Privacy Statement Monitoring**: HTTP accessibility validation for privacy statement URLs with dedicated broken links detection tool
 - 🌐 **Web Dashboard**: Interactive HTMX-powered dashboard for real-time federation monitoring
 - 🌍 **Federation Intelligence**: Automatic mapping from registration authorities to friendly names via eduGAIN API
 - 💾 **XDG-Compliant Caching**: Smart caching system with configurable expiry (metadata: 12h, federations: 30d, URLs: 7d)
@@ -112,6 +112,32 @@ edugain-sirtfi > sirtfi_violations.csv      # Save to file
 - `edugain-seccon`: Identify potential candidates for SIRTFI certification (entities already with security contacts)
 - `edugain-sirtfi`: Detect SIRTFI compliance violations (entities claiming SIRTFI without publishing security contacts)
 
+### Broken Privacy Links Analysis
+
+The package includes a specialized command for finding Service Providers with broken (inaccessible) privacy statement URLs:
+
+```bash
+# Find SPs with broken privacy statement links (always runs live validation)
+edugain-broken-privacy                          # Analyze current metadata
+edugain-broken-privacy --local-file metadata.xml # Use local file
+edugain-broken-privacy --no-headers             # Omit CSV headers
+edugain-broken-privacy --url CUSTOM_URL         # Use custom metadata URL
+edugain-broken-privacy > broken_links.csv       # Save to file
+```
+
+**Output Format:** CSV with columns `Federation,SP,EntityID,PrivacyLink,ErrorCode,ErrorType,CheckedAt`
+
+**Features:**
+- **Live Validation**: Always performs real-time HTTP checks (10 parallel workers)
+- **Error Categorization**: Categorizes errors into actionable types (SSL errors, 404s, timeouts, etc.)
+- **Federation Mapping**: Automatically maps registration authorities to friendly federation names
+- **Progress Reporting**: Shows validation progress with status updates
+
+**Use Cases:**
+- Identify broken privacy statement links that need fixing
+- Monitor privacy statement accessibility across federations
+- Generate reports for federation operators to improve compliance
+
 ### Using the Package Directly
 
 ```bash
@@ -122,6 +148,7 @@ python -m edugain_analysis
 python -m edugain_analysis.cli.main
 python -m edugain_analysis.cli.seccon
 python -m edugain_analysis.cli.sirtfi
+python -m edugain_analysis.cli.broken_privacy
 ```
 
 ## 🏗️ Package Architecture
@@ -139,7 +166,8 @@ src/edugain_analysis/
 ├── cli/                     # Command-line interfaces
 │   ├── main.py             # Primary CLI (edugain-analyze)
 │   ├── seccon.py           # Security contact CLI (edugain-seccon)
-│   └── sirtfi.py           # SIRTFI compliance CLI (edugain-sirtfi)
+│   ├── sirtfi.py           # SIRTFI compliance CLI (edugain-sirtfi)
+│   └── broken_privacy.py   # Broken privacy links CLI (edugain-broken-privacy)
 ├── web/                     # Web dashboard (optional)
 │   ├── app.py              # FastAPI application
 │   ├── models.py           # SQLAlchemy database models

@@ -8,7 +8,7 @@ A modern Python package for eduGAIN quality improvement analysis. The codebase f
 
 - **`src/edugain_analysis/`**: Main package with modular components (CLI, core logic, formatters, config, web)
 - **`analyze.py`**: Convenience wrapper that calls the main CLI entry point
-- **CLI Commands**: `edugain-analyze`, `edugain-seccon`, and `edugain-sirtfi` (installed via package entry points)
+- **CLI Commands**: `edugain-analyze`, `edugain-seccon`, `edugain-sirtfi`, and `edugain-broken-privacy` (installed via package entry points)
 - **Web Dashboard**: Optional FastAPI + HTMX dashboard for interactive analysis
 
 ## Setup and Installation
@@ -85,6 +85,28 @@ edugain-sirtfi > sirtfi_violations.csv         # Save output
 - `edugain-seccon`: Identify potential candidates for SIRTFI certification (entities with security contacts)
 - `edugain-sirtfi`: Detect SIRTFI compliance violations (SIRTFI entities missing required security contacts)
 
+### Usage - Broken Privacy Links Analysis
+
+```bash
+# edugain-broken-privacy: Find SPs with broken (inaccessible) privacy statement URLs
+edugain-broken-privacy                           # Analyze current metadata (always runs live validation)
+edugain-broken-privacy --local-file metadata.xml # Use local XML file
+edugain-broken-privacy --no-headers              # Omit CSV headers
+edugain-broken-privacy --url CUSTOM_URL          # Use custom metadata URL
+edugain-broken-privacy > broken_links.csv        # Save output
+```
+
+**Output:** CSV with columns `Federation,SP,EntityID,PrivacyLink,ErrorCode,ErrorType,CheckedAt`
+
+**Features:**
+- **Live Validation**: Always performs real-time HTTP checks with 10 parallel workers
+- **Error Categorization**: SSL errors, 404s, timeouts, connection errors, etc.
+- **Federation Mapping**: Automatic federation name resolution
+- **Progress Reporting**: Real-time validation progress updates
+
+**Use Case:**
+- Identify broken privacy statement links across eduGAIN federations for remediation
+
 ### Usage - Web Dashboard
 
 ```bash
@@ -132,7 +154,8 @@ src/edugain_analysis/
 ├── cli/
 │   ├── main.py              # Privacy/security analysis CLI (edugain-analyze)
 │   ├── seccon.py            # Security contact analysis CLI (edugain-seccon)
-│   └── sirtfi.py            # SIRTFI compliance validation CLI (edugain-sirtfi)
+│   ├── sirtfi.py            # SIRTFI compliance validation CLI (edugain-sirtfi)
+│   └── broken_privacy.py    # Broken privacy links CLI (edugain-broken-privacy)
 ├── config/
 │   └── settings.py          # Configuration constants, namespaces, URLs
 ├── core/
@@ -173,6 +196,11 @@ src/edugain_analysis/
   - Identifies entities WITH SIRTFI certification but WITHOUT security contacts
   - Use case: Detect SIRTFI compliance violations
   - Standalone tool with minimal dependencies
+- **broken_privacy.py**: Broken privacy links analysis tool
+  - Identifies SPs with broken (inaccessible) privacy statement URLs
+  - Use case: Find privacy links that need fixing
+  - Self-contained with live URL validation (10 parallel workers)
+  - Error categorization (SSL, 404, timeouts, connection errors)
 
 #### Core Logic (`core/`)
 - **analysis.py**: Entity analysis engine
@@ -297,7 +325,7 @@ src/edugain_analysis/
 
 ### Testing Structure
 
-Tests follow pytest best practices with 200+ test cases covering all modules:
+Tests follow pytest best practices with 260+ test cases covering all modules:
 
 ```
 tests/
@@ -305,6 +333,7 @@ tests/
 │   ├── test_cli_main.py           # Privacy/security CLI tests (17 tests)
 │   ├── test_cli_seccon.py         # Security contact CLI tests (15 tests)
 │   ├── test_cli_sirtfi.py         # SIRTFI compliance CLI tests (15 tests)
+│   ├── test_cli_broken_privacy.py # Broken privacy links CLI tests (38 tests)
 │   ├── test_core_analysis.py      # Analysis logic tests (13 tests)
 │   ├── test_core_metadata.py      # Metadata operations tests (43 tests)
 │   ├── test_core_validation.py    # URL validation tests (24 tests)
