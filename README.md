@@ -382,7 +382,7 @@ eduGAIN Metadata Analysis Results
 - **missing-both**: SPs missing both privacy and security
 - **urls**: URL validation results (with `--validate`)
 
-## 🏗️ Recent Improvements (v3.0.0)
+## 🏗️ Recent Improvements (v2.1.0)
 
 **SIRTFI Compliance Analysis:**
 - 🆕 Added `edugain-sirtfi` CLI for SIRTFI compliance validation
