@@ -7,7 +7,7 @@ name = "edugain-analysis"
 version = "2.1.0"
 description = "Comprehensive eduGAIN metadata quality analysis"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 authors = [{name = "eduGAIN Quality Team", email = "edugain@example.org"}]
 maintainers = [{name = "eduGAIN Quality Team", email = "edugain@example.org"}]
 keywords = ["edugain", "saml", "metadata", "federation"]
@@ -15,7 +15,6 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
