@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block content %}
+<header>
+    <h1>{{ federation.name }}</h1>
+    <p>
+        <a href="/federations">← Back to all federations</a>
+    </p>
+</header>
+
+<!-- Federation Statistics Card -->
+<section>
+    <article>
+        <header>
+            <strong>📊 Federation Statistics</strong>
+        </header>
+        <div class="grid">
+            <div>
+                <small>Total Entities</small>
+                <h3>{{ federation.total_entities }}</h3>
+            </div>
+            <div>
+                <small>Service Providers</small>
+                <h3>{{ federation.total_sps }}</h3>
+            </div>
+            <div>
+                <small>Identity Providers</small>
+                <h3>{{ federation.total_idps }}</h3>
+            </div>
+            <div>
+                <small>Coverage</small>
+                <h3>{{ "%.1f"|format(federation.coverage_pct) }}%</h3>
+            </div>
+        </div>
+        <hr>
+        <div class="grid">
+            <div>
+                <small>SPs with Privacy Statements</small>
+                <p><strong>{{ federation.sps_with_privacy }} / {{ federation.total_sps }}</strong></p>
+                <progress value="{{ federation.coverage_pct }}" max="100"></progress>
+                <small class="{% if federation.coverage_pct >= 80 %}coverage-high{% elif federation.coverage_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+                    {{ "%.1f"|format(federation.coverage_pct) }}%
+                </small>
+            </div>
+            <div>
+                <small>SPs with Security Contacts</small>
+                {% set sp_sec_pct = (federation.sps_has_security / federation.total_sps * 100) if federation.total_sps > 0 else 0 %}
+                <p><strong>{{ federation.sps_has_security }} / {{ federation.total_sps }}</strong></p>
+                <progress value="{{ sp_sec_pct }}" max="100"></progress>
+                <small class="{% if sp_sec_pct >= 80 %}coverage-high{% elif sp_sec_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+                    {{ "%.1f"|format(sp_sec_pct) }}%
+                </small>
+            </div>
+            <div>
+                <small>IdPs with Security Contacts</small>
+                {% set idp_sec_pct = (federation.idps_has_security / federation.total_idps * 100) if federation.total_idps > 0 else 0 %}
+                <p><strong>{{ federation.idps_has_security }} / {{ federation.total_idps }}</strong></p>
+                <progress value="{{ idp_sec_pct }}" max="100"></progress>
+                <small class="{% if idp_sec_pct >= 80 %}coverage-high{% elif idp_sec_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+                    {{ "%.1f"|format(idp_sec_pct) }}%
+                </small>
+            </div>
+        </div>
+        <hr>
+        <div class="grid">
+            <div>
+                <small>SPs with SIRTFI</small>
+                {% set sp_sirtfi_pct = (federation.sps_has_sirtfi / federation.total_sps * 100) if federation.total_sps > 0 else 0 %}
+                <p><strong>{{ federation.sps_has_sirtfi }} / {{ federation.total_sps }}</strong></p>
+                <progress value="{{ sp_sirtfi_pct }}" max="100"></progress>
+                <small class="{% if sp_sirtfi_pct >= 80 %}coverage-high{% elif sp_sirtfi_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+                    {{ "%.1f"|format(sp_sirtfi_pct) }}%
+                </small>
+            </div>
+            <div>
+                <small>IdPs with SIRTFI</small>
+                {% set idp_sirtfi_pct = (federation.idps_has_sirtfi / federation.total_idps * 100) if federation.total_idps > 0 else 0 %}
+                <p><strong>{{ federation.idps_has_sirtfi }} / {{ federation.total_idps }}</strong></p>
+                <progress value="{{ idp_sirtfi_pct }}" max="100"></progress>
+                <small class="{% if idp_sirtfi_pct >= 80 %}coverage-high{% elif idp_sirtfi_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+                    {{ "%.1f"|format(idp_sirtfi_pct) }}%
+                </small>
+            </div>
+            <div>
+                <small>Total SIRTFI Coverage</small>
+                {% set total_sirtfi_pct = (federation.total_has_sirtfi / federation.total_entities * 100) if federation.total_entities > 0 else 0 %}
+                <p><strong>{{ federation.total_has_sirtfi }} / {{ federation.total_entities }}</strong></p>
+                <progress value="{{ total_sirtfi_pct }}" max="100"></progress>
+                <small class="{% if total_sirtfi_pct >= 80 %}coverage-high{% elif total_sirtfi_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+                    {{ "%.1f"|format(total_sirtfi_pct) }}%
+                </small>
+            </div>
+        </div>
+    </article>
+</section>
+
+<!-- Entities Table with Filtering/Sorting -->
+<section>
+    <h2>📋 Entities</h2>
+
+    <!-- Filter Controls -->
+    <div class="grid" style="margin-bottom: 1rem;">
+        <div>
+            <label for="entity-type-filter"><small>Entity Type:</small></label>
+            <select id="entity-type-filter"
+                    hx-get="/partials/entity_table"
+                    hx-target="#entity-table-wrapper"
+                    hx-include="[name='privacy-filter'], [name='security-filter']"
+                    name="entity_type"
+                    hx-vals='{"federation_id": {{ federation.id }}}'>
+                <option value="">All Types</option>
+                <option value="SP">Service Providers (SP)</option>
+                <option value="IdP">Identity Providers (IdP)</option>
+            </select>
+        </div>
+
+        <div>
+            <label for="privacy-filter"><small>Privacy Statement:</small></label>
+            <select id="privacy-filter"
+                    hx-get="/partials/entity_table"
+                    hx-target="#entity-table-wrapper"
+                    hx-include="[name='entity_type'], [name='security-filter']"
+                    name="privacy_filter"
+                    hx-vals='{"federation_id": {{ federation.id }}}'>
+                <option value="">All</option>
+                <option value="yes">✅ Has Privacy</option>
+                <option value="no">❌ Missing Privacy</option>
+                <option value="na">N/A (IdPs)</option>
+            </select>
+        </div>
+
+        <div>
+            <label for="security-filter"><small>Security Contact:</small></label>
+            <select id="security-filter"
+                    hx-get="/partials/entity_table"
+                    hx-target="#entity-table-wrapper"
+                    hx-include="[name='entity_type'], [name='privacy-filter']"
+                    name="security_filter"
+                    hx-vals='{"federation_id": {{ federation.id }}}'>
+                <option value="">All</option>
+                <option value="yes">✅ Has Security</option>
+                <option value="no">❌ Missing Security</option>
+            </select>
+        </div>
+
+        <div>
+            <label><small>&nbsp;</small></label>
+            <button onclick="document.getElementById('entity-type-filter').value=''; document.getElementById('privacy-filter').value=''; document.getElementById('security-filter').value=''; htmx.trigger('#entity-type-filter', 'change');"
+                    class="secondary outline"
+                    style="width: 100%;">
+                Clear Filters
+            </button>
+        </div>
+    </div>
+
+    <!-- Entity Table -->
+    <div id="entity-table-wrapper"
+         hx-get="/partials/entity_table?federation_id={{ federation.id }}"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+        <p aria-busy="true">Loading entities...</p>
+    </div>
+</section>
+
+<footer>
+    <p><small>Data as of {{ snapshot.timestamp|time_ago }}</small></p>
+</footer>
+{% endblock %}

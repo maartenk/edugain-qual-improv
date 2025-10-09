@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block content %}
+<header>
+    <h1>{{ entity.organization_name or "Entity Details" }}</h1>
+    <p>
+        <a href="/federations/{{ entity.federation.name }}">← Back to {{ entity.federation.name }}</a>
+    </p>
+</header>
+
+<!-- Entity Information Card -->
+<section>
+    <article>
+        <header>
+            <strong>📋 Entity Information</strong>
+        </header>
+        <dl>
+            <dt><strong>Entity ID:</strong></dt>
+            <dd style="word-break: break-all;"><code>{{ entity.entity_id }}</code></dd>
+
+            <dt><strong>Organization:</strong></dt>
+            <dd>{{ entity.organization_name or "N/A" }}</dd>
+
+            <dt><strong>Entity Type:</strong></dt>
+            <dd><span class="badge">{{ entity.entity_type }}</span></dd>
+
+            <dt><strong>Federation:</strong></dt>
+            <dd><a href="/federations/{{ entity.federation.name }}">{{ entity.federation.name }}</a></dd>
+        </dl>
+    </article>
+</section>
+
+<!-- Privacy & Security Status -->
+<section>
+    {% if entity.entity_type == "SP" %}
+    <div class="grid">
+        <article>
+            <header>
+                <strong>🔒 Privacy Statement</strong>
+            </header>
+            {% if entity.has_privacy_statement %}
+                <p style="color: var(--pico-ins-color);">✅ <strong>Present</strong></p>
+                {% if entity.privacy_statement_url %}
+                    <p><small><strong>URL:</strong></small><br>
+                    <a href="{{ entity.privacy_statement_url }}" target="_blank" rel="noopener" style="word-break: break-all; font-size: 0.9em;">
+                        {{ entity.privacy_statement_url[:80] }}{% if entity.privacy_statement_url|length > 80 %}...{% endif %}
+                    </a></p>
+                {% endif %}
+            {% else %}
+                <p style="color: var(--pico-del-color);">❌ <strong>Missing</strong></p>
+                <p><small>No privacy statement URL found in metadata</small></p>
+            {% endif %}
+        </article>
+
+        <article>
+            <header>
+                <strong>🛡️ Security Contact</strong>
+            </header>
+            {% if entity.has_security_contact %}
+                <p style="color: var(--pico-ins-color);">✅ <strong>Present</strong></p>
+                <p><small>Security contact information found in metadata</small></p>
+            {% else %}
+                <p style="color: var(--pico-del-color);">❌ <strong>Missing</strong></p>
+                <p><small>No security contact found in metadata</small></p>
+            {% endif %}
+        </article>
+
+        <article>
+            <header>
+                <strong>🔰 SIRTFI Certification</strong>
+            </header>
+            {% if entity.has_sirtfi %}
+                <p style="color: var(--pico-ins-color);">✅ <strong>Certified</strong></p>
+                <p><small>SIRTFI Entity Category found in metadata</small></p>
+            {% else %}
+                <p style="color: var(--pico-del-color);">❌ <strong>Not Certified</strong></p>
+                <p><small>No SIRTFI certification in metadata</small></p>
+            {% endif %}
+        </article>
+    </div>
+    {% else %}
+    <!-- IdP shows security contact and SIRTFI -->
+    <div class="grid">
+        <article>
+            <header>
+                <strong>🛡️ Security Contact</strong>
+            </header>
+            {% if entity.has_security_contact %}
+                <p style="color: var(--pico-ins-color);">✅ <strong>Present</strong></p>
+                <p><small>Security contact information found in metadata</small></p>
+            {% else %}
+                <p style="color: var(--pico-del-color);">❌ <strong>Missing</strong></p>
+                <p><small>No security contact found in metadata</small></p>
+            {% endif %}
+            <p><small><em>Note: Privacy statements are not applicable to Identity Providers (IdPs)</em></small></p>
+        </article>
+
+        <article>
+            <header>
+                <strong>🔰 SIRTFI Certification</strong>
+            </header>
+            {% if entity.has_sirtfi %}
+                <p style="color: var(--pico-ins-color);">✅ <strong>Certified</strong></p>
+                <p><small>SIRTFI Entity Category found in metadata</small></p>
+            {% else %}
+                <p style="color: var(--pico-del-color);">❌ <strong>Not Certified</strong></p>
+                <p><small>No SIRTFI certification in metadata</small></p>
+            {% endif %}
+        </article>
+    </div>
+    {% endif %}
+</section>
+
+<!-- URL Validation Results (SP only) -->
+{% if url_validation and entity.entity_type == "SP" %}
+<section>
+    <article>
+        <header>
+            <strong>🔗 URL Validation Results</strong>
+        </header>
+        <dl>
+            <dt><strong>Status:</strong></dt>
+            <dd>
+                {% if url_validation.accessible %}
+                    <span style="color: var(--pico-ins-color);">✅ Accessible</span>
+                {% else %}
+                    <span style="color: var(--pico-del-color);">❌ Not Accessible</span>
+                {% endif %}
+            </dd>
+
+            <dt><strong>HTTP Status Code:</strong></dt>
+            <dd>
+                {% if url_validation.status_code %}
+                    <code>{{ url_validation.status_code }}</code>
+                    {% if url_validation.status_code >= 200 and url_validation.status_code < 300 %}
+                        <span style="color: var(--pico-ins-color);">✓ Success</span>
+                    {% elif url_validation.status_code >= 300 and url_validation.status_code < 400 %}
+                        <span style="color: orange;">⚠ Redirect</span>
+                    {% else %}
+                        <span style="color: var(--pico-del-color);">✗ Error</span>
+                    {% endif %}
+                {% else %}
+                    N/A
+                {% endif %}
+            </dd>
+
+            {% if url_validation.final_url and url_validation.final_url != entity.privacy_statement_url %}
+            <dt><strong>Final URL (after redirects):</strong></dt>
+            <dd style="word-break: break-all;"><a href="{{ url_validation.final_url }}" target="_blank" rel="noopener">{{ url_validation.final_url[:100] }}{% if url_validation.final_url|length > 100 %}...{% endif %}</a></dd>
+            {% endif %}
+
+            {% if url_validation.redirect_count > 0 %}
+            <dt><strong>Redirects:</strong></dt>
+            <dd>{{ url_validation.redirect_count }}</dd>
+            {% endif %}
+
+            {% if url_validation.validation_error %}
+            <dt><strong>Validation Error:</strong></dt>
+            <dd><code style="color: var(--pico-del-color);">{{ url_validation.validation_error }}</code></dd>
+            {% endif %}
+
+            <dt><strong>Last Checked:</strong></dt>
+            <dd>{{ url_validation.validated_at|time_ago }}</dd>
+        </dl>
+    </article>
+</section>
+{% endif %}
+
+<!-- Historical Data -->
+{% if historical_entities %}
+<section>
+    <h2>📈 Historical Data</h2>
+    <p>This entity has been tracked across {{ historical_entities|length + 1 }} snapshots.</p>
+    <figure>
+        <table role="grid">
+            <thead>
+                <tr>
+                    <th>Snapshot Date</th>
+                    {% if entity.entity_type == "SP" %}
+                    <th>Privacy Statement</th>
+                    {% endif %}
+                    <th>Security Contact</th>
+                    <th>SIRTFI</th>
+                </tr>
+            </thead>
+            <tbody>
+            <tr style="background: rgba(0, 100, 255, 0.1);">
+                <td><strong>{{ snapshot.timestamp.strftime('%Y-%m-%d %H:%M') }}</strong> <em>(current)</em></td>
+                {% if entity.entity_type == "SP" %}
+                <td>
+                    {% if entity.has_privacy_statement %}
+                        <span style="color: var(--pico-ins-color);">✅ Yes</span>
+                    {% else %}
+                        <span style="color: var(--pico-del-color);">❌ No</span>
+                    {% endif %}
+                </td>
+                {% endif %}
+                <td>
+                    {% if entity.has_security_contact %}
+                        <span style="color: var(--pico-ins-color);">✅ Yes</span>
+                    {% else %}
+                        <span style="color: var(--pico-del-color);">❌ No</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if entity.has_sirtfi %}
+                        <span style="color: var(--pico-ins-color);">✅ Yes</span>
+                    {% else %}
+                        <span style="color: var(--pico-del-color);">❌ No</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% for hist_entity in historical_entities %}
+            <tr>
+                <td>{{ hist_entity.snapshot.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                {% if entity.entity_type == "SP" %}
+                <td>
+                    {% if hist_entity.has_privacy_statement %}
+                        <span style="color: var(--pico-ins-color);">✅ Yes</span>
+                    {% else %}
+                        <span style="color: var(--pico-del-color);">❌ No</span>
+                    {% endif %}
+                </td>
+                {% endif %}
+                <td>
+                    {% if hist_entity.has_security_contact %}
+                        <span style="color: var(--pico-ins-color);">✅ Yes</span>
+                    {% else %}
+                        <span style="color: var(--pico-del-color);">❌ No</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if hist_entity.has_sirtfi %}
+                        <span style="color: var(--pico-ins-color);">✅ Yes</span>
+                    {% else %}
+                        <span style="color: var(--pico-del-color);">❌ No</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </figure>
+</section>
+{% endif %}
+
+<footer>
+    <p><small>Data as of {{ snapshot.timestamp|time_ago }}</small></p>
+</footer>
+{% endblock %}

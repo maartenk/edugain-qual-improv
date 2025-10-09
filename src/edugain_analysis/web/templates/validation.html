@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>🔗 URL Validation Results</h1>
+
+<!-- Stats Summary -->
+<section class="grid">
+    <article>
+        <header class="stat-label">Total URLs Checked</header>
+        <div class="stat-value">{{ "{:,}".format(total_validations) }}</div>
+    </article>
+
+    <article>
+        <header class="stat-label">Accessible</header>
+        <div class="stat-value coverage-high">{{ "{:,}".format(accessible_count) }}</div>
+        <small>{{ "%.1f"|format((accessible_count / total_validations * 100) if total_validations > 0 else 0) }}%</small>
+    </article>
+
+    <article>
+        <header class="stat-label">Errors</header>
+        <div class="stat-value coverage-low">{{ "{:,}".format(error_count) }}</div>
+        <small>{{ "%.1f"|format((error_count / total_validations * 100) if total_validations > 0 else 0) }}%</small>
+    </article>
+
+    <article>
+        <header class="stat-label">Average Coverage</header>
+        {% set coverage_pct = (accessible_count / total_validations * 100) if total_validations > 0 else 0 %}
+        <div class="stat-value {% if coverage_pct >= 80 %}coverage-high{% elif coverage_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+            {{ "%.1f"|format(coverage_pct) }}%
+        </div>
+        <small>SPs with accessible URLs</small>
+    </article>
+</section>
+
+<!-- Filter Buttons -->
+<section>
+    <article>
+        <header>
+            <strong>Filter by Status</strong>
+        </header>
+        <div class="grid">
+            <div>
+                <a href="/validation"
+                   role="button"
+                   class="{% if not status_filter %}primary{% else %}secondary outline{% endif %}"
+                   style="width: 100%; text-align: center;">
+                    All Results
+                </a>
+            </div>
+            <div>
+                <a href="/validation?status_filter=accessible"
+                   role="button"
+                   class="{% if status_filter == 'accessible' %}primary{% else %}secondary outline{% endif %}"
+                   style="width: 100%; text-align: center;">
+                    ✅ Accessible Only
+                </a>
+            </div>
+            <div>
+                <a href="/validation?status_filter=error"
+                   role="button"
+                   class="{% if status_filter == 'error' %}primary{% else %}secondary outline{% endif %}"
+                   style="width: 100%; text-align: center;">
+                    ❌ Errors Only
+                </a>
+            </div>
+            <div>
+                <a href="/validation?status_filter=timeout"
+                   role="button"
+                   class="{% if status_filter == 'timeout' %}primary{% else %}secondary outline{% endif %}"
+                   style="width: 100%; text-align: center;">
+                    ⏱️ Timeout/Issues
+                </a>
+            </div>
+        </div>
+    </article>
+</section>
+
+<!-- Validation Results Table -->
+<section>
+    <article>
+        <header>
+            <strong>URL Validation Details</strong>
+            {% if status_filter %}
+            <span style="float: right;">
+                <small>Filtered: {% if status_filter == 'accessible' %}Accessible URLs{% elif status_filter == 'error' %}Error URLs{% else %}Timeout/Issues{% endif %}</small>
+            </span>
+            {% endif %}
+        </header>
+
+        {% if validations %}
+        <figure>
+            <table role="grid" style="font-size: 0.9em;">
+                <thead>
+                    <tr>
+                        <th style="width: 20%;">Entity</th>
+                        <th style="width: 10%;">Federation</th>
+                        <th style="width: 30%;">URL</th>
+                        <th style="width: 10%;">Status</th>
+                        <th style="width: 15%;">Result</th>
+                        <th style="width: 15%;">Last Checked</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for validation, entity in validations %}
+                    <tr>
+                        <td>
+                            <a href="/entities/{{ entity.entity_id }}">
+                                <strong>{{ entity.organization_name or "N/A" }}</strong>
+                            </a><br>
+                            <small style="color: #888;">{{ entity.entity_type }}</small>
+                        </td>
+                        <td>
+                            <small>{{ entity.federation.name if entity.federation else "Unknown" }}</small>
+                        </td>
+                        <td style="word-break: break-all;">
+                            <a href="{{ validation.url }}" target="_blank" rel="noopener" style="font-size: 0.85em;">
+                                {{ validation.url[:60] }}{% if validation.url|length > 60 %}...{% endif %}
+                            </a>
+                            {% if validation.redirect_count > 0 %}
+                            <br><small style="color: orange;">↪️ {{ validation.redirect_count }} redirect(s)</small>
+                            {% endif %}
+                            {% if validation.final_url and validation.final_url != validation.url %}
+                            <br><small style="color: #888;">→ {{ validation.final_url[:50] }}{% if validation.final_url|length > 50 %}...{% endif %}</small>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: center;">
+                            {% if validation.status_code %}
+                                {% if validation.status_code >= 200 and validation.status_code < 300 %}
+                                <span style="color: green; font-weight: bold;">{{ validation.status_code }}</span>
+                                {% elif validation.status_code >= 300 and validation.status_code < 400 %}
+                                <span style="color: orange; font-weight: bold;">{{ validation.status_code }}</span>
+                                {% elif validation.status_code >= 400 and validation.status_code < 500 %}
+                                <span style="color: red; font-weight: bold;">{{ validation.status_code }}</span>
+                                {% else %}
+                                <span style="color: darkred; font-weight: bold;">{{ validation.status_code }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span style="color: #888;">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if validation.accessible %}
+                                <span style="color: var(--pico-ins-color);">✅ Accessible</span>
+                            {% elif validation.validation_error %}
+                                <span style="color: var(--pico-del-color);" title="{{ validation.validation_error }}">
+                                    ❌ Error
+                                </span>
+                                <br><small style="color: #888;">{{ validation.validation_error[:40] }}{% if validation.validation_error|length > 40 %}...{% endif %}</small>
+                            {% else %}
+                                <span style="color: var(--pico-del-color);">❌ Not Accessible</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small>{{ validation.validated_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </figure>
+        <p><small>Showing up to 500 most recent validation results{% if status_filter %} (filtered){% endif %}</small></p>
+        {% else %}
+        <p>No URL validation data available{% if status_filter %} for the selected filter{% endif %}.</p>
+        <p><small>Run data import with <code>--validate-urls</code> flag to populate validation data.</small></p>
+        {% endif %}
+    </article>
+</section>
+
+<footer>
+    <p><small>Data as of {{ snapshot.timestamp|time_ago }}</small></p>
+</footer>
+{% endblock %}

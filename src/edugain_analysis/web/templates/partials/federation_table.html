@@ -1,0 +1,63 @@
+<div class="table-responsive">
+    <table>
+        <thead>
+            <tr>
+                <th>Federation</th>
+                <th>Entities</th>
+                <th>Privacy (SPs)</th>
+                <th>Security (SPs)</th>
+                <th>Security (IdPs)</th>
+                <th>SIRTFI (SPs)</th>
+                <th>SIRTFI (IdPs)</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for fed in federations %}
+            <tr>
+                <td>
+                    <a href="/federations/{{ fed.name }}"><strong>{{ fed.name }}</strong></a>
+                </td>
+                <td>{{ "{:,}".format(fed.total_entities) }}</td>
+                <td>
+                    <small class="{% if fed.coverage_pct >= 80 %}coverage-high{% elif fed.coverage_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+                        {{ "%.1f"|format(fed.coverage_pct) }}%
+                    </small>
+                    <br><small style="color: #888;">{{ fed.sps_with_privacy }}/{{ fed.total_sps }}</small>
+                </td>
+                <td>
+                    {% set sp_sec_pct = (fed.sps_has_security / fed.total_sps * 100) if fed.total_sps > 0 else 0 %}
+                    <small class="{% if sp_sec_pct >= 80 %}coverage-high{% elif sp_sec_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+                        {{ "%.1f"|format(sp_sec_pct) }}%
+                    </small>
+                    <br><small style="color: #888;">{{ fed.sps_has_security }}/{{ fed.total_sps }}</small>
+                </td>
+                <td>
+                    {% set idp_sec_pct = (fed.idps_has_security / fed.total_idps * 100) if fed.total_idps > 0 else 0 %}
+                    <small class="{% if idp_sec_pct >= 80 %}coverage-high{% elif idp_sec_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+                        {{ "%.1f"|format(idp_sec_pct) }}%
+                    </small>
+                    <br><small style="color: #888;">{{ fed.idps_has_security }}/{{ fed.total_idps }}</small>
+                </td>
+                <td>
+                    {% set sp_sirtfi_pct = (fed.sps_has_sirtfi / fed.total_sps * 100) if fed.total_sps > 0 else 0 %}
+                    <small class="{% if sp_sirtfi_pct >= 80 %}coverage-high{% elif sp_sirtfi_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+                        {{ "%.1f"|format(sp_sirtfi_pct) }}%
+                    </small>
+                    <br><small style="color: #888;">{{ fed.sps_has_sirtfi }}/{{ fed.total_sps }}</small>
+                </td>
+                <td>
+                    {% set idp_sirtfi_pct = (fed.idps_has_sirtfi / fed.total_idps * 100) if fed.total_idps > 0 else 0 %}
+                    <small class="{% if idp_sirtfi_pct >= 80 %}coverage-high{% elif idp_sirtfi_pct >= 50 %}coverage-medium{% else %}coverage-low{% endif %}">
+                        {{ "%.1f"|format(idp_sirtfi_pct) }}%
+                    </small>
+                    <br><small style="color: #888;">{{ fed.idps_has_sirtfi }}/{{ fed.total_idps }}</small>
+                </td>
+                <td>
+                    <a href="/federations/{{ fed.name }}" role="button" class="outline secondary" style="font-size: 0.8em; padding: 0.25rem 0.5rem; margin: 0;">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

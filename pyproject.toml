@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "edugain-analysis"
-version = "2.1.0"
+version = "3.0.0"
 description = "Comprehensive eduGAIN metadata quality analysis"
 readme = "README.md"
 license = "MIT"
@@ -68,7 +68,11 @@ where = ["src"]
 include = ["edugain_analysis*"]
 
 [tool.setuptools.package-data]
-edugain_analysis = ["py.typed"]
+edugain_analysis = [
+    "py.typed",
+    "web/templates/**/*.html",
+    "web/static/**/*"
+]
 
 [tool.ruff]
 target-version = "py311"
