@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ '**' ]  # Run on all branches
   pull_request:
-    branches: [ main ]
+    branches: [ '**' ]  # Run on PRs to all branches
   workflow_dispatch:
 
 jobs:
@@ -49,17 +49,18 @@ jobs:
         token: ${{ secrets.CODECOV_TOKEN }}
         fail_ci_if_error: false
 
-    - name: Test script functionality and runtime requirements
+    - name: Test CLI entry points and package installation
       continue-on-error: true
       run: |
-        # Test scripts work with development environment
-        python seccon_nosirtfi.py --help || echo "⚠️ seccon_nosirtfi.py --help failed"
-        python privacy_security_analysis.py --help || echo "⚠️ privacy_security_analysis.py --help failed"
-        # Test runtime-only requirements (only on latest Python)
-        if [ "${{ matrix.python-version }}" = "3.13" ]; then
-          python -m venv /tmp/runtime_test || echo "⚠️ venv creation failed"
-          source /tmp/runtime_test/bin/activate || echo "⚠️ venv activation failed"
-          pip install -r requirements-runtime.txt || echo "⚠️ runtime requirements install failed"
-          python -c "import privacy_security_analysis; import seccon_nosirtfi; print('✅ Runtime requirements work')" || echo "⚠️ runtime import test failed"
-          deactivate || echo "⚠️ venv deactivation failed"
-        fi
+        # Install package in editable mode
+        pip install -e . || echo "⚠️ Package installation failed"
+
+        # Test CLI entry points work
+        edugain-analyze --help || echo "⚠️ edugain-analyze --help failed"
+        edugain-seccon --help || echo "⚠️ edugain-seccon --help failed"
+
+        # Test convenience wrapper
+        python analyze.py --help || echo "⚠️ analyze.py --help failed"
+
+        # Test Python module invocation
+        python -m edugain_analysis --help || echo "⚠️ python -m edugain_analysis failed"
