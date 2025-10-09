@@ -562,10 +562,9 @@ def print_federation_summary(federation_stats: dict, output_file=sys.stderr) -> 
             file=output_file,
         )
 
-        # Detailed breakdown by entity type
+        # Detailed breakdown by entity type with tree structure
         if total_sps > 0 and total_idps > 0:
             sp_security_pct = (stats["sps_has_security"] / total_sps) * 100
-            idp_security_pct = (stats["idps_has_security"] / total_idps) * 100
             sp_security_status = (
                 "🟢"
                 if sp_security_pct >= 80
@@ -573,6 +572,12 @@ def print_federation_summary(federation_stats: dict, output_file=sys.stderr) -> 
                 if sp_security_pct >= 50
                 else "🔴"
             )
+            print(
+                f"  ├─ SPs: {sp_security_status} {stats['sps_has_security']:,}/{total_sps:,} ({sp_security_pct:.1f}%)",
+                file=output_file,
+            )
+
+            idp_security_pct = (stats["idps_has_security"] / total_idps) * 100
             idp_security_status = (
                 "🟢"
                 if idp_security_pct >= 80
@@ -581,7 +586,7 @@ def print_federation_summary(federation_stats: dict, output_file=sys.stderr) -> 
                 else "🔴"
             )
             print(
-                f"  └─ SPs: {sp_security_status} {stats['sps_has_security']:,}/{total_sps:,} ({sp_security_pct:.1f}%) • IdPs: {idp_security_status} {stats['idps_has_security']:,}/{total_idps:,} ({idp_security_pct:.1f}%)",
+                f"  └─ IdPs: {idp_security_status} {stats['idps_has_security']:,}/{total_idps:,} ({idp_security_pct:.1f}%)",
                 file=output_file,
             )
         elif total_sps > 0:
