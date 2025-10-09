@@ -231,7 +231,7 @@ class TestValidatePrivacyURL:
         mock_head.return_value = mock_response
 
         cache = {}
-        result = validate_privacy_url(
+        validate_privacy_url(
             "https://example.org/privacy", validation_cache=cache, use_semaphore=False
         )
 
@@ -354,7 +354,7 @@ class TestValidateURLsParallel:
                 "edugain_analysis.core.validation.validate_urls_parallel.__globals__",
                 {"future_to_url": future_to_url},
             ):
-                result = validate_urls_parallel(urls, max_workers=2)
+                validate_urls_parallel(urls, max_workers=2)
 
         # Should create ThreadPoolExecutor with correct max_workers
         mock_executor.assert_called_once_with(max_workers=2)
