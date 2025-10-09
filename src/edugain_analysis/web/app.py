@@ -162,7 +162,7 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     if not snapshot:
         # No data yet - show empty state
         return templates.TemplateResponse(
-            "empty.html", {"request": request, "title": "eduGAIN Quality Dashboard"}
+            request, "empty.html", {"title": "eduGAIN Quality Dashboard"}
         )
 
     # Get top 10 federations by coverage
@@ -175,9 +175,9 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     )
 
     return templates.TemplateResponse(
+        request,
         "dashboard.html",
         {
-            "request": request,
             "snapshot": snapshot,
             "federations": federations,
             "title": "Dashboard",
@@ -193,8 +193,9 @@ async def federations_page(request: Request, db: Session = Depends(get_db)):
 
     if not snapshot:
         return templates.TemplateResponse(
+            request,
             "empty.html",
-            {"request": request, "title": "Federations"},
+            {"title": "Federations"},
         )
 
     federations = (
@@ -205,9 +206,9 @@ async def federations_page(request: Request, db: Session = Depends(get_db)):
     )
 
     return templates.TemplateResponse(
+        request,
         "federations.html",
         {
-            "request": request,
             "federations": federations,
             "snapshot": snapshot,
             "title": "Federations",
@@ -225,7 +226,7 @@ async def federation_detail(
 
     if not snapshot:
         return templates.TemplateResponse(
-            "empty.html", {"request": request, "title": "Federation Detail"}
+            request, "empty.html", {"title": "Federation Detail"}
         )
 
     # Get federation
@@ -239,9 +240,9 @@ async def federation_detail(
 
     if not federation:
         return templates.TemplateResponse(
+            request,
             "empty.html",
             {
-                "request": request,
                 "title": "Federation Not Found",
                 "message": f"Federation '{federation_name}' not found.",
             },
@@ -257,9 +258,9 @@ async def federation_detail(
     )
 
     return templates.TemplateResponse(
+        request,
         "federation_detail.html",
         {
-            "request": request,
             "federation": federation,
             "entities": entities,
             "snapshot": snapshot,
@@ -278,7 +279,7 @@ async def entity_detail(
 
     if not snapshot:
         return templates.TemplateResponse(
-            "empty.html", {"request": request, "title": "Entity Detail"}
+            request, "empty.html", {"title": "Entity Detail"}
         )
 
     # Get entity from latest snapshot
@@ -290,9 +291,9 @@ async def entity_detail(
 
     if not entity:
         return templates.TemplateResponse(
+            request,
             "empty.html",
             {
-                "request": request,
                 "title": "Entity Not Found",
                 "message": "Entity not found.",
             },
@@ -315,9 +316,9 @@ async def entity_detail(
     )
 
     return templates.TemplateResponse(
+        request,
         "entity_detail.html",
         {
-            "request": request,
             "entity": entity,
             "url_validation": url_validation,
             "historical_entities": historical_entities,
@@ -339,8 +340,9 @@ async def validation_page(
 
     if not snapshot:
         return templates.TemplateResponse(
+            request,
             "empty.html",
-            {"request": request, "title": "URL Validation"},
+            {"title": "URL Validation"},
         )
 
     # Get all URL validations for the latest snapshot (only SPs have privacy statements)
@@ -389,9 +391,9 @@ async def validation_page(
     )
 
     return templates.TemplateResponse(
+        request,
         "validation.html",
         {
-            "request": request,
             "snapshot": snapshot,
             "validations": validations,
             "status_filter": status_filter,
@@ -418,9 +420,9 @@ async def config_page(request: Request, db: Session = Depends(get_db)):
     snapshot = db.query(Snapshot).order_by(Snapshot.timestamp.desc()).first()
 
     return templates.TemplateResponse(
+        request,
         "config.html",
         {
-            "request": request,
             "settings": settings,
             "snapshot": snapshot,
             "title": "Configuration",
@@ -441,8 +443,9 @@ async def history_page(
 
     if not snapshot:
         return templates.TemplateResponse(
+            request,
             "empty.html",
-            {"request": request, "title": "Historical Analysis"},
+            {"title": "Historical Analysis"},
         )
 
     # Get date range
@@ -480,9 +483,9 @@ async def history_page(
                 federation_history.append({"snapshot": snap, "federation": fed})
 
     return templates.TemplateResponse(
+        request,
         "history.html",
         {
-            "request": request,
             "snapshot": snapshot,
             "snapshots": snapshots,
             "federation_names": federation_names,
@@ -509,8 +512,9 @@ async def stats_partial(request: Request, db: Session = Depends(get_db)):
         return "<p>No data available</p>"
 
     return templates.TemplateResponse(
+        request,
         "partials/stats_cards.html",
-        {"request": request, "snapshot": snapshot, "now": datetime.now()},
+        {"snapshot": snapshot, "now": datetime.now()},
     )
 
 
@@ -555,9 +559,9 @@ async def federations_partial(
     federations = query.all()
 
     return templates.TemplateResponse(
+        request,
         "partials/federation_table.html",
         {
-            "request": request,
             "federations": federations,
             "sort": sort,
             "order": order,
@@ -579,8 +583,9 @@ async def trends_partial(
     )
 
     return templates.TemplateResponse(
+        request,
         "partials/trend_chart.html",
-        {"request": request, "snapshots": snapshots, "days": days},
+        {"snapshots": snapshots, "days": days},
     )
 
 
@@ -616,9 +621,9 @@ async def search_partial(request: Request, q: str = "", db: Session = Depends(ge
     )
 
     return templates.TemplateResponse(
+        request,
         "partials/search_results.html",
         {
-            "request": request,
             "entities": entities,
             "federations": federations,
             "query": q,
@@ -644,8 +649,9 @@ async def federation_comparison_partial(
     )
 
     return templates.TemplateResponse(
+        request,
         "partials/federation_comparison_chart.html",
-        {"request": request, "federations": federations},
+        {"federations": federations},
     )
 
 
@@ -751,14 +757,77 @@ async def entity_changes_partial(
     changes = changes[:limit]
 
     return templates.TemplateResponse(
+        request,
         "partials/entity_changes.html",
         {
-            "request": request,
             "changes": changes,
             "snapshot1": snapshot1,
             "snapshot2": snapshot2,
         },
     )
+
+
+# ========================================
+# Helper Functions for Query Building
+# ========================================
+
+
+def _apply_entity_filters(
+    query, federation_id, entity_type, privacy_filter, security_filter
+):
+    """Apply filters to entity query.
+
+    Args:
+        query: SQLAlchemy query object
+        federation_id: Filter by federation ID
+        entity_type: Filter by SP or IdP
+        privacy_filter: 'yes', 'no', 'na', or None
+        security_filter: 'yes', 'no', or None
+
+    Returns:
+        Filtered query object
+    """
+    if federation_id:
+        query = query.filter(Entity.federation_id == federation_id)
+
+    if entity_type and entity_type in ["SP", "IdP"]:
+        query = query.filter(Entity.entity_type == entity_type)
+
+    if privacy_filter == "yes":
+        query = query.filter(Entity.has_privacy_statement.is_(True))
+    elif privacy_filter == "no":
+        query = query.filter(
+            Entity.has_privacy_statement.is_(False),
+            Entity.entity_type == "SP",
+        )
+    elif privacy_filter == "na":
+        query = query.filter(Entity.entity_type == "IdP")
+
+    if security_filter == "yes":
+        query = query.filter(Entity.has_security_contact.is_(True))
+    elif security_filter == "no":
+        query = query.filter(Entity.has_security_contact.is_(False))
+
+    return query
+
+
+def _get_sort_column(sort_by: str):
+    """Get SQLAlchemy column for sorting.
+
+    Args:
+        sort_by: Column name to sort by
+
+    Returns:
+        SQLAlchemy column object
+    """
+    sort_columns = {
+        "organization": Entity.organization_name,
+        "type": Entity.entity_type,
+        "privacy": Entity.has_privacy_statement,
+        "security": Entity.has_security_contact,
+        "sirtfi": Entity.has_sirtfi,
+    }
+    return sort_columns.get(sort_by, Entity.organization_name)
 
 
 @app.get("/partials/entity_table", response_class=HTMLResponse)
@@ -794,41 +863,12 @@ async def entity_table_partial(
     query = db.query(Entity).filter(Entity.snapshot_id == snapshot.id)
 
     # Apply filters
-    if federation_id:
-        query = query.filter(Entity.federation_id == federation_id)
-
-    if entity_type and entity_type in ["SP", "IdP"]:
-        query = query.filter(Entity.entity_type == entity_type)
-
-    if privacy_filter == "yes":
-        query = query.filter(Entity.has_privacy_statement.is_(True))
-    elif privacy_filter == "no":
-        query = query.filter(
-            Entity.has_privacy_statement.is_(False),
-            Entity.entity_type == "SP",
-        )
-    elif privacy_filter == "na":
-        query = query.filter(Entity.entity_type == "IdP")
-
-    if security_filter == "yes":
-        query = query.filter(Entity.has_security_contact.is_(True))
-    elif security_filter == "no":
-        query = query.filter(Entity.has_security_contact.is_(False))
+    query = _apply_entity_filters(
+        query, federation_id, entity_type, privacy_filter, security_filter
+    )
 
     # Apply sorting
-    if sort_by == "organization":
-        sort_col = Entity.organization_name
-    elif sort_by == "type":
-        sort_col = Entity.entity_type
-    elif sort_by == "privacy":
-        sort_col = Entity.has_privacy_statement
-    elif sort_by == "security":
-        sort_col = Entity.has_security_contact
-    elif sort_by == "sirtfi":
-        sort_col = Entity.has_sirtfi
-    else:
-        sort_col = Entity.organization_name
-
+    sort_col = _get_sort_column(sort_by)
     if sort_order == "desc":
         query = query.order_by(sort_col.desc())
     else:
@@ -848,9 +888,9 @@ async def entity_table_partial(
         federation = db.query(Federation).filter(Federation.id == federation_id).first()
 
     return templates.TemplateResponse(
+        request,
         "partials/entity_table.html",
         {
-            "request": request,
             "entities": entities,
             "federation": federation,
             "snapshot": snapshot,
@@ -1074,6 +1114,93 @@ async def get_federations_json(db: Session = Depends(get_db)):
 # ========================================
 
 
+def _format_entity_csv(entities, snapshot):
+    """Format entities as CSV.
+
+    Args:
+        entities: List of Entity objects
+        snapshot: Snapshot object for timestamp
+
+    Returns:
+        CSV content string
+    """
+    output = StringIO()
+    writer = csv.writer(output)
+
+    # Write header
+    writer.writerow(
+        [
+            "Federation",
+            "EntityType",
+            "OrganizationName",
+            "EntityID",
+            "HasPrivacyStatement",
+            "PrivacyStatementURL",
+            "HasSecurityContact",
+        ]
+    )
+
+    # Write data
+    for entity in entities:
+        privacy_status = (
+            "N/A"
+            if entity.entity_type == "IdP"
+            else ("Yes" if entity.has_privacy_statement else "No")
+        )
+        privacy_url = (
+            "N/A"
+            if entity.entity_type == "IdP"
+            else (entity.privacy_statement_url or "")
+        )
+
+        writer.writerow(
+            [
+                entity.federation.name if entity.federation else "Unknown",
+                entity.entity_type,
+                entity.organization_name or "",
+                entity.entity_id,
+                privacy_status,
+                privacy_url,
+                "Yes" if entity.has_security_contact else "No",
+            ]
+        )
+
+    return output.getvalue()
+
+
+def _format_entity_json(entities, snapshot):
+    """Format entities as JSON.
+
+    Args:
+        entities: List of Entity objects
+        snapshot: Snapshot object for timestamp
+
+    Returns:
+        JSON content string
+    """
+    data = {
+        "snapshot_timestamp": snapshot.timestamp.isoformat(),
+        "total_entities": len(entities),
+        "entities": [
+            {
+                "federation": e.federation.name if e.federation else "Unknown",
+                "entity_type": e.entity_type,
+                "organization_name": e.organization_name,
+                "entity_id": e.entity_id,
+                "has_privacy_statement": (
+                    "N/A" if e.entity_type == "IdP" else e.has_privacy_statement
+                ),
+                "privacy_statement_url": (
+                    "N/A" if e.entity_type == "IdP" else e.privacy_statement_url
+                ),
+                "has_security_contact": e.has_security_contact,
+            }
+            for e in entities
+        ],
+    }
+    return json.dumps(data, indent=2)
+
+
 @app.get(
     "/api/export/entities",
     tags=["API - Export"],
@@ -1116,116 +1243,29 @@ async def export_entities(
     if not snapshot:
         return {"error": "No data available"}
 
-    # Build query (same logic as entity_table_partial)
+    # Build query with filters
     query = db.query(Entity).filter(Entity.snapshot_id == snapshot.id)
-
-    if federation_id:
-        query = query.filter(Entity.federation_id == federation_id)
-
-    if entity_type and entity_type in ["SP", "IdP"]:
-        query = query.filter(Entity.entity_type == entity_type)
-
-    if privacy_filter == "yes":
-        query = query.filter(Entity.has_privacy_statement.is_(True))
-    elif privacy_filter == "no":
-        query = query.filter(
-            Entity.has_privacy_statement.is_(False),
-            Entity.entity_type == "SP",
-        )
-    elif privacy_filter == "na":
-        query = query.filter(Entity.entity_type == "IdP")
-
-    if security_filter == "yes":
-        query = query.filter(Entity.has_security_contact.is_(True))
-    elif security_filter == "no":
-        query = query.filter(Entity.has_security_contact.is_(False))
-
+    query = _apply_entity_filters(
+        query, federation_id, entity_type, privacy_filter, security_filter
+    )
     entities = query.order_by(Entity.organization_name).all()
 
-    # CSV export
+    # Format output
+    timestamp = snapshot.timestamp.strftime("%Y%m%d")
     if export_format == "csv":
-        output = StringIO()
-        writer = csv.writer(output)
-
-        # Write header
-        writer.writerow(
-            [
-                "Federation",
-                "EntityType",
-                "OrganizationName",
-                "EntityID",
-                "HasPrivacyStatement",
-                "PrivacyStatementURL",
-                "HasSecurityContact",
-            ]
-        )
-
-        # Write data
-        for entity in entities:
-            privacy_status = (
-                "N/A"
-                if entity.entity_type == "IdP"
-                else ("Yes" if entity.has_privacy_statement else "No")
-            )
-            privacy_url = (
-                "N/A"
-                if entity.entity_type == "IdP"
-                else (entity.privacy_statement_url or "")
-            )
-
-            writer.writerow(
-                [
-                    entity.federation.name if entity.federation else "Unknown",
-                    entity.entity_type,
-                    entity.organization_name or "",
-                    entity.entity_id,
-                    privacy_status,
-                    privacy_url,
-                    "Yes" if entity.has_security_contact else "No",
-                ]
-            )
-
-        csv_content = output.getvalue()
-        timestamp = snapshot.timestamp.strftime("%Y%m%d")
+        content = _format_entity_csv(entities, snapshot)
         filename = f"edugain_entities_{timestamp}.csv"
-
-        return Response(
-            content=csv_content,
-            media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename={filename}"},
-        )
-
-    # JSON export
+        media_type = "text/csv"
     else:
-        data = {
-            "snapshot_timestamp": snapshot.timestamp.isoformat(),
-            "total_entities": len(entities),
-            "entities": [
-                {
-                    "federation": e.federation.name if e.federation else "Unknown",
-                    "entity_type": e.entity_type,
-                    "organization_name": e.organization_name,
-                    "entity_id": e.entity_id,
-                    "has_privacy_statement": (
-                        "N/A" if e.entity_type == "IdP" else e.has_privacy_statement
-                    ),
-                    "privacy_statement_url": (
-                        "N/A" if e.entity_type == "IdP" else e.privacy_statement_url
-                    ),
-                    "has_security_contact": e.has_security_contact,
-                }
-                for e in entities
-            ],
-        }
-
-        timestamp = snapshot.timestamp.strftime("%Y%m%d")
+        content = _format_entity_json(entities, snapshot)
         filename = f"edugain_entities_{timestamp}.json"
+        media_type = "application/json"
 
-        return Response(
-            content=json.dumps(data, indent=2),
-            media_type="application/json",
-            headers={"Content-Disposition": f"attachment; filename={filename}"},
-        )
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 @app.get(
@@ -1558,208 +1598,274 @@ refresh_status = {
 refresh_lock = threading.Lock()
 
 
-def run_refresh(validate_urls: bool = False):
-    """Run data refresh in background with progress tracking."""
-    global refresh_status
+def _update_refresh_progress(progress: int, stage: str, message: str):
+    """Update refresh status with progress information."""
+    with refresh_lock:
+        refresh_status["progress"] = progress
+        refresh_status["stage"] = stage
+        refresh_status["message"] = message
 
-    def update_progress(progress: int, stage: str, message: str):
-        """Update refresh status with progress information."""
-        with refresh_lock:
-            refresh_status["progress"] = progress
-            refresh_status["stage"] = stage
-            refresh_status["message"] = message
 
-    try:
-        with refresh_lock:
-            refresh_status["running"] = True
-            refresh_status["started_at"] = datetime.now().isoformat()
-            refresh_status["status"] = "running"
-            refresh_status["progress"] = 0
-            refresh_status["stage"] = "initializing"
-            refresh_status["message"] = "Starting data import..."
-            refresh_status["error"] = None
+def _initialize_refresh_status():
+    """Initialize refresh status at start of refresh operation."""
+    with refresh_lock:
+        refresh_status["running"] = True
+        refresh_status["started_at"] = datetime.now().isoformat()
+        refresh_status["status"] = "running"
+        refresh_status["progress"] = 0
+        refresh_status["stage"] = "initializing"
+        refresh_status["message"] = "Starting data import..."
+        refresh_status["error"] = None
 
-        # Import with progress tracking
-        from ..core.analysis import analyze_privacy_security
-        from ..core.metadata import get_federation_mapping, get_metadata, parse_metadata
 
-        # Stage 1: Download metadata (20%)
-        update_progress(10, "downloading", "Downloading eduGAIN metadata...")
-        xml_content = get_metadata()
-        root = parse_metadata(xml_content)
-        update_progress(20, "downloading", "Metadata downloaded successfully")
+def _download_and_parse_metadata():
+    """Download and parse eduGAIN metadata.
 
-        # Stage 2: Fetch federation names (10%)
-        update_progress(25, "federations", "Fetching federation names...")
-        federation_mapping = get_federation_mapping()
-        update_progress(30, "federations", "Federation mapping loaded")
+    Returns:
+        Tuple of (xml_root, federation_mapping)
+    """
+    from ..core.metadata import get_federation_mapping, get_metadata, parse_metadata
 
-        # Stage 3: Analyze entities (30-60%)
-        if validate_urls:
-            update_progress(
-                35, "analyzing", "Analyzing entities and validating URLs..."
-            )
-        else:
-            update_progress(35, "analyzing", "Analyzing entities...")
+    _update_refresh_progress(10, "downloading", "Downloading eduGAIN metadata...")
+    xml_content = get_metadata()
+    root = parse_metadata(xml_content)
+    _update_refresh_progress(20, "downloading", "Metadata downloaded successfully")
 
-        entities_list, stats, federation_stats = analyze_privacy_security(
-            root,
-            federation_mapping=federation_mapping,
-            validate_urls=validate_urls,
-            validation_cache=None,
-            max_workers=10,
+    _update_refresh_progress(25, "federations", "Fetching federation names...")
+    federation_mapping = get_federation_mapping()
+    _update_refresh_progress(30, "federations", "Federation mapping loaded")
+
+    return root, federation_mapping
+
+
+def _run_analysis(root, federation_mapping, validate_urls):
+    """Run entity analysis with optional URL validation.
+
+    Args:
+        root: XML root element
+        federation_mapping: Federation name mapping
+        validate_urls: Whether to validate URLs
+
+    Returns:
+        Tuple of (entities_list, stats, federation_stats)
+    """
+    from ..core.analysis import analyze_privacy_security
+
+    if validate_urls:
+        _update_refresh_progress(
+            35, "analyzing", "Analyzing entities and validating URLs..."
         )
+    else:
+        _update_refresh_progress(35, "analyzing", "Analyzing entities...")
 
-        if validate_urls:
-            update_progress(70, "analyzing", "URL validation completed")
-        else:
-            update_progress(65, "analyzing", "Analysis completed")
+    entities_list, stats, federation_stats = analyze_privacy_security(
+        root,
+        federation_mapping=federation_mapping,
+        validate_urls=validate_urls,
+        validation_cache=None,
+        max_workers=10,
+    )
 
-        # Stage 4: Save to database (20%)
-        update_progress(75, "saving", "Saving results to database...")
+    if validate_urls:
+        _update_refresh_progress(70, "analyzing", "URL validation completed")
+    else:
+        _update_refresh_progress(65, "analyzing", "Analysis completed")
 
-        db = SessionLocal()
-        try:
-            # Create snapshot
-            snapshot = Snapshot(
-                timestamp=datetime.now(),
-                total_entities=stats["total_entities"],
-                total_sps=stats["total_sps"],
-                total_idps=stats["total_idps"],
-                sps_with_privacy=stats["sps_has_privacy"],
-                sps_missing_privacy=stats["sps_missing_privacy"],
-                sps_has_security=stats["sps_has_security"],
-                idps_has_security=stats["idps_has_security"],
+    return entities_list, stats, federation_stats
+
+
+def _save_snapshot_to_db(entities_list, stats, federation_stats, validate_urls):
+    """Save analysis results to database.
+
+    Args:
+        entities_list: List of entity data
+        stats: Aggregate statistics
+        federation_stats: Per-federation statistics
+        validate_urls: Whether URL validation data is included
+    """
+    _update_refresh_progress(75, "saving", "Saving results to database...")
+
+    db = SessionLocal()
+    try:
+        # Create snapshot
+        snapshot = Snapshot(
+            timestamp=datetime.now(),
+            total_entities=stats["total_entities"],
+            total_sps=stats["total_sps"],
+            total_idps=stats["total_idps"],
+            sps_with_privacy=stats["sps_has_privacy"],
+            sps_missing_privacy=stats["sps_missing_privacy"],
+            sps_has_security=stats["sps_has_security"],
+            idps_has_security=stats["idps_has_security"],
+            coverage_pct=(
+                stats["sps_has_privacy"] / stats["total_sps"] * 100
+                if stats["total_sps"] > 0
+                else 0
+            ),
+        )
+        db.add(snapshot)
+        db.flush()
+
+        _update_refresh_progress(80, "saving", "Saving federation data...")
+
+        # Create federation records
+        federation_id_map = {}
+        for fed_name, fed_stats in federation_stats.items():
+            federation = Federation(
+                snapshot_id=snapshot.id,
+                name=fed_name,
+                total_entities=fed_stats["total_entities"],
+                total_sps=fed_stats["total_sps"],
+                total_idps=fed_stats["total_idps"],
+                sps_with_privacy=fed_stats["sps_has_privacy"],
+                sps_has_security=fed_stats["sps_has_security"],
+                idps_has_security=fed_stats["idps_has_security"],
                 coverage_pct=(
-                    stats["sps_has_privacy"] / stats["total_sps"] * 100
-                    if stats["total_sps"] > 0
+                    fed_stats["sps_has_privacy"] / fed_stats["total_sps"] * 100
+                    if fed_stats["total_sps"] > 0
                     else 0
                 ),
             )
-            db.add(snapshot)
+            db.add(federation)
             db.flush()
+            federation_id_map[fed_name] = federation.id
 
-            update_progress(80, "saving", "Saving federation data...")
+        _update_refresh_progress(90, "saving", "Saving entity data...")
 
-            # Create federation records
-            federation_id_map = {}
-            for fed_name, fed_stats in federation_stats.items():
-                federation = Federation(
-                    snapshot_id=snapshot.id,
-                    name=fed_name,
-                    total_entities=fed_stats["total_entities"],
-                    total_sps=fed_stats["total_sps"],
-                    total_idps=fed_stats["total_idps"],
-                    sps_with_privacy=fed_stats["sps_has_privacy"],
-                    sps_has_security=fed_stats["sps_has_security"],
-                    idps_has_security=fed_stats["idps_has_security"],
-                    coverage_pct=(
-                        fed_stats["sps_has_privacy"] / fed_stats["total_sps"] * 100
-                        if fed_stats["total_sps"] > 0
-                        else 0
-                    ),
-                )
-                db.add(federation)
-                db.flush()
-                federation_id_map[fed_name] = federation.id
-
-            update_progress(90, "saving", "Saving entity data...")
-
-            # Create entity records
-            for entity_data in entities_list:
-                fed_name = entity_data[0]
-                federation_id = federation_id_map.get(fed_name)
-
-                entity = Entity(
-                    snapshot_id=snapshot.id,
-                    federation_id=federation_id,
-                    entity_type=entity_data[1],
-                    organization_name=entity_data[2],
-                    entity_id=entity_data[3],
-                    has_privacy_statement=entity_data[4] == "Yes"
-                    if entity_data[4] != "N/A"
-                    else None,
-                    privacy_statement_url=entity_data[5]
-                    if entity_data[5] not in ["", "N/A"]
-                    else None,
-                    has_security_contact=entity_data[6] == "Yes",
-                )
-                db.add(entity)
-
-                # Add URL validation if present
-                if validate_urls and len(entity_data) > 7:
-                    db.flush()
-
-                    # Parse status code safely
-                    status_code = None
-                    if len(entity_data) > 7 and entity_data[7]:
-                        try:
-                            status_code = (
-                                int(entity_data[7])
-                                if entity_data[7].isdigit()
-                                else None
-                            )
-                        except (ValueError, AttributeError):
-                            status_code = None
-
-                    # Parse redirect count safely
-                    redirect_count = 0
-                    if len(entity_data) > 10 and entity_data[10]:
-                        try:
-                            redirect_count = (
-                                int(entity_data[10])
-                                if str(entity_data[10]).isdigit()
-                                else 0
-                            )
-                        except (ValueError, AttributeError):
-                            redirect_count = 0
-
-                    url_validation = URLValidation(
-                        entity_id=entity.id,
-                        url=entity_data[5],
-                        status_code=status_code,
-                        final_url=entity_data[8]
-                        if len(entity_data) > 8 and entity_data[8] != ""
-                        else None,
-                        accessible=entity_data[9] == "Yes"
-                        if len(entity_data) > 9
-                        else None,
-                        redirect_count=redirect_count,
-                        validation_error=entity_data[11]
-                        if len(entity_data) > 11 and entity_data[11] != ""
-                        else None,
-                        validated_at=datetime.now(),
-                    )
-                    db.add(url_validation)
-
-            update_progress(95, "saving", "Finalizing database commit...")
-            db.commit()
-            db.close()
-
-        except Exception as e:
-            db.rollback()
-            db.close()
-            raise e
-
-        update_progress(100, "completed", "Data import completed successfully")
-
-        with refresh_lock:
-            refresh_status["running"] = False
-            refresh_status["completed_at"] = datetime.now().isoformat()
-            refresh_status["status"] = "completed"
-            refresh_status["progress"] = 100
-            refresh_status["message"] = (
-                f"Import completed: {stats['total_entities']} entities analyzed"
+        # Create entity records
+        for entity_data in entities_list:
+            _save_entity_to_db(
+                db, entity_data, federation_id_map, snapshot.id, validate_urls
             )
 
+        _update_refresh_progress(95, "saving", "Finalizing database commit...")
+        db.commit()
+        db.close()
+
+        return stats["total_entities"]
+
     except Exception as e:
-        with refresh_lock:
-            refresh_status["running"] = False
-            refresh_status["completed_at"] = datetime.now().isoformat()
-            refresh_status["status"] = "error"
-            refresh_status["message"] = "Data refresh failed"
-            refresh_status["error"] = str(e)
-            refresh_status["progress"] = 0
+        db.rollback()
+        db.close()
+        raise e
+
+
+def _save_entity_to_db(db, entity_data, federation_id_map, snapshot_id, validate_urls):
+    """Save a single entity to database.
+
+    Args:
+        db: Database session
+        entity_data: Entity data list
+        federation_id_map: Federation ID mapping
+        snapshot_id: Snapshot ID
+        validate_urls: Whether URL validation data is included
+    """
+    fed_name = entity_data[0]
+    federation_id = federation_id_map.get(fed_name)
+
+    entity = Entity(
+        snapshot_id=snapshot_id,
+        federation_id=federation_id,
+        entity_type=entity_data[1],
+        organization_name=entity_data[2],
+        entity_id=entity_data[3],
+        has_privacy_statement=entity_data[4] == "Yes"
+        if entity_data[4] != "N/A"
+        else None,
+        privacy_statement_url=entity_data[5]
+        if entity_data[5] not in ["", "N/A"]
+        else None,
+        has_security_contact=entity_data[6] == "Yes",
+    )
+    db.add(entity)
+
+    # Add URL validation if present
+    if validate_urls and len(entity_data) > 7:
+        db.flush()
+        _save_url_validation_to_db(db, entity, entity_data)
+
+
+def _save_url_validation_to_db(db, entity, entity_data):
+    """Save URL validation data to database.
+
+    Args:
+        db: Database session
+        entity: Entity object
+        entity_data: Entity data list with validation info
+    """
+    # Parse status code safely
+    status_code = None
+    if len(entity_data) > 7 and entity_data[7]:
+        try:
+            status_code = int(entity_data[7]) if entity_data[7].isdigit() else None
+        except (ValueError, AttributeError):
+            status_code = None
+
+    # Parse redirect count safely
+    redirect_count = 0
+    if len(entity_data) > 10 and entity_data[10]:
+        try:
+            redirect_count = (
+                int(entity_data[10]) if str(entity_data[10]).isdigit() else 0
+            )
+        except (ValueError, AttributeError):
+            redirect_count = 0
+
+    url_validation = URLValidation(
+        entity_id=entity.id,
+        url=entity_data[5],
+        status_code=status_code,
+        final_url=entity_data[8]
+        if len(entity_data) > 8 and entity_data[8] != ""
+        else None,
+        accessible=entity_data[9] == "Yes" if len(entity_data) > 9 else None,
+        redirect_count=redirect_count,
+        validation_error=entity_data[11]
+        if len(entity_data) > 11 and entity_data[11] != ""
+        else None,
+        validated_at=datetime.now(),
+    )
+    db.add(url_validation)
+
+
+def _set_refresh_completed(total_entities):
+    """Mark refresh as completed successfully."""
+    _update_refresh_progress(100, "completed", "Data import completed successfully")
+    with refresh_lock:
+        refresh_status["running"] = False
+        refresh_status["completed_at"] = datetime.now().isoformat()
+        refresh_status["status"] = "completed"
+        refresh_status["progress"] = 100
+        refresh_status["message"] = (
+            f"Import completed: {total_entities} entities analyzed"
+        )
+
+
+def _set_refresh_error(error):
+    """Mark refresh as failed with error."""
+    with refresh_lock:
+        refresh_status["running"] = False
+        refresh_status["completed_at"] = datetime.now().isoformat()
+        refresh_status["status"] = "error"
+        refresh_status["message"] = "Data refresh failed"
+        refresh_status["error"] = str(error)
+        refresh_status["progress"] = 0
+
+
+def run_refresh(validate_urls: bool = False):
+    """Run data refresh in background with progress tracking."""
+    try:
+        _initialize_refresh_status()
+        root, federation_mapping = _download_and_parse_metadata()
+        entities_list, stats, federation_stats = _run_analysis(
+            root, federation_mapping, validate_urls
+        )
+        total_entities = _save_snapshot_to_db(
+            entities_list, stats, federation_stats, validate_urls
+        )
+        _set_refresh_completed(total_entities)
+    except Exception as e:
+        _set_refresh_error(e)
 
 
 @app.post(

@@ -259,9 +259,6 @@ class TestMetadataCache:
         current_time = datetime.fromtimestamp(1000) + timedelta(
             hours=25
         )  # Current time + 25 hours
-        expiry_time = current_time - timedelta(
-            hours=12
-        )  # 12 hours ago (METADATA_CACHE_HOURS)
 
         mock_datetime.fromtimestamp.return_value = file_time
         mock_datetime.now.return_value = current_time
@@ -332,9 +329,7 @@ class TestMetadataCache:
         mock_path = MagicMock()
         mock_get_cache_file.return_value = mock_path
 
-        with patch(
-            "builtins.open", mock_open(read_data=b"<xml>cached</xml>")
-        ) as mock_file:
+        with patch("builtins.open", mock_open(read_data=b"<xml>cached</xml>")):
             result = load_metadata_cache()
             assert result == b"<xml>cached</xml>"
 
