@@ -6,9 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A modern Python package for eduGAIN quality improvement analysis. The codebase follows PEP 517/518/621 standards with a modular architecture:
 
-- **`src/edugain_analysis/`**: Main package with modular components (CLI, core logic, formatters, config)
+- **`src/edugain_analysis/`**: Main package with modular components (CLI, core logic, formatters, config, web)
 - **`analyze.py`**: Convenience wrapper that calls the main CLI entry point
 - **CLI Commands**: `edugain-analyze`, `edugain-seccon`, `edugain-sirtfi`, and `edugain-broken-privacy` (installed via package entry points)
+- **Web Dashboard**: Optional FastAPI + HTMX dashboard for interactive analysis
 
 ## Setup and Installation
 
@@ -106,6 +107,42 @@ edugain-broken-privacy > broken_links.csv        # Save output
 **Use Case:**
 - Identify broken privacy statement links across eduGAIN federations for remediation
 
+### Usage - Web Dashboard
+
+```bash
+# Install with web dependencies
+pip install -e .[web]
+
+# Import data into database (required first-time setup)
+python -m edugain_analysis.web.import_data
+
+# Import with URL validation (slower, includes accessibility checks)
+python -m edugain_analysis.web.import_data --validate-urls
+
+# Generate test data for development
+python -m edugain_analysis.web.import_data --test-data --days 30
+
+# Start the web server
+uvicorn edugain_analysis.web.app:app --reload
+
+# Access dashboard at http://localhost:8000
+```
+
+**Features (All MVP Priorities Complete + Enhancements):**
+- **Priority 1**: Entity-level tracking (10,000+ entities), URL validation database with SQLAlchemy models
+- **Priority 2**: Live search (300ms debounce), federation drill-down views, entity detail pages with historical data
+- **Priority 3**: Interactive filtering/sorting, Chart.js visualizations, CSV/JSON export
+- **Priority 4**: URL validation results page, cache status indicators, configuration page with adjustable settings
+- **Priority 5**: Historical trend charts (7/30/90/180/365 day views), snapshot comparison, entity change detection
+- **Priority 6**: Mobile-responsive design (480px/768px/1024px breakpoints), print styles
+- **Enhanced Progress Tracking**: Real-time 5-stage progress indicator for data refresh operations with global banner
+- **Improved UX**: Speedometer gauges with color-coded gradient backgrounds, persistent refresh status across pages
+- **Production Ready**: Comprehensive deployment guide (production.md) with Docker, Nginx, systemd configurations
+- **API Documentation**: Full OpenAPI/Swagger docs with examples, organized into 8 tagged categories
+- **Database Management**: Aligned export/import UI with backup/restore capabilities
+- HTMX-powered for fast partial updates without heavy JavaScript
+- PicoCSS classless styling for minimal overhead
+
 ## Architecture
 
 ### Package Structure
@@ -125,8 +162,23 @@ src/edugain_analysis/
 │   ├── analysis.py          # Core analysis logic for privacy/security
 │   ├── metadata.py          # Metadata downloading, parsing, federation mapping
 │   └── validation.py        # URL validation with parallel processing
-└── formatters/
-    └── base.py              # Output formatters (CSV, markdown, summary)
+├── formatters/
+│   └── base.py              # Output formatters (CSV, markdown, summary)
+└── web/                     # Web dashboard (optional)
+    ├── __init__.py
+    ├── app.py               # FastAPI application with routes
+    ├── models.py            # SQLAlchemy ORM models (Snapshot, Federation, Entity, URLValidation)
+    ├── import_data.py       # CLI for importing analysis results into database
+    ├── templates/           # Jinja2 + HTMX templates
+    │   ├── base.html        # Base template with navigation
+    │   ├── dashboard.html   # Main dashboard page
+    │   ├── federations.html # Federation list page
+    │   ├── empty.html       # Empty state when no data
+    │   └── partials/        # HTMX partial fragments
+    │       ├── stats_cards.html
+    │       ├── federation_table.html
+    │       └── trend_chart.html
+    └── static/              # CSS/JS assets (PicoCSS, Chart.js)
 ```
 
 ### Core Components
@@ -179,6 +231,25 @@ src/edugain_analysis/
   - `print_summary_markdown()`: Markdown report headers
   - `print_federation_summary()`: Federation breakdown tables
   - `export_federation_csv()`: Federation statistics CSV
+
+#### Web Layer (`web/`) - Optional
+- **models.py**: SQLAlchemy database models
+  - `Snapshot`: Analysis snapshots with timestamps (historical tracking), includes SIRTFI coverage statistics
+  - `Federation`: Per-federation statistics linked to snapshots, includes SIRTFI counts (sps_has_sirtfi, idps_has_sirtfi, etc.)
+  - `Entity`: Individual SP/IdP entities with privacy/security/SIRTFI status (has_sirtfi column)
+  - `URLValidation`: Privacy statement URL validation results with status codes
+  - All models use proper indexes and foreign key relationships
+- **import_data.py**: Data import pipeline
+  - `import_snapshot()`: Runs analysis and saves to database
+  - `generate_test_data()`: Creates synthetic data for development
+  - Supports `--validate-urls` flag for URL validation
+  - Parses list-of-lists format from `analyze_privacy_security()`
+- **app.py**: FastAPI web application
+  - Full page routes: `/`, `/federations`
+  - HTMX partial routes: `/partials/stats`, `/partials/federations`, `/partials/trends`
+  - JSON API routes: `/api/snapshot/latest`, `/api/federations`
+  - Template filters: `time_ago()` for relative timestamps
+  - Database dependency injection via `get_db()`
 
 ### Data Processing Flow
 
@@ -235,6 +306,13 @@ src/edugain_analysis/
 - ruff: Linting and formatting
 - pre-commit: Git hooks for code quality
 
+**Web (optional):**
+- **fastapi ≥0.104.0**: Modern async web framework for dashboard
+- **uvicorn ≥0.24.0**: ASGI server for running FastAPI
+- **sqlalchemy ≥2.0.0**: ORM for database models (Snapshot, Federation, Entity, URLValidation)
+- **jinja2 ≥3.1.0**: Template engine for HTML rendering
+- **python-multipart ≥0.0.6**: Form data parsing
+
 ## Development Notes
 
 ### Code Organization
@@ -247,7 +325,7 @@ src/edugain_analysis/
 
 ### Testing Structure
 
-Tests follow pytest best practices with comprehensive test coverage for all CLI and core modules:
+Tests follow pytest best practices with 260+ test cases covering all modules:
 
 ```
 tests/
@@ -260,6 +338,9 @@ tests/
 │   ├── test_core_metadata.py      # Metadata operations tests (43 tests)
 │   ├── test_core_validation.py    # URL validation tests (24 tests)
 │   ├── test_formatters.py         # Output formatter tests (9 tests)
+│   ├── test_web_models.py         # Web database model tests (6 tests)
+│   ├── test_web_app.py            # Web application tests (69 tests)
+│   ├── test_web_import_data.py    # Web import functionality (4 tests)
 │   ├── test_package_basic.py      # Import and basic functionality (10 tests)
 │   └── test_main_module.py        # Main module tests (2 tests)
 └── integration/
@@ -289,7 +370,7 @@ pytest --no-cov
 pytest -n auto
 ```
 
-**Coverage:** High coverage across all modules (100% for CLI, 90%+ for core modules).
+**Coverage:** 81.53% overall (100% for CLI, 91%+ for core modules, 62-71% for web modules which contain integration-level code). See [COVERAGE_ANALYSIS.md](COVERAGE_ANALYSIS.md) for detailed breakdown and improvement recommendations.
 
 ### Coverage Configuration
 - **HTML reports**: Generated in `htmlcov/` directory

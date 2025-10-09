@@ -13,12 +13,14 @@ A comprehensive Python package for analyzing eduGAIN federation metadata quality
 - 🔰 **SIRTFI Coverage Tracking**: Comprehensive SIRTFI certification tracking across all CLI outputs (summary, CSV, markdown reports)
 - 🔍 **SIRTFI Compliance Tools**: Two specialized CLI tools for security contact and SIRTFI certification validation
 - 🔒 **Privacy Statement Monitoring**: HTTP accessibility validation for privacy statement URLs with dedicated broken links detection tool
+- 🌐 **Web Dashboard**: Interactive HTMX-powered dashboard for real-time federation monitoring
 - 🌍 **Federation Intelligence**: Automatic mapping from registration authorities to friendly names via eduGAIN API
 - 💾 **XDG-Compliant Caching**: Smart caching system with configurable expiry (metadata: 12h, federations: 30d, URLs: 7d)
-- 📊 **Multiple Output Formats**: Summary statistics, detailed CSV exports, and markdown reports
-- 🏗️ **Modern Architecture**: Modular design with comprehensive testing (100% for CLI, 90%+ for core modules)
+- 📊 **Multiple Output Formats**: Summary statistics, detailed CSV exports, markdown reports, and web UI
+- 🏗️ **Modern Architecture**: Modular design with comprehensive testing (81.53% coverage, 100% for CLI, 91%+ for core modules)
 - ⚡ **Fast Tooling**: Ruff for linting and formatting
 - 📈 **Comprehensive Reporting**: Split statistics for SPs vs IdPs with federation-level breakdowns
+- 📦 **Entity-Level Tracking**: Individual entity storage with historical snapshots for trend analysis
 
 ## 🚀 Quick Start
 
@@ -57,6 +59,9 @@ python analyze.py --validate
 
 # Or use the package directly
 python -m edugain_analysis
+
+# Import data for web dashboard
+python -m edugain_analysis.web.import_data
 ```
 
 ## 📚 CLI Reference
@@ -163,6 +168,11 @@ src/edugain_analysis/
 │   ├── seccon.py           # Security contact CLI (edugain-seccon)
 │   ├── sirtfi.py           # SIRTFI compliance CLI (edugain-sirtfi)
 │   └── broken_privacy.py   # Broken privacy links CLI (edugain-broken-privacy)
+├── web/                     # Web dashboard (optional)
+│   ├── app.py              # FastAPI application
+│   ├── models.py           # SQLAlchemy database models
+│   ├── import_data.py      # Data import from analysis
+│   └── templates/          # HTMX + PicoCSS templates
 └── config/                  # Configuration and patterns
     └── settings.py         # Constants and validation patterns
 ```
@@ -279,6 +289,66 @@ For SIRTFI compliance validation and finding violations, use the specialized too
 - `edugain-seccon`: Find entities with security contacts but without SIRTFI (potential candidates)
 - `edugain-sirtfi`: Find entities with SIRTFI but without security contacts (compliance violations)
 
+## 🌐 Web Dashboard
+
+The package includes an optional modern web dashboard for interactive analysis and monitoring. Built with FastAPI, HTMX, and PicoCSS for fast, responsive, and lightweight performance.
+
+### Core Features
+
+**Data & Analytics:**
+- **Real-time Statistics**: Live coverage metrics and entity counts with auto-refresh
+- **Entity-Level Tracking**: 10,000+ individual entities with full metadata (organization, type, privacy/security status)
+- **Historical Snapshots**: Track compliance changes over time with multiple snapshots
+- **Federation Intelligence**: Per-federation statistics and entity breakdowns
+
+**Interactive Navigation:**
+- **Live Search**: Instant search for entities and federations (300ms debounce, HTMX-powered)
+- **Federation Drill-Down**: Detailed per-federation views with sortable entity tables
+- **Entity Detail Pages**: Individual SP/IdP pages showing full metadata and historical status
+- **URL Validation Results**: Privacy statement accessibility tracking with HTTP status codes
+
+**Advanced Features:**
+- **Interactive Filtering**: Filter entities by type (SP/IdP), privacy status, security status
+- **Multi-Column Sorting**: Sort by organization, type, privacy, or security with visual indicators (▲/▼)
+- **CSV/JSON Export**: Download filtered data in multiple formats with timestamped filenames
+- **Historical Comparison**: Compare snapshots to detect entities that changed status (privacy/security added/removed)
+- **Trend Charts**: Chart.js visualizations for coverage trends (7/30/90/180/365 day views)
+- **Configuration Page**: Adjustable settings (auto-refresh, timeouts, cache expiry, validation threads)
+- **Cache Status**: Real-time cache freshness indicators (green/orange/red) with age display
+- **Mobile-Responsive**: Full responsive design with breakpoints for mobile (480px), tablet (768px), and desktop (1024px)
+
+**Technical:**
+- **HTMX-Powered**: Fast partial updates without heavy JavaScript frameworks
+- **PicoCSS**: Classless CSS framework for minimal styling overhead
+- **SQLite Database**: Efficient storage with indexed queries for fast lookups
+- **No Build Step**: Pure HTML/CSS/JS with CDN dependencies
+
+### Running the Dashboard
+
+```bash
+# Install web dependencies
+pip install -e .[web]
+
+# Import data into database
+python -m edugain_analysis.web.import_data
+
+# (Optional) Import with URL validation
+python -m edugain_analysis.web.import_data --validate-urls
+
+# Start the web server
+uvicorn edugain_analysis.web.app:app --reload
+
+# Access at http://localhost:8000
+```
+
+### Database Schema
+
+The web dashboard uses SQLite with the following models:
+- **Snapshot**: Historical analysis snapshots with timestamps (supports trend analysis)
+- **Federation**: Per-federation statistics for each snapshot (linked to entities)
+- **Entity**: Individual SP/IdP entities with full metadata (entity_id, organization, type, privacy/security status)
+- **URLValidation**: Privacy statement URL validation results (status codes, redirects, accessibility)
+
 ## 💾 Cache Management
 
 All data is stored in XDG-compliant cache directories:
@@ -292,6 +362,7 @@ All data is stored in XDG-compliant cache directories:
 - `metadata.xml` - eduGAIN metadata (expires after 12 hours)
 - `federations.json` - Federation name mappings (expires after 30 days)
 - `url_validation.json` - URL validation results (expires after 7 days)
+- `webapp.db` - Web dashboard database (persistent)
 
 **Cache Management Commands:**
 ```bash
@@ -333,6 +404,7 @@ pytest
 
 # Run specific test categories
 pytest tests/unit/                          # Unit tests (260+ tests)
+pytest tests/unit/test_web_models.py        # Web model tests only
 pytest tests/unit/test_cli_sirtfi.py        # SIRTFI CLI tests only
 
 # Run with coverage reporting
@@ -357,7 +429,6 @@ The project uses modern Python tooling:
 ### Summary Statistics
 ```
 eduGAIN Metadata Analysis Results
-================================
 
 📊 Entity Overview:
    Total Entities: 8,234
@@ -382,24 +453,67 @@ eduGAIN Metadata Analysis Results
 - **missing-both**: SPs missing both privacy and security
 - **urls**: URL validation results (with `--validate`)
 
-## 🏗️ Recent Improvements (v2.1.0)
+## 🏗️ Development Roadmap
+
+See [TODO.md](TODO.md) for a comprehensive roadmap. All MVP priorities (1-6) are now complete! ✅
+
+**Completed Features (v2.0.0):**
+- ✅ Priority 1: Data Layer & Infrastructure (Entity-level tracking, URL validation database)
+- ✅ Priority 2: Core Features (Search, federation drill-down, entity detail pages)
+- ✅ Priority 3: Enhanced Interactivity (Filtering/sorting, charts, CSV/JSON export)
+- ✅ Priority 4: User Experience (URL validation view, cache status, configuration page)
+- ✅ Priority 5: Historical Analysis (Trend charts, entity change detection, snapshot comparison)
+- ✅ Priority 6: Polish & Optimization (Mobile-responsive design, print styles)
+
+**Future Considerations:**
+- Real-time notifications for data updates
+- Email alerts for federation compliance changes
+- Multi-user support with authentication
+- API rate limiting and caching headers
+- WebSocket support for live updates
+- Advanced analytics dashboard with custom queries
+- PDF report generation
+- Integration with external monitoring systems
+
+### Recent Improvements (v3.0.0)
 
 **SIRTFI Compliance Analysis:**
 - 🆕 Added `edugain-sirtfi` CLI for SIRTFI compliance validation
-- 🆕 Added `edugain-broken-privacy` CLI for finding broken privacy statement links
 - 🔍 Detects entities with SIRTFI certification but missing security contacts (compliance violations)
-- 📊 Comprehensive SIRTFI tracking across all output formats (summary, CSV, markdown)
-- ✅ 260+ comprehensive test cases with high code coverage
+- 📊 Complements existing `edugain-seccon` CLI for comprehensive security contact analysis
+- ✅ 15 comprehensive test cases with 94.87% code coverage
+
+**Broken Privacy Links Analysis:**
+- 🆕 Added `edugain-broken-privacy` CLI for finding broken privacy statement links
+- 🔍 Live URL validation with 10 parallel workers
+- 📊 Error categorization (SSL, 404, timeouts, connection errors)
+- ✅ 38 comprehensive test cases with 95% code coverage
 
 **Tooling & Code Quality:**
 - 🧹 Removed Black and mypy dependencies - using Ruff exclusively for all linting and formatting
 - 📝 Streamlined development workflow with single unified toolchain
-- ✅ All tests passing with 100% CLI coverage, 90%+ core module coverage
+- ✅ All 260+ tests passing with comprehensive coverage (100% CLI, 91%+ core modules, 62-71% web modules)
 
 **Documentation:**
-- 📚 Updated README.md and CLAUDE.md with new CLI tools
+- 📚 Updated README.md, CLAUDE.md, and docs/index.md with SIRTFI CLI documentation
 - 🔧 Cleaned up all references to deprecated tooling
 - 📖 Enhanced developer guide with detailed data processing flows
+
+### Previous Improvements (v2.0.0)
+
+**Tooling & Code Quality:**
+- ⚡ Using Ruff for unified linting + formatting
+- 🧹 Removed 282 lines of dead code and duplicate documentation
+- 🔧 Fixed CI/CD workflow to test modern package entry points
+- ✅ 204 tests passing with 81.53% overall coverage (100% for CLI, 91%+ for core modules, web modules are integration-level)
+
+**Web Dashboard (Complete MVP):**
+- 🏗️ Priority 1: Entity-level tracking + URL validation database (SQLAlchemy models, indexes, relationships)
+- 🔍 Priority 2: Live search, federation drill-down views, entity detail pages with historical data
+- 🎯 Priority 3: Interactive filtering/sorting, Chart.js visualizations, CSV/JSON export
+- 🎨 Priority 4: URL validation results page, cache status indicators, configuration page
+- 📈 Priority 5: Historical trend analysis, snapshot comparison, entity change detection
+- 📱 Priority 6: Mobile-responsive design with breakpoints (480px/768px/1024px), print styles
 
 ## 📋 Requirements
 
@@ -407,10 +521,9 @@ eduGAIN Metadata Analysis Results
 - **Dependencies**:
   - `requests` (≥2.28.0) - HTTP requests
   - `platformdirs` (≥3.0.0) - XDG-compliant directories
-- **Development Dependencies** (install with `[dev]`):
-  - pytest, pytest-cov, pytest-xdist - Testing and coverage
-  - ruff - Linting and formatting
-  - pre-commit - Git hooks for quality assurance
+- **Optional Dependencies**:
+  - FastAPI, SQLAlchemy, Jinja2, uvicorn (install with `[web]`)
+  - pytest, pytest-cov, pytest-xdist, ruff, pre-commit (install with `[dev]`)
 
 ## 🤝 Contributing
 
