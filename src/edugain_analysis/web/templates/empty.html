@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="empty-state">
+    <h2>📊 No Data Available</h2>
+    <p>The dashboard is ready, but no analysis data has been loaded yet.</p>
+
+    <article>
+        <header><strong>Getting Started</strong></header>
+        <p>To populate the dashboard with data, you need to run an analysis and save the results to the database.</p>
+
+        <h4>Quick Start:</h4>
+        <pre><code># TODO: Run analysis and import data
+python -m edugain_analysis.web.import_data
+
+# Or use the CLI to generate data
+python analyze.py --save-to-db</code></pre>
+
+        <h4>What you'll see:</h4>
+        <ul>
+            <li>📈 Real-time coverage statistics</li>
+            <li>🌍 Federation breakdowns</li>
+            <li>📊 Historical trends</li>
+            <li>🔍 Detailed entity analysis</li>
+        </ul>
+    </article>
+</div>
+{% endblock %}

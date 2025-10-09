@@ -2,7 +2,7 @@
 requests==2.32.5
 platformdirs>=3.0.0
 
-# Development dependencies (testing + basic formatting)
+# Development dependencies (testing + linting/formatting)
 pytest>=7.0.0
 pytest-cov>=4.0.0
-black>=23.0.0
+ruff>=0.1.0

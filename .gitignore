@@ -158,11 +158,19 @@ pip-selfcheck.json
 metadata_cache/
 output/
 results/
+enhancements.md
 
 # eduGAIN cache files
 .edugain_metadata_cache.xml
 .edugain_federations_cache.json
 .edugain_url_validation_cache.json
+
+# Web dashboard database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+webapp.db
 
 # Temporary test environments
 *_test/

@@ -1,0 +1,44 @@
+<div id="search-results">
+    {% if federations or entities %}
+        {% if federations %}
+        <section>
+            <h3>Federations ({{ federations|length }})</h3>
+            <ul>
+            {% for federation in federations %}
+                <li>
+                    <a href="/federations/{{ federation.name }}">
+                        <strong>{{ federation.name }}</strong>
+                        - {{ federation.total_entities }} entities ({{ "%.1f"|format(federation.coverage_pct) }}% coverage)
+                    </a>
+                </li>
+            {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+
+        {% if entities %}
+        <section>
+            <h3>Entities ({{ entities|length }})</h3>
+            <ul>
+            {% for entity in entities %}
+                <li>
+                    <a href="/entities/{{ entity.entity_id }}">
+                        <strong>{{ entity.organization_name or "N/A" }}</strong>
+                        <span class="badge">{{ entity.entity_type }}</span>
+                        - {{ entity.federation.name }}
+                        {% if entity.entity_type == "SP" %}
+                            {% if entity.has_privacy_statement %}<span style="color: var(--pico-ins-color);">✅</span>{% else %}<span style="color: var(--pico-del-color);">❌</span>{% endif %}
+                        {% endif %}
+                        {% if entity.has_security_contact %}<span style="color: var(--pico-ins-color);">🛡️</span>{% else %}<span style="color: var(--pico-del-color);">⚠️</span>{% endif %}
+                    </a>
+                    <br>
+                    <small style="color: var(--pico-muted-color); word-break: break-all;">{{ entity.entity_id[:80] }}{% if entity.entity_id|length > 80 %}...{% endif %}</small>
+                </li>
+            {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+    {% else %}
+        <p>No results found for "{{ query }}"</p>
+    {% endif %}
+</div>
