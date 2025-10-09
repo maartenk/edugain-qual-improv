@@ -1,8 +1,14 @@
+# Development dependencies (runtime + dev tools)
+# Auto-generated from pyproject.toml
+# Install with: pip install -r requirements.txt
+
 # Runtime dependencies
-requests==2.32.5
+requests>=2.28.0
 platformdirs>=3.0.0
 
-# Development dependencies (testing + linting/formatting)
-pytest>=7.0.0
-pytest-cov>=4.0.0
+# Development dependencies
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-xdist>=3.3.0
 ruff>=0.1.0
+pre-commit>=3.4.0
