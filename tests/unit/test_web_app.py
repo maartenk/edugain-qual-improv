@@ -34,6 +34,7 @@ def test_db():
         yield db
     finally:
         db.close()
+        engine.dispose()
 
 
 @pytest.fixture

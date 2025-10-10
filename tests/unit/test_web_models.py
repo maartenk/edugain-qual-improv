@@ -24,6 +24,7 @@ def db_session():
     session = session_factory()
     yield session
     session.close()
+    engine.dispose()
 
 
 def test_snapshot_model(db_session):
