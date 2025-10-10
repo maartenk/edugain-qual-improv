@@ -17,8 +17,8 @@ A comprehensive Python package for analyzing eduGAIN federation metadata quality
 - 🌍 **Federation Intelligence**: Automatic mapping from registration authorities to friendly names via eduGAIN API
 - 💾 **XDG-Compliant Caching**: Smart caching system with configurable expiry (metadata: 12h, federations: 30d, URLs: 7d)
 - 📊 **Multiple Output Formats**: Summary statistics, detailed CSV exports, markdown reports, and web UI
-- 🏗️ **Modern Architecture**: Modular design with comprehensive testing (81.53% coverage, 100% for CLI, 91%+ for core modules)
-- ⚡ **Fast Tooling**: Ruff for linting and formatting
+- 🏗️ **Modern Architecture**: Modular design with comprehensive testing (82.35% coverage, 279 tests, 98-100% CLI, 89-96% core)
+- ⚡ **Fast Tooling**: Ruff for linting and formatting with cyclomatic complexity checks
 - 📈 **Comprehensive Reporting**: Split statistics for SPs vs IdPs with federation-level breakdowns
 - 📦 **Entity-Level Tracking**: Individual entity storage with historical snapshots for trend analysis
 
@@ -492,7 +492,9 @@ See [TODO.md](TODO.md) for a comprehensive roadmap. All MVP priorities (1-6) are
 **Tooling & Code Quality:**
 - 🧹 Removed Black and mypy dependencies - using Ruff exclusively for all linting and formatting
 - 📝 Streamlined development workflow with single unified toolchain
-- ✅ All 260+ tests passing with comprehensive coverage (100% CLI, 91%+ core modules, 62-71% web modules)
+- ✅ All 279 tests passing with comprehensive coverage (98-100% CLI, 89-96% core modules, 62-67% web modules)
+- ♻️ Refactored complex functions to reduce cyclomatic complexity (all functions ≤10)
+- 🔧 Fixed 22 TemplateResponse deprecation warnings for Starlette compatibility
 
 **Documentation:**
 - 📚 Updated README.md, CLAUDE.md, and docs/index.md with SIRTFI CLI documentation
@@ -502,10 +504,11 @@ See [TODO.md](TODO.md) for a comprehensive roadmap. All MVP priorities (1-6) are
 ### Previous Improvements (v2.0.0)
 
 **Tooling & Code Quality:**
-- ⚡ Using Ruff for unified linting + formatting
+- ⚡ Using Ruff for unified linting + formatting with complexity analysis
 - 🧹 Removed 282 lines of dead code and duplicate documentation
 - 🔧 Fixed CI/CD workflow to test modern package entry points
-- ✅ 204 tests passing with 81.53% overall coverage (100% for CLI, 91%+ for core modules, web modules are integration-level)
+- ✅ 279 tests passing with 82.35% overall coverage (98-100% for CLI, 89-96% for core modules, web modules are integration-level)
+- ♻️ Extracted helper functions for improved maintainability and testability
 
 **Web Dashboard (Complete MVP):**
 - 🏗️ Priority 1: Entity-level tracking + URL validation database (SQLAlchemy models, indexes, relationships)

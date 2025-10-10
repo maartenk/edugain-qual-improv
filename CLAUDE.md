@@ -322,10 +322,12 @@ src/edugain_analysis/
 - **Namespace handling**: Support for multiple SAML metadata schemas (REFEDS, InCommon, etc.)
 - **Error handling**: Comprehensive try/catch for network, parsing, and validation errors
 - **Null safety**: Defensive coding for optional XML elements
+- **Low Complexity**: All functions maintain cyclomatic complexity ≤10 for maintainability
+- **Helper Functions**: Extracted helper functions for improved testability and readability
 
 ### Testing Structure
 
-Tests follow pytest best practices with 260+ test cases covering all modules:
+Tests follow pytest best practices with 279 test cases covering all modules:
 
 ```
 tests/
@@ -370,7 +372,7 @@ pytest --no-cov
 pytest -n auto
 ```
 
-**Coverage:** 81.53% overall (100% for CLI, 91%+ for core modules, 62-71% for web modules which contain integration-level code). See [COVERAGE_ANALYSIS.md](COVERAGE_ANALYSIS.md) for detailed breakdown and improvement recommendations.
+**Coverage:** 82.35% overall (279 tests: 98-100% for CLI, 89-96% for core modules, 62-67% for web modules which contain integration-level code). See [COVERAGE_ANALYSIS.md](COVERAGE_ANALYSIS.md) for detailed breakdown and improvement recommendations.
 
 ### Coverage Configuration
 - **HTML reports**: Generated in `htmlcov/` directory
@@ -424,6 +426,9 @@ ruff format src/ tests/
 
 # Lint with ruff (with auto-fix)
 ruff check --fix src/ tests/
+
+# Check cyclomatic complexity (max 10)
+ruff check src/ --select C90 --config "lint.mccabe.max-complexity = 10"
 
 # Run all pre-commit hooks
 pre-commit run --all-files
