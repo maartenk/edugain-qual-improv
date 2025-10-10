@@ -23,6 +23,158 @@ from ..core.metadata import (
 from .models import Entity, Federation, SessionLocal, Snapshot, URLValidation
 
 
+def _parse_entity_row(entity_row, validate_urls):
+    """Parse entity row data.
+
+    Args:
+        entity_row: List containing entity data
+        validate_urls: Whether URL validation data is included
+
+    Returns:
+        Tuple of parsed entity data
+    """
+    if validate_urls:
+        # Extended format with validation
+        (
+            federation_name,
+            entity_type,
+            org_name,
+            entity_id,
+            has_privacy,
+            privacy_url,
+            has_security,
+            has_sirtfi,
+            status_code,
+            final_url,
+            accessible,
+            redirect_count,
+            validation_error,
+        ) = entity_row
+    else:
+        # Standard format without validation
+        (
+            federation_name,
+            entity_type,
+            org_name,
+            entity_id,
+            has_privacy,
+            privacy_url,
+            has_security,
+            has_sirtfi,
+        ) = entity_row
+        status_code = final_url = accessible = redirect_count = validation_error = None
+
+    return (
+        federation_name,
+        entity_type,
+        org_name,
+        entity_id,
+        has_privacy == "Yes",
+        privacy_url,
+        has_security == "Yes",
+        has_sirtfi == "Yes",
+        status_code,
+        final_url,
+        accessible,
+        redirect_count,
+        validation_error,
+    )
+
+
+def _create_url_validation(
+    entity,
+    privacy_url,
+    status_code,
+    final_url,
+    accessible,
+    redirect_count,
+    validation_error,
+):
+    """Create URLValidation object with parsed data.
+
+    Args:
+        entity: Entity object
+        privacy_url: Privacy statement URL
+        status_code: HTTP status code
+        final_url: Final URL after redirects
+        accessible: Whether URL is accessible
+        redirect_count: Number of redirects
+        validation_error: Validation error message
+
+    Returns:
+        URLValidation object or None
+    """
+    if not privacy_url or not status_code:
+        return None
+
+    # Convert accessible Yes/No to boolean
+    accessible_bool = accessible == "Yes" if accessible else False
+
+    # Parse status code safely
+    try:
+        status_code_int = (
+            int(status_code) if status_code and status_code != "Not Checked" else None
+        )
+    except (ValueError, TypeError):
+        status_code_int = None
+
+    # Parse redirect count safely
+    try:
+        redirect_count_int = (
+            int(redirect_count)
+            if redirect_count and redirect_count != "Not Checked"
+            else 0
+        )
+    except (ValueError, TypeError):
+        redirect_count_int = 0
+
+    return URLValidation(
+        entity_id=entity.id,
+        url=privacy_url,
+        status_code=status_code_int,
+        final_url=final_url if final_url and final_url != privacy_url else None,
+        accessible=accessible_bool,
+        redirect_count=redirect_count_int,
+        validation_error=validation_error if validation_error else None,
+        validated_at=datetime.now(),
+    )
+
+
+def _load_validation_cache(validate_urls):
+    """Load URL validation cache if validation is enabled.
+
+    Args:
+        validate_urls: Whether URL validation is enabled
+
+    Returns:
+        Validation cache dict or None
+    """
+    if not validate_urls:
+        return None
+
+    validation_cache = load_url_validation_cache() or {}
+    if validation_cache:
+        print(f"  → Loaded {len(validation_cache)} cached URL validation results")
+    return validation_cache
+
+
+def _save_validation_cache(validate_urls, validation_cache, stats):
+    """Save URL validation cache if validation was performed.
+
+    Args:
+        validate_urls: Whether URL validation is enabled
+        validation_cache: Cache dictionary
+        stats: Analysis statistics
+    """
+    if not validate_urls or validation_cache is None:
+        return
+
+    urls_validated = stats.get("urls_checked", 0)
+    if urls_validated > 0:
+        print(f"  → Saving URL validation cache with {len(validation_cache)} entries")
+        save_url_validation_cache(validation_cache)
+
+
 def import_snapshot(validate_urls: bool = False):
     """Run analysis and import results into database.
 
@@ -42,13 +194,7 @@ def import_snapshot(validate_urls: bool = False):
         federation_mapping = get_federation_mapping()
 
         # Load URL validation cache if validation is enabled
-        validation_cache = None
-        if validate_urls:
-            validation_cache = load_url_validation_cache() or {}
-            if validation_cache:
-                print(
-                    f"  → Loaded {len(validation_cache)} cached URL validation results"
-                )
+        validation_cache = _load_validation_cache(validate_urls)
 
         # Run analysis (with optional URL validation)
         print("  → Analyzing entities...")
@@ -58,19 +204,13 @@ def import_snapshot(validate_urls: bool = False):
         entities_list, stats, federation_stats = analyze_privacy_security(
             root,
             federation_mapping=federation_mapping,
-            validate_urls=validate_urls,  # Let core analysis handle validation
-            validation_cache=validation_cache,  # Use cache to avoid redundant checks
-            max_workers=10,  # Configurable thread pool size
+            validate_urls=validate_urls,
+            validation_cache=validation_cache,
+            max_workers=10,
         )
 
         # Save updated URL validation cache if validation was performed
-        if validate_urls and validation_cache is not None:
-            urls_validated = stats.get("urls_checked", 0)
-            if urls_validated > 0:
-                print(
-                    f"  → Saving URL validation cache with {len(validation_cache)} entries"
-                )
-                save_url_validation_cache(validation_cache)
+        _save_validation_cache(validate_urls, validation_cache, stats)
 
         # Save to database
         print("  → Saving to database...")
@@ -124,52 +264,26 @@ def import_snapshot(validate_urls: bool = False):
                 federation_id_map[fed_name] = federation.id
 
             # Create entity records
-            # entities_list is a list of lists with format:
-            # [Federation, EntityType, OrgName, EntityID, HasPrivacy, PrivacyURL, HasSecurity, HasSIRTFI]
-            # or with validation:
-            # [Federation, EntityType, OrgName, EntityID, HasPrivacy, PrivacyURL, HasSecurity, HasSIRTFI,
-            #  StatusCode, FinalURL, Accessible, RedirectCount, ValidationError]
             entity_id_map = {}
             for entity_row in entities_list:
-                if validate_urls:
-                    # Extended format with validation
-                    (
-                        federation_name,
-                        entity_type,
-                        org_name,
-                        entity_id,
-                        has_privacy,
-                        privacy_url,
-                        has_security,
-                        has_sirtfi,
-                        status_code,
-                        final_url,
-                        accessible,
-                        redirect_count,
-                        validation_error,
-                    ) = entity_row
-                else:
-                    # Standard format without validation
-                    (
-                        federation_name,
-                        entity_type,
-                        org_name,
-                        entity_id,
-                        has_privacy,
-                        privacy_url,
-                        has_security,
-                        has_sirtfi,
-                    ) = entity_row
-                    status_code = final_url = accessible = redirect_count = (
-                        validation_error
-                    ) = None
+                # Parse entity row data
+                (
+                    federation_name,
+                    entity_type,
+                    org_name,
+                    entity_id,
+                    has_privacy_bool,
+                    privacy_url,
+                    has_security_bool,
+                    has_sirtfi_bool,
+                    status_code,
+                    final_url,
+                    accessible,
+                    redirect_count,
+                    validation_error,
+                ) = _parse_entity_row(entity_row, validate_urls)
 
                 federation_id = federation_id_map.get(federation_name)
-
-                # Convert Yes/No to boolean
-                has_privacy_bool = has_privacy == "Yes"
-                has_security_bool = has_security == "Yes"
-                has_sirtfi_bool = has_sirtfi == "Yes"
 
                 entity = Entity(
                     snapshot_id=snapshot.id,
@@ -187,44 +301,18 @@ def import_snapshot(validate_urls: bool = False):
                 entity_id_map[entity_id] = entity.id
 
                 # Add URL validation results if available
-                if validate_urls and privacy_url and status_code:
-                    # Convert accessible Yes/No to boolean
-                    accessible_bool = accessible == "Yes" if accessible else False
-
-                    # Parse status code and redirect count
-                    try:
-                        status_code_int = (
-                            int(status_code)
-                            if status_code and status_code != "Not Checked"
-                            else None
-                        )
-                    except (ValueError, TypeError):
-                        status_code_int = None
-
-                    try:
-                        redirect_count_int = (
-                            int(redirect_count)
-                            if redirect_count and redirect_count != "Not Checked"
-                            else 0
-                        )
-                    except (ValueError, TypeError):
-                        redirect_count_int = 0
-
-                    url_validation = URLValidation(
-                        entity_id=entity.id,
-                        url=privacy_url,
-                        status_code=status_code_int,
-                        final_url=(
-                            final_url
-                            if final_url and final_url != privacy_url
-                            else None
-                        ),
-                        accessible=accessible_bool,
-                        redirect_count=redirect_count_int,
-                        validation_error=validation_error if validation_error else None,
-                        validated_at=datetime.now(),
+                if validate_urls:
+                    url_validation = _create_url_validation(
+                        entity,
+                        privacy_url,
+                        status_code,
+                        final_url,
+                        accessible,
+                        redirect_count,
+                        validation_error,
                     )
-                    db.add(url_validation)
+                    if url_validation:
+                        db.add(url_validation)
 
             db.commit()
             print(
