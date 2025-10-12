@@ -13,7 +13,7 @@ Modules:
     cli: Command-line interface and main entry point
 """
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 __author__ = "eduGAIN Quality Analysis Team"
 
 from .core import (
