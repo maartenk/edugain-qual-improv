@@ -455,7 +455,7 @@ eduGAIN Metadata Analysis Results
 
 ## 🏗️ Development Roadmap
 
-See [TODO.md](TODO.md) for a comprehensive roadmap. All MVP priorities (1-6) are now complete! ✅
+All MVP priorities (1-6) are now complete! ✅
 
 **Completed Features (v2.0.0):**
 - ✅ Priority 1: Data Layer & Infrastructure (Entity-level tracking, URL validation database)
@@ -497,7 +497,7 @@ See [TODO.md](TODO.md) for a comprehensive roadmap. All MVP priorities (1-6) are
 - 🔧 Fixed 22 TemplateResponse deprecation warnings for Starlette compatibility
 
 **Documentation:**
-- 📚 Updated README.md, CLAUDE.md, and docs/index.md with SIRTFI CLI documentation
+- 📚 Updated README.md and CLAUDE.md with SIRTFI CLI documentation
 - 🔧 Cleaned up all references to deprecated tooling
 - 📖 Enhanced developer guide with detailed data processing flows
 
@@ -551,5 +551,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 - **Issues**: [GitHub Issues](https://github.com/maartenk/edugain-qual-improv/issues)
-- **Documentation**: [Package Documentation](docs/index.md)
+- **Documentation**: See [README.md](README.md) for full documentation
 - **Development**: See [CLAUDE.md](CLAUDE.md) for development guidelines

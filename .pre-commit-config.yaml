@@ -17,7 +17,7 @@ repos:
     hooks:
       - id: pytest-local
         name: Run tests
-        entry: bash -c 'cd /Users/kreme003/Workspace/git/edugain-qual-improv && source .venv/bin/activate && python -m pytest tests/ -v'
+        entry: bash -c 'source .venv/bin/activate && python -m pytest tests/ -v'
         language: system
         pass_filenames: false
         always_run: true
