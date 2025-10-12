@@ -435,5 +435,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 - **Issues**: [GitHub Issues](https://github.com/maartenk/edugain-qual-improv/issues)
-- **Documentation**: [Package Documentation](docs/index.md)
+- **Documentation**: See [README.md](README.md) for full documentation
 - **Development**: See [CLAUDE.md](CLAUDE.md) for development guidelines

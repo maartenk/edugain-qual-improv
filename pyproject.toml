@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "edugain-analysis"
-version = "2.1.0"
+version = "2.2.0"
 description = "Comprehensive eduGAIN metadata quality analysis"
 readme = "README.md"
 license = "MIT"
@@ -38,7 +38,6 @@ web = [
     "python-multipart>=0.0.6",
     "sqlalchemy>=2.0.0",
 ]
-streamlit = ["streamlit>=1.28.0"]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
@@ -46,16 +45,11 @@ dev = [
     "ruff>=0.1.0",
     "pre-commit>=3.4.0",
 ]
-docs = [
-    "mkdocs>=1.5.0",
-    "mkdocs-material>=9.4.0",
-]
 
 [project.urls]
 Homepage = "https://github.com/maartenk/edugain-qual-improv"
 Repository = "https://github.com/maartenk/edugain-qual-improv"
 Issues = "https://github.com/maartenk/edugain-qual-improv/issues"
-Documentation = "https://edugain-analysis.readthedocs.io"
 
 [project.scripts]
 edugain-analyze = "edugain_analysis.cli.main:main"
