@@ -56,6 +56,8 @@ edugain-analyze = "edugain_analysis.cli.main:main"
 edugain-seccon = "edugain_analysis.cli.seccon:main"
 edugain-sirtfi = "edugain_analysis.cli.sirtfi:main"
 edugain-broken-privacy = "edugain_analysis.cli.broken_privacy:main"
+edugain-download-prompt = "edugain_analysis.cli.download_prompt:main"
+edugain-download-review = "edugain_analysis.cli.download_review:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
