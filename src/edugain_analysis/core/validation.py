@@ -18,6 +18,8 @@ from ..config import (
     URL_VALIDATION_TIMEOUT,
 )
 
+GET_FALLBACK_STATUS_CODES = {301, 302, 303, 307, 308, 403, 405}
+
 # Global rate limiting semaphore
 _url_validation_semaphore = None
 
@@ -100,15 +102,28 @@ def validate_privacy_url(
     time.sleep(URL_VALIDATION_DELAY)
 
     try:
+        headers = {
+            "User-Agent": "eduGAIN-Quality-Analysis/2.0 (URL validation bot)",
+        }
+
         # Simple HTTP HEAD request to check accessibility
         response = requests.head(
             url,
             timeout=URL_VALIDATION_TIMEOUT,
-            headers={
-                "User-Agent": "eduGAIN-Quality-Analysis/2.0 (URL validation bot)",
-            },
+            headers=headers,
             allow_redirects=True,
         )
+
+        # Some sites block HEAD; fallback to lightweight GET in those cases
+        if response.status_code in GET_FALLBACK_STATUS_CODES:
+            response.close()
+            response = requests.get(
+                url,
+                timeout=URL_VALIDATION_TIMEOUT,
+                headers=headers,
+                allow_redirects=True,
+                stream=True,
+            )
 
         status_code = response.status_code
         final_url = response.url
@@ -129,6 +144,7 @@ def validate_privacy_url(
             "error": None,
             "checked_at": datetime.now().isoformat(),
         }
+        response.close()
 
         # Add result to cache
         if validation_cache is not None:

@@ -12,12 +12,3 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
-
-  - repo: local
-    hooks:
-      - id: pytest-local
-        name: Run tests
-        entry: bash -c 'source .venv/bin/activate && python -m pytest tests/ -v'
-        language: system
-        pass_filenames: false
-        always_run: true

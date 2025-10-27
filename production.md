@@ -20,14 +20,14 @@ This guide covers deploying the eduGAIN Quality Dashboard web application to a p
 ### System Requirements
 
 - **Operating System**: Linux (Ubuntu 22.04 LTS or similar)
-- **Python**: 3.11 or higher
+- **Python**: 3.12 or higher (tested on 3.12–3.14)
 - **Memory**: Minimum 2GB RAM (4GB+ recommended)
 - **Storage**: 10GB+ for database and logs
 - **Network**: Stable internet connection for metadata fetching
 
 ### Required Software
 
-- Python 3.11+
+- Python 3.12+
 - pip and virtualenv
 - Nginx or Apache (for reverse proxy)
 - systemd (for process management)
@@ -99,7 +99,7 @@ See [Recommended Production Setup](#recommended-production-setup) below.
 1. **Create Dockerfile:**
 
 ```dockerfile
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -181,7 +181,7 @@ pip install awsebcli
 
 2. Initialize EB application:
 ```bash
-eb init -p python-3.11 edugain-dashboard
+eb init -p python-3.12 edugain-dashboard
 ```
 
 3. Create `.ebextensions/python.config`:
@@ -235,7 +235,7 @@ This section provides step-by-step instructions for deploying to a traditional L
 sudo apt update && sudo apt upgrade -y
 
 # Install Python and dependencies
-sudo apt install -y python3.11 python3.11-venv python3-pip nginx git
+sudo apt install -y python3.12 python3.12-venv python3-pip nginx git
 
 # Create application user
 sudo useradd -m -s /bin/bash edugain
@@ -254,7 +254,7 @@ cd /opt/edugain-dashboard
 git clone https://github.com/your-org/edugain-qual-improv.git .
 
 # Create virtual environment
-python3.11 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
 
 # Install application
