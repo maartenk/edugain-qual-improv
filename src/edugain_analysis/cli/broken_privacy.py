@@ -316,6 +316,14 @@ def main() -> None:
         default=EDUGAIN_METADATA_URL,
         help="Custom metadata URL (default: eduGAIN aggregate)",
     )
+
+    # argparse normally exits on -h/--help, but tests may patch sys.exit;
+    # short circuit to avoid continuing into network work when help is requested.
+    if any(flag in sys.argv[1:] for flag in ("-h", "--help")):
+        parser.print_help()
+        sys.exit(0)
+        return
+
     args = parser.parse_args()
 
     # Get federation mapping

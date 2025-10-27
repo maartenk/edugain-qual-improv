@@ -101,6 +101,57 @@ class TestValidatePrivacyURL:
         assert result["final_url"] == "https://example.org/privacy-final"
         assert result["redirect_count"] == 2
 
+    @patch("requests.get")
+    @patch("requests.head")
+    def test_validation_head_fallback_to_get_success(self, mock_head, mock_get):
+        """Test that validation falls back to GET when HEAD is rejected."""
+        head_response = MagicMock()
+        head_response.status_code = 405
+        head_response.url = "https://example.org/privacy"
+        head_response.history = []
+        mock_head.return_value = head_response
+
+        get_response = MagicMock()
+        get_response.status_code = 200
+        get_response.url = "https://example.org/privacy"
+        get_response.history = [MagicMock()]
+        mock_get.return_value = get_response
+
+        result = validate_privacy_url(
+            "https://example.org/privacy", use_semaphore=False
+        )
+
+        assert result["status_code"] == 200
+        assert result["accessible"] is True
+        assert result["redirect_count"] == 1
+        mock_head.assert_called_once()
+        mock_get.assert_called_once()
+
+    @patch("requests.get")
+    @patch("requests.head")
+    def test_validation_head_fallback_to_get_failure(self, mock_head, mock_get):
+        """Test fallback when GET also fails."""
+        head_response = MagicMock()
+        head_response.status_code = 403
+        head_response.url = "https://example.org/privacy"
+        head_response.history = []
+        mock_head.return_value = head_response
+
+        get_response = MagicMock()
+        get_response.status_code = 500
+        get_response.url = "https://example.org/privacy"
+        get_response.history = []
+        mock_get.return_value = get_response
+
+        result = validate_privacy_url(
+            "https://example.org/privacy", use_semaphore=False
+        )
+
+        assert result["status_code"] == 500
+        assert result["accessible"] is False
+        mock_head.assert_called_once()
+        mock_get.assert_called_once()
+
     @patch("requests.head")
     def test_validation_client_error(self, mock_head):
         """Test URL validation with client error."""

@@ -1,8 +1,7 @@
 # eduGAIN Analysis Package
 
 [![CI](https://github.com/maartenk/edugain-qual-improv/workflows/CI/badge.svg)](https://github.com/maartenk/edugain-qual-improv/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/maartenk/edugain-qual-improv/branch/main/graph/badge.svg)](https://codecov.io/gh/maartenk/edugain-qual-improv)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## 🎯 Overview
@@ -17,7 +16,7 @@ A comprehensive Python package for analyzing eduGAIN federation metadata quality
 - 🌍 **Federation Intelligence**: Automatic mapping from registration authorities to friendly names via eduGAIN API
 - 💾 **XDG-Compliant Caching**: Smart caching system with configurable expiry (metadata: 12h, federations: 30d, URLs: 7d)
 - 📊 **Multiple Output Formats**: Summary statistics, detailed CSV exports, markdown reports, and web UI
-- 🏗️ **Modern Architecture**: Modular design with comprehensive testing (82.35% coverage, 279 tests, 98-100% CLI, 89-96% core)
+- 🏗️ **Modern Architecture**: Modular design with a comprehensive automated test suite across CLI, core, and web layers
 - ⚡ **Fast Tooling**: Ruff for linting and formatting with cyclomatic complexity checks
 - 📈 **Comprehensive Reporting**: Split statistics for SPs vs IdPs with federation-level breakdowns
 - 📦 **Entity-Level Tracking**: Individual entity storage with historical snapshots for trend analysis
@@ -31,15 +30,26 @@ A comprehensive Python package for analyzing eduGAIN federation metadata quality
 git clone https://github.com/maartenk/edugain-qual-improv.git
 cd edugain-qual-improv
 
-# Create virtual environment (requires Python 3.11+)
+# Create virtual environment (requires Python 3.12+, tested on 3.12–3.14)
 python3 -m venv .venv
 source .venv/bin/activate
 
 # Install package in development mode
 pip install -e .
 
-# Or install with development dependencies
-pip install -e .[dev]
+# Or let the helper script manage the environment (adds extras on demand)
+./scripts/dev-env.sh --fresh --with-tests --with-web   # Recreate .venv and install dev tooling + web deps + coverage/xdist
+./scripts/dev-env.sh --with-coverage        # Add pytest-cov
+./scripts/dev-env.sh --with-parallel        # Add pytest-xdist
+./scripts/dev-env.sh --with-web             # Add FastAPI/SQLAlchemy stack
+
+# Makefile wrappers are also available
+make dev-env          # Same as ./scripts/dev-env.sh
+make dev-env-tests    # Installs dev tooling + coverage + xdist
+make dev-env-web      # Installs dev tooling + web extras
+
+# Pick a specific interpreter by exporting DEVENV_PYTHON (falls back to python3.14 → 3.13 → 3.12 → python3)
+DEVENV_PYTHON=python3.14 ./scripts/dev-env.sh --with-tests --with-web
 ```
 
 ### Basic Usage
@@ -379,13 +389,24 @@ rm -rf ~/.cache/edugain-analysis/metadata.xml           # Linux
 ### Setup Development Environment
 
 ```bash
-# Install with development dependencies
-pip install -e .[dev]
+# Bootstrap the development environment
+./scripts/dev-env.sh                 # Installs pytest/ruff/pre-commit
+./scripts/dev-env.sh --with-tests    # Adds pytest-cov + pytest-xdist bundle
+./scripts/dev-env.sh --fresh         # Recreate .venv from scratch
+./scripts/dev-env.sh --with-web      # Adds FastAPI/SQLAlchemy web stack
+
+# Makefile shortcuts
+make dev-env
+make dev-env-tests
+make dev-env-web
+
+# Use DEVENV_PYTHON to force a specific interpreter (default search: python3.14 → 3.13 → 3.12 → python3)
+DEVENV_PYTHON=python3.14 ./scripts/dev-env.sh --with-tests
 
 # Run tests
 pytest
 
-# Run tests with coverage
+# Run tests with coverage (requires the [coverage] extra)
 pytest --cov=src/edugain_analysis
 
 # Lint and format code
@@ -395,6 +416,10 @@ ruff format --check src/ tests/
 # Or use the convenience script
 scripts/lint.sh
 ```
+
+Need to start over? Use `./scripts/dev-env.sh --fresh` to rebuild `.venv`, or run `./scripts/clean-env.sh` / `make clean-env` to remove the virtualenv and cached artifacts.
+
+Prefer pip extras directly? `pip install -e .[dev]` keeps things slim, `pip install -e .[dev,web]` adds FastAPI/SQLAlchemy, and `pip install -e .[tests]` layers in coverage + xdist (equivalent to `--with-tests`).
 
 ### Testing
 
@@ -407,13 +432,10 @@ pytest tests/unit/                          # Unit tests (260+ tests)
 pytest tests/unit/test_web_models.py        # Web model tests only
 pytest tests/unit/test_cli_sirtfi.py        # SIRTFI CLI tests only
 
-# Run with coverage reporting
+# Run with coverage reporting (install the [coverage] extra first)
 pytest --cov=src/edugain_analysis --cov-report=html
 
-# Run without coverage (faster)
-pytest --no-cov
-
-# Run tests in parallel
+# Run tests in parallel (install the [parallel] extra first)
 pytest -n auto
 ```
 
@@ -421,7 +443,7 @@ pytest -n auto
 
 The project uses modern Python tooling:
 - **Ruff**: Fast linting and code formatting
-- **pytest**: Testing with coverage
+- **pytest**: Test execution (add the `[coverage]` or `[parallel]` extras when you need those capabilities)
 - **pre-commit**: Git hooks for quality assurance
 
 ## 📊 Output Examples
@@ -507,7 +529,7 @@ All MVP priorities (1-6) are now complete! ✅
 - ⚡ Using Ruff for unified linting + formatting with complexity analysis
 - 🧹 Removed 282 lines of dead code and duplicate documentation
 - 🔧 Fixed CI/CD workflow to test modern package entry points
-- ✅ 279 tests passing with 82.35% overall coverage (98-100% for CLI, 89-96% for core modules, web modules are integration-level)
+- ✅ 279 automated tests covering CLI, core, and integration-level web modules
 - ♻️ Extracted helper functions for improved maintainability and testability
 
 **Web Dashboard (Complete MVP):**
@@ -520,13 +542,15 @@ All MVP priorities (1-6) are now complete! ✅
 
 ## 📋 Requirements
 
-- **Python**: 3.11 or later
+- **Python**: 3.12 or later (regularly tested on 3.12–3.14)
 - **Dependencies**:
   - `requests` (≥2.28.0) - HTTP requests
   - `platformdirs` (≥3.0.0) - XDG-compliant directories
 - **Optional Dependencies**:
   - FastAPI, SQLAlchemy, Jinja2, uvicorn (install with `[web]`)
-  - pytest, pytest-cov, pytest-xdist, ruff, pre-commit (install with `[dev]`)
+  - pytest + lint tooling (install with `[dev]`)
+  - pytest-cov for coverage reports (install with `[coverage]`)
+  - pytest-xdist for parallel tests (install with `[parallel]`)
 
 ## 🤝 Contributing
 
