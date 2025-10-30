@@ -13,6 +13,17 @@ Modules:
     cli: Command-line interface and main entry point
 """
 
+import sys
+
+# Check Python version requirement (not needed for runtime since pyproject.toml enforces it,
+# but provides a friendlier error message for users who bypass pip)
+if sys.version_info < (3, 12):  # noqa: UP036
+    sys.exit(
+        "Error: eduGAIN Analysis requires Python 3.12 or later.\n"
+        f"You are running Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}.\n"
+        "Please upgrade your Python version or use a compatible interpreter."
+    )
+
 __version__ = "2.2.0"
 __author__ = "eduGAIN Quality Analysis Team"
 

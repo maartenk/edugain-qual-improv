@@ -428,7 +428,7 @@ eduGAIN Metadata Analysis Results
 
 ## 📋 Requirements
 
-- **Python**: 3.11 or later
+- **Python**: 3.12 or later (tested on 3.12, 3.13, 3.14)
 - **Dependencies**:
   - `requests` (≥2.28.0) - HTTP requests
   - `platformdirs` (≥3.0.0) - XDG-compliant directories
