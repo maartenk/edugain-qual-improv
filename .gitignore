@@ -146,7 +146,8 @@ cython_debug/
 [Ll]ib
 [Ll]ib64
 [Ll]ocal
-[Ss]cripts
+# Note: [Ss]cripts pattern disabled to allow project scripts/ directory
+# Virtualenv Scripts/ directory is already covered by .venv/ pattern
 pyvenv.cfg
 .venv
 pip-selfcheck.json
