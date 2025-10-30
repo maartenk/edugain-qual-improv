@@ -1,8 +1,7 @@
 # eduGAIN Analysis Package
 
 [![CI](https://github.com/maartenk/edugain-qual-improv/workflows/CI/badge.svg)](https://github.com/maartenk/edugain-qual-improv/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/maartenk/edugain-qual-improv/branch/main/graph/badge.svg)](https://codecov.io/gh/maartenk/edugain-qual-improv)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## 🎯 Overview
@@ -29,15 +28,26 @@ A comprehensive Python package for analyzing eduGAIN federation metadata quality
 git clone https://github.com/maartenk/edugain-qual-improv.git
 cd edugain-qual-improv
 
-# Create virtual environment (requires Python 3.11+)
+# Create virtual environment (requires Python 3.12+, tested on 3.12–3.14)
 python3 -m venv .venv
 source .venv/bin/activate
 
 # Install package in development mode
 pip install -e .
 
-# Or install with development dependencies
-pip install -e .[dev]
+# Or let the helper script manage the environment (adds extras on demand)
+./scripts/dev-env.sh --fresh --with-tests    # Recreate .venv and install dev tooling + coverage/xdist
+./scripts/dev-env.sh --with-coverage          # Add pytest-cov
+./scripts/dev-env.sh --with-parallel          # Add pytest-xdist
+./scripts/dev-env.sh --with-web               # Add FastAPI/SQLAlchemy stack
+
+# Makefile wrappers are also available
+make dev-env          # Same as ./scripts/dev-env.sh
+make dev-env-tests    # Installs dev tooling + coverage + xdist
+make dev-env-web      # Installs dev tooling + web extras
+
+# Pick a specific interpreter by exporting DEVENV_PYTHON (falls back to python3.14 → 3.13 → 3.12 → python3)
+DEVENV_PYTHON=python3.14 ./scripts/dev-env.sh --with-tests
 ```
 
 ### Basic Usage
@@ -308,13 +318,24 @@ rm -rf ~/.cache/edugain-analysis/metadata.xml           # Linux
 ### Setup Development Environment
 
 ```bash
-# Install with development dependencies
-pip install -e .[dev]
+# Bootstrap the development environment
+./scripts/dev-env.sh                 # Installs pytest/ruff/pre-commit
+./scripts/dev-env.sh --with-tests    # Adds pytest-cov + pytest-xdist bundle
+./scripts/dev-env.sh --fresh         # Recreate .venv from scratch
+./scripts/dev-env.sh --with-web      # Adds FastAPI/SQLAlchemy web stack
+
+# Makefile shortcuts
+make dev-env
+make dev-env-tests
+make dev-env-web
+
+# Use DEVENV_PYTHON to force a specific interpreter (default search: python3.14 → 3.13 → 3.12 → python3)
+DEVENV_PYTHON=python3.14 ./scripts/dev-env.sh --with-tests
 
 # Run tests
 pytest
 
-# Run tests with coverage
+# Run tests with coverage (requires the [coverage] extra)
 pytest --cov=src/edugain_analysis
 
 # Lint and format code
@@ -324,6 +345,10 @@ ruff format --check src/ tests/
 # Or use the convenience script
 scripts/lint.sh
 ```
+
+Need to start over? Use `./scripts/dev-env.sh --fresh` to rebuild `.venv`, or run `./scripts/clean-env.sh` / `make clean-env` to remove the virtualenv and cached artifacts.
+
+Prefer pip extras directly? `pip install -e .[dev]` keeps things slim, `pip install -e .[dev,web]` adds FastAPI/SQLAlchemy, and `pip install -e .[tests]` layers in coverage + xdist (equivalent to `--with-tests`).
 
 ### Testing
 

@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
+    branches: [ '**' ]  # Run on all branches
   pull_request:
+    branches: [ '**' ]  # Run on PRs to all branches
   workflow_dispatch:
 
 jobs:
@@ -12,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.12", "3.13", "3.14"]
 
     steps:
     - name: Checkout code
@@ -29,41 +31,25 @@ jobs:
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        ./scripts/dev-env.sh --fresh --with-tests
 
-    - name: Run tests with coverage
+    - name: Run tests
       run: |
-        pytest tests/ -v --cov-report=xml || true
-      continue-on-error: true
+        . .venv/bin/activate
+        pytest tests/ -v
 
-    - name: Upload coverage to Codecov
-      if: always()
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.xml
-        flags: python-${{ matrix.python-version }}
-        name: coverage-py${{ matrix.python-version }}
-        token: ${{ secrets.CODECOV_TOKEN }}
-        fail_ci_if_error: false
-
-    - name: Test script functionality and runtime requirements
-      continue-on-error: true
+    - name: Test CLI entry points and package installation
       run: |
-        # Sanity-check primary CLI entry points (run modules via src/ layout)
-        export PYTHONPATH=src:$PYTHONPATH
-        python analyze.py --help || echo "⚠️ analyze.py --help failed"
-        python -m edugain_analysis --help || echo "⚠️ python -m edugain_analysis --help failed"
-        python -m edugain_analysis.cli.main --help || echo "⚠️ edugain_analysis.cli.main --help failed"
-        python -m edugain_analysis.cli.seccon --help || echo "⚠️ edugain_analysis.cli.seccon --help failed"
-        python -m edugain_analysis.cli.sirtfi --help || echo "⚠️ edugain_analysis.cli.sirtfi --help failed"
-        python -m edugain_analysis.cli.broken_privacy --help || echo "⚠️ edugain_analysis.cli.broken_privacy --help failed"
-        # Test runtime-only requirements (only on latest Python)
-        if [ "${{ matrix.python-version }}" = "3.13" ]; then
-          python -m venv /tmp/runtime_test || echo "⚠️ venv creation failed"
-          source /tmp/runtime_test/bin/activate || echo "⚠️ venv activation failed"
-          pip install -r requirements-runtime.txt || echo "⚠️ runtime requirements install failed"
-          pip install . || echo "⚠️ package install failed"
-          python -c "import edugain_analysis; print('✅ Runtime package import works')" || echo "⚠️ edugain_analysis import failed"
-          deactivate || echo "⚠️ venv deactivation failed"
-        fi
+        . .venv/bin/activate
+
+        # Test all CLI entry points work (fail fast if any fail)
+        edugain-analyze --help
+        edugain-seccon --help
+        edugain-sirtfi --help
+        edugain-broken-privacy --help
+
+        # Test convenience wrapper
+        python analyze.py --help
+
+        # Test Python module invocation
+        python -m edugain_analysis --help

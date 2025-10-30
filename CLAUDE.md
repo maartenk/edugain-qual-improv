@@ -14,15 +14,22 @@ A modern Python package for eduGAIN quality improvement analysis. The codebase f
 
 ### Environment Setup
 ```bash
-# Create virtual environment (Python 3.11+ required)
+# Fast path: use helper scripts (preferred)
+./scripts/dev-env.sh --fresh --with-tests    # Full stack: pytest/ruff/pre-commit/cov/xdist
+./scripts/dev-env.sh --with-coverage         # Add pytest-cov later
+./scripts/dev-env.sh --with-parallel         # Add pytest-xdist later
+./scripts/dev-env.sh --with-web              # Add FastAPI/SQLAlchemy later
+# DEVENV_PYTHON lets you pin a specific interpreter (search order is python3.14 → 3.13 → 3.12 → python3)
+DEVENV_PYTHON=python3.14 ./scripts/dev-env.sh --with-tests
+
+# Alternative: manual setup (Python 3.12+ required)
 python3 -m venv .venv
 source .venv/bin/activate
+pip install -e .[dev]
 
-# Install package in development mode
-pip install -e .
-
-# Or install with optional dependencies
-pip install -e .[dev,web]
+# Optional extras (manual)
+pip install -e .[tests]      # pytest-cov + pytest-xdist bundle
+pip install -e .[web]         # FastAPI/SQLAlchemy for web dashboard
 ```
 
 ### Usage - Privacy/Security Analysis
@@ -228,14 +235,18 @@ src/edugain_analysis/
 **Core:**
 - **requests ≥2.28.0**: HTTP client for metadata and API calls
 - **platformdirs ≥3.0.0**: XDG Base Directory compliance for cache storage
-- **Python 3.11+**: Type hints, xml.etree.ElementTree, csv, concurrent.futures
+- **Python 3.12+**: Type hints, xml.etree.ElementTree, csv, concurrent.futures
 
 **Development (optional):**
-- pytest, pytest-cov, pytest-xdist: Testing and coverage
-- ruff: Linting and formatting
-- pre-commit: Git hooks for code quality
+- `pip install -e .[dev]` → pytest, ruff, pre-commit
+- `pip install -e .[web]` → FastAPI, SQLAlchemy, uvicorn, etc.
+- `pip install -e .[coverage]` → pytest-cov (coverage reports)
+- `pip install -e .[parallel]` → pytest-xdist (parallel tests)
+- `pip install -e .[tests]` → pytest-cov + pytest-xdist bundle
 
 ## Development Notes
+
+- Prefer `./scripts/dev-env.sh` (or `make dev-env*` targets) to mirror CI's toolchain. `--with-tests` installs coverage + xdist, `--with-web` adds the FastAPI/SQLAlchemy stack, and `--fresh` recreates `.venv` from scratch. Use `./scripts/clean-env.sh` / `make clean-env` to wipe the virtualenv and caches when you need a reset.
 
 ### Code Organization
 - **Modular design**: CLI, core logic, formatters, and config are separated
@@ -271,21 +282,18 @@ tests/
 # Activate virtual environment first
 source .venv/bin/activate
 
-# Basic test run (coverage enabled by default)
+# Basic test run (requires [tests] or [coverage] extra)
 pytest
 
 # Run specific test modules
 pytest tests/unit/test_cli_main.py -v
 pytest tests/unit/test_core_analysis.py -v
 
-# Generate HTML coverage report
-pytest --cov-report=html
+# Generate HTML coverage report (requires [coverage] extra)
+pytest --cov=src/edugain_analysis --cov-report=html
 open htmlcov/index.html
 
-# Run tests without coverage (faster)
-pytest --no-cov
-
-# Parallel execution with xdist
+# Parallel execution (requires [parallel] extra)
 pytest -n auto
 ```
 
@@ -293,18 +301,18 @@ pytest -n auto
 
 ### Coverage Configuration
 - **HTML reports**: Generated in `htmlcov/` directory
-- **XML reports**: For CI/CD Codecov integration
-- **Multi-version testing**: Python 3.11, 3.12, 3.13 tracked separately
+- **XML reports**: For CI/CD integration
+- **Multi-version testing**: Python 3.12, 3.13, 3.14 tracked separately
 - **Parallel coverage**: Enabled via pytest-cov configuration
 - **Exclusions**: Test files, `__main__` blocks, abstract methods, debug code
 
 ### CI/CD Integration
 - **GitHub Actions**: Automated testing on all branches via `.github/workflows/ci.yml`
 - **Trigger events**: Push to any branch, pull requests to any branch, manual workflow dispatch
-- **Codecov**: Automatic coverage upload with multi-version flags (python-3.11, python-3.12, python-3.13)
-- **Quality gates**: Linting and formatting (ruff)
-- **Matrix testing**: Python 3.11, 3.12, and 3.13 tested in parallel
-- **Continue on error**: Tests continue even if individual steps fail to maximize coverage reporting
+- **Coverage reporting**: Automatic coverage generation and upload to Codecov with multi-version flags
+- **Quality gates**: All tests must pass (no continue-on-error), linting and formatting (ruff)
+- **Matrix testing**: Python 3.12, 3.13, and 3.14 tested in parallel
+- **CLI entry point tests**: Validates all 4 CLI commands (analyze, seccon, sirtfi, broken-privacy)
 
 ## Key Features
 
@@ -353,8 +361,8 @@ pre-commit run --all-files
 2. Implement changes in appropriate module (`cli/`, `core/`, `formatters/`)
 3. Add type hints and docstrings
 4. Write unit tests in `tests/unit/`
-5. Run tests: `pytest -v`
-6. Check coverage: `pytest --cov-report=term-missing`
+5. Run tests: `pytest -v` (requires `[tests]` extra)
+6. Check coverage: `pytest --cov=src/edugain_analysis --cov-report=term-missing` (requires `[coverage]` extra)
 7. Run quality checks: `ruff check`, `ruff format --check`
 8. Commit with descriptive message
 9. Push and create PR
