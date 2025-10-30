@@ -1,7 +1,10 @@
 # eduGAIN Analysis Package
 
 [![CI](https://github.com/maartenk/edugain-qual-improv/workflows/CI/badge.svg)](https://github.com/maartenk/edugain-qual-improv/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/maartenk/edugain-qual-improv/branch/main/graph/badge.svg)](https://codecov.io/gh/maartenk/edugain-qual-improv)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![GitHub release](https://img.shields.io/github/v/release/maartenk/edugain-qual-improv)](https://github.com/maartenk/edugain-qual-improv/releases)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## 🎯 Overview
@@ -407,24 +410,27 @@ eduGAIN Metadata Analysis Results
 - **missing-both**: SPs missing both privacy and security
 - **urls**: URL validation results (with `--validate`)
 
-## 🏗️ Recent Improvements (v2.1.0)
+## 🏗️ Recent Improvements (v2.2.0)
+
+**Developer Experience & Build Tooling:**
+- 🚀 New helper scripts: `scripts/dev-env.sh` and `scripts/clean-env.sh` for easier environment setup
+- 🛠️ Added Makefile with convenient targets (`make dev-env`, `make test`, `make clean-env`)
+- 📦 Modular dependency extras: `[dev]`, `[tests]`, `[coverage]`, `[parallel]`, `[web]`
+- 🐍 Python 3.12+ requirement with friendly version check error message
+- ⚡ Improved CI/CD: All 4 CLI commands tested, coverage reporting to Codecov
 
 **SIRTFI Compliance Analysis:**
 - 🆕 Added `edugain-sirtfi` CLI for SIRTFI compliance validation
 - 🆕 Added `edugain-broken-privacy` CLI for finding broken privacy statement links
 - 🔍 Detects entities with SIRTFI certification but missing security contacts (compliance violations)
 - 📊 Comprehensive SIRTFI tracking across all output formats (summary, CSV, markdown)
-- ✅ 260+ comprehensive test cases with high code coverage
+- ✅ 220+ comprehensive test cases with high code coverage
 
 **Tooling & Code Quality:**
-- 🧹 Removed Black and mypy dependencies - using Ruff exclusively for all linting and formatting
-- 📝 Streamlined development workflow with single unified toolchain
+- 🧹 Using Ruff exclusively for all linting and formatting (removed Black and mypy)
+- 🔧 URL validation improvements: GET fallback for sites blocking HEAD requests
+- 📈 Code coverage tracking with Codecov integration
 - ✅ All tests passing with 100% CLI coverage, 90%+ core module coverage
-
-**Documentation:**
-- 📚 Updated README.md and CLAUDE.md with new CLI tools
-- 🔧 Cleaned up all references to deprecated tooling
-- 📖 Enhanced developer guide with detailed data processing flows
 
 ## 📋 Requirements
 
