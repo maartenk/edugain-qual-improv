@@ -7,6 +7,16 @@
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+## Table of Contents
+- [Overview](#-overview)
+- [Quick Start](#-quick-start)
+- [Command Reference](#-command-reference)
+- [Advanced Configuration](#-advanced-configuration)
+- [Metadata & Caching](#-metadata--caching)
+- [Advanced (optional)](#-advanced-optional)
+- [Developer Setup](#-developer-setup)
+- [Contributing](#-contributing)
+
 ## 🎯 Overview
 
 A comprehensive Python package for analyzing eduGAIN federation metadata quality, privacy statement coverage, security compliance, and SIRTFI certification. Built following modern Python standards with PEP 517/518/621 compliance.
@@ -24,140 +34,171 @@ A comprehensive Python package for analyzing eduGAIN federation metadata quality
 
 ## 🚀 Quick Start
 
-### Installation
+### Install the CLI
 
 ```bash
-# Clone repository
+python -m pip install --upgrade pip
+python -m pip install edugain-analysis
+```
+
+Prefer running from a clone? Install in editable mode instead:
+
+```bash
 git clone https://github.com/maartenk/edugain-qual-improv.git
 cd edugain-qual-improv
-
-# Create virtual environment (requires Python 3.12+, tested on 3.12–3.14)
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install package in development mode
-pip install -e .
-
-# Or let the helper script manage the environment (adds extras on demand)
-./scripts/dev-env.sh --fresh --with-tests    # Recreate .venv and install dev tooling + coverage/xdist
-./scripts/dev-env.sh --with-coverage          # Add pytest-cov
-./scripts/dev-env.sh --with-parallel          # Add pytest-xdist
-./scripts/dev-env.sh --with-web               # Add FastAPI/SQLAlchemy stack
-
-# Makefile wrappers are also available
-make dev-env          # Same as ./scripts/dev-env.sh
-make dev-env-tests    # Installs dev tooling + coverage + xdist
-make dev-env-web      # Installs dev tooling + web extras
-
-# Pick a specific interpreter by exporting DEVENV_PYTHON (falls back to python3.14 → 3.13 → 3.12 → python3)
-DEVENV_PYTHON=python3.14 ./scripts/dev-env.sh --with-tests
+python -m pip install -e .
 ```
 
-### Basic Usage
+### Run your first analysis
 
 ```bash
-# Analyze eduGAIN metadata for privacy, security, and SIRTFI coverage
-python analyze.py
+# Summary of privacy, security contacts, and SIRTFI coverage
+edugain-analyze
 
-# Generate detailed markdown report (includes SIRTFI statistics)
-python analyze.py --report
+# Detailed markdown report grouped by federation
+edugain-analyze --report
 
-# Export entities missing privacy statements (includes SIRTFI column)
-python analyze.py --csv missing-privacy
+# CSV export of entities missing privacy statements
+edugain-analyze --csv missing-privacy
 
-# Enable comprehensive URL validation (slower but thorough)
-python analyze.py --validate
-
-# Or use the package directly
-python -m edugain_analysis
+# Validate privacy statement URLs while producing the summary
+edugain-analyze --validate
 ```
 
-## 📚 CLI Reference
+## 📋 Command Reference
 
-### Privacy & Security Analysis
+| Command | Purpose | Helpful options |
+| --- | --- | --- |
+| `edugain-analyze` | Main privacy/security/SIRTFI analysis | `--report`, `--csv <type>`, `--validate`, `--source <file-or-url>` |
+| `edugain-seccon` | Entities with security contacts but no SIRTFI | `--local-file`, `--no-headers` |
+| `edugain-sirtfi` | Entities with SIRTFI but no security contact | `--local-file`, `--no-headers` |
+| `edugain-broken-privacy` | Service Providers with broken privacy links | `--local-file`, `--no-headers`, `--url <metadata-url>` |
+
+All commands default to the live eduGAIN aggregate metadata. Supply `--source path.xml` or `--source https://custom` to work with alternative metadata files.
+
+### `edugain-analyze`
+The primary CLI for day-to-day reporting. Generates summaries, CSV exports, and markdown reports in one pass.
 
 ```bash
-# Show summary statistics (default)
-python analyze.py
+# Quick snapshot with SIRTFI coverage in the summary
+edugain-analyze
 
-# Export options
-python analyze.py --csv entities               # All entities
-python analyze.py --csv federations            # Federation statistics
-python analyze.py --csv missing-privacy        # Entities missing privacy statements
-python analyze.py --csv missing-security       # Entities missing security contacts
-python analyze.py --csv missing-both           # Entities missing both
-python analyze.py --csv urls                   # Basic URL list (SPs with privacy statements)
-python analyze.py --csv urls-validated         # URL validation results (enables validation)
+# Markdown report plus live privacy URL checks
+edugain-analyze --report-with-validation
 
-# Advanced features
-python analyze.py --report                     # Detailed markdown report
-python analyze.py --validate                   # Enable URL validation
-python analyze.py --source metadata.xml        # Use local XML file
-python analyze.py --url CUSTOM_URL             # Use custom metadata URL
+# Export only SPs missing both safeguards
+edugain-analyze --csv missing-both --no-headers > missing.csv
 ```
 
-### SIRTFI Compliance Analysis
-
-The package includes two specialized commands for analyzing SIRTFI compliance:
+### `edugain-seccon`
+Surfaces entities that publish a security contact but have not completed SIRTFI certification—ideal for prioritizing follow-up.
 
 ```bash
-# Find entities WITH security contacts but WITHOUT SIRTFI certification
-edugain-seccon                              # Analyze current metadata
-edugain-seccon --local-file metadata.xml    # Use local file
-edugain-seccon --no-headers                 # Omit CSV headers
-edugain-seccon > seccon_report.csv          # Save to file
+# Live metadata
+edugain-seccon
 
-# Find entities WITH SIRTFI certification but WITHOUT security contacts (compliance violation)
-edugain-sirtfi                              # Analyze current metadata
-edugain-sirtfi --local-file metadata.xml    # Use local file
-edugain-sirtfi --no-headers                 # Omit CSV headers
-edugain-sirtfi > sirtfi_violations.csv      # Save to file
+# Offline review against a cached aggregate
+edugain-seccon --local-file reports/metadata.xml
 ```
 
-**Output Format:** CSV with columns `RegistrationAuthority,EntityType,OrganizationName,EntityID`
-
-**Use Cases:**
-- `edugain-seccon`: Identify potential candidates for SIRTFI certification (entities already with security contacts)
-- `edugain-sirtfi`: Detect SIRTFI compliance violations (entities claiming SIRTFI without publishing security contacts)
-
-### Broken Privacy Links Analysis
-
-The package includes a specialized command for finding Service Providers with broken (inaccessible) privacy statement URLs:
+### `edugain-sirtfi`
+Flags entities that claim SIRTFI compliance yet fail to list a security contact, highlighting policy violations.
 
 ```bash
-# Find SPs with broken privacy statement links (always runs live validation)
-edugain-broken-privacy                          # Analyze current metadata
-edugain-broken-privacy --local-file metadata.xml # Use local file
-edugain-broken-privacy --no-headers             # Omit CSV headers
-edugain-broken-privacy --url CUSTOM_URL         # Use custom metadata URL
-edugain-broken-privacy > broken_links.csv       # Save to file
+# Focus on current gaps
+edugain-sirtfi
+
+# Custom feed (e.g., private federation snapshot)
+edugain-sirtfi --url https://example/federation.xml
 ```
 
-**Output Format:** CSV with columns `Federation,SP,EntityID,PrivacyLink,ErrorCode,ErrorType,CheckedAt`
-
-**Features:**
-- **Live Validation**: Always performs real-time HTTP checks (10 parallel workers)
-- **Error Categorization**: Categorizes errors into actionable types (SSL errors, 404s, timeouts, etc.)
-- **Federation Mapping**: Automatically maps registration authorities to friendly federation names
-- **Progress Reporting**: Shows validation progress with status updates
-
-**Use Cases:**
-- Identify broken privacy statement links that need fixing
-- Monitor privacy statement accessibility across federations
-- Generate reports for federation operators to improve compliance
-
-### Using the Package Directly
+### `edugain-broken-privacy`
+Targets Service Providers with privacy statement URLs that fail a lightweight accessibility check.
 
 ```bash
-# Run the main analysis module
-python -m edugain_analysis
+# Default live run with 10 parallel validators
+edugain-broken-privacy
 
-# Run specific components
-python -m edugain_analysis.cli.main
-python -m edugain_analysis.cli.seccon
-python -m edugain_analysis.cli.sirtfi
-python -m edugain_analysis.cli.broken_privacy
+# Skip headers when piping into other tooling
+edugain-broken-privacy --no-headers | tee broken-urls.csv
 ```
+
+## 📤 CSV & Report Exports
+
+`edugain-analyze --csv` supports the following types (all include SIRTFI columns):
+
+- `entities` – complete view of all entities
+- `federations` – per-federation roll-up
+- `missing-privacy`, `missing-security`, `missing-both`
+- `urls` – privacy statement URLs for SPs
+- `urls-validated` – includes HTTP status data (enables live validation)
+
+Markdown reports are produced with `--report` (or `--report-with-validation` to perform live URL checks while generating the report).
+
+**CSV Columns**
+
+| Column | Description |
+| --- | --- |
+| `Federation` | Friendly federation name (API-backed) |
+| `EntityType` | `SP` or `IdP` |
+| `OrganizationName` | Display name from metadata |
+| `EntityID` | SAML entity identifier |
+| `HasPrivacyStatement` | `Yes`/`No` (SPs only) |
+| `PrivacyStatementURL` | Declared privacy URL (SPs) |
+| `HasSecurityContact` | `Yes`/`No` |
+| `HasSIRTFI` | `Yes`/`No` |
+| *(with validation)* `URLStatusCode`, `FinalURL`, `URLAccessible`, `RedirectCount`, `ValidationError` |
+
+## 🔗 URL Validation (optional)
+
+Enabling `--validate`, `--report-with-validation`, or `--csv urls-validated` triggers live HTTP checks for privacy statement URLs. Results are cached for seven days to avoid repeat lookups. When validation runs, extra columns are appended to CSV exports:
+
+- `URLStatusCode`, `FinalURL`, `URLAccessible`, `RedirectCount`, `ValidationError`
+
+## ⚙️ Advanced Configuration
+
+Runtime defaults live in `src/edugain_analysis/config/settings.py`. Tweak them if you need to point at alternative metadata sources or adjust validation behaviour.
+
+- `EDUGAIN_METADATA_URL`, `EDUGAIN_FEDERATIONS_API`: swap these when working with staging aggregates or private federation indexes.
+- Cache knobs (`METADATA_CACHE_HOURS`, `FEDERATION_CACHE_DAYS`, `URL_VALIDATION_CACHE_DAYS`) define how long downloads are reused; shorten them during rapid testing, extend them to reduce network traffic.
+- URL validation controls (`URL_VALIDATION_TIMEOUT`, `URL_VALIDATION_DELAY`, `URL_VALIDATION_THREADS`, `MAX_CONTENT_SIZE`) let you balance accuracy with load on remote sites.
+- `REQUEST_TIMEOUT` covers metadata and federation lookups; bump it for slow-on-purpose mirrors.
+
+After adjusting the settings file, re-run the CLI—changes take effect immediately because the module is imported at runtime.
+
+## 📦 Metadata & Caching
+
+- **Default source**: eduGAIN aggregate metadata (`https://mds.edugain.org/edugain-v2.xml`)
+- **Overrides**: Use `--source path.xml` for local files or `--url` (where available) for alternate feeds
+- **Caching**: Metadata (12h), federation mapping (30d), and URL validation results (7d) are cached in the XDG cache directory (typically `~/.cache/edugain-analysis/`)
+
+## 🧰 Advanced (optional)
+
+- Run from source: `python analyze.py` mirrors `edugain-analyze`
+- Use Docker: `docker compose build` then `docker compose run --rm cli edugain-analyze`
+- Batch everything locally: `scripts/local-ci.sh` runs linting, tests, coverage, and Docker smoke tests
+- Tweak the helper via env vars: `SKIP_COVERAGE=1` or `SKIP_DOCKER=1` to skip heavier steps
+
+## 🛠️ Developer Setup
+
+The quickest way to bootstrap a local environment is the helper script; extras can be combined to match your workflow.
+
+```bash
+# Fresh environment with test tooling and coverage plugins
+./scripts/dev-env.sh --fresh --with-tests --with-coverage
+
+# Add parallel pytest workers or optional web stack dependencies
+./scripts/dev-env.sh --with-parallel --with-web
+```
+
+- `DEVENV_PYTHON` overrides the interpreter search (order: `python3.14`, `python3.13`, `python3.12`, `python3`). Example: `DEVENV_PYTHON=python3.13 ./scripts/dev-env.sh`.
+- Prefer manual setup? Create a virtualenv and run `pip install -e ".[dev]"`. Add `.[tests]`, `.[coverage]`, or `.[parallel]` as needed.
+- Curious about the experimental web dashboards? Install `pip install -e ".[web]"`—the optional dependency group lives in `pyproject.toml` even though the web module is still evolving.
+- `scripts/clean-env.sh` and `scripts/clean-artifacts.sh` remove virtualenvs and cached outputs when you need a clean slate.
+
+## 📘 Need developer details?
+
+Developer tooling, architecture notes, and testing guidance now live in `docs/CLAUDE.md`. The docs index at `docs/README.md` links to all supporting material.
 
 ## 🏗️ Package Architecture
 
@@ -316,70 +357,6 @@ rm -rf ~/Library/Caches/edugain-analysis/metadata.xml  # macOS
 rm -rf ~/.cache/edugain-analysis/metadata.xml           # Linux
 ```
 
-## 🔧 Development
-
-### Setup Development Environment
-
-```bash
-# Bootstrap the development environment
-./scripts/dev-env.sh                 # Installs pytest/ruff/pre-commit
-./scripts/dev-env.sh --with-tests    # Adds pytest-cov + pytest-xdist bundle
-./scripts/dev-env.sh --fresh         # Recreate .venv from scratch
-./scripts/dev-env.sh --with-web      # Adds FastAPI/SQLAlchemy web stack
-
-# Makefile shortcuts
-make dev-env
-make dev-env-tests
-make dev-env-web
-
-# Use DEVENV_PYTHON to force a specific interpreter (default search: python3.14 → 3.13 → 3.12 → python3)
-DEVENV_PYTHON=python3.14 ./scripts/dev-env.sh --with-tests
-
-# Run tests
-pytest
-
-# Run tests with coverage (requires the [coverage] extra)
-pytest --cov=src/edugain_analysis
-
-# Lint and format code
-ruff check src/ tests/
-ruff format --check src/ tests/
-
-# Or use the convenience script
-scripts/lint.sh
-```
-
-Need to start over? Use `./scripts/dev-env.sh --fresh` to rebuild `.venv`, or run `./scripts/clean-env.sh` / `make clean-env` to remove the virtualenv and cached artifacts.
-
-Prefer pip extras directly? `pip install -e .[dev]` keeps things slim, `pip install -e .[dev,web]` adds FastAPI/SQLAlchemy, and `pip install -e .[tests]` layers in coverage + xdist (equivalent to `--with-tests`).
-
-### Testing
-
-```bash
-# Run all tests
-pytest
-
-# Run specific test categories
-pytest tests/unit/                          # Unit tests (260+ tests)
-pytest tests/unit/test_cli_sirtfi.py        # SIRTFI CLI tests only
-
-# Run with coverage reporting
-pytest --cov=src/edugain_analysis --cov-report=html
-
-# Run without coverage (faster)
-pytest --no-cov
-
-# Run tests in parallel
-pytest -n auto
-```
-
-### Code Quality
-
-The project uses modern Python tooling:
-- **Ruff**: Fast linting and code formatting
-- **pytest**: Testing with coverage
-- **pre-commit**: Git hooks for quality assurance
-
 ## 📊 Output Examples
 
 ### Summary Statistics
@@ -413,9 +390,10 @@ eduGAIN Metadata Analysis Results
 ## 🏗️ Recent Improvements (v2.2.0)
 
 **Developer Experience & Build Tooling:**
-- 🚀 New helper scripts: `scripts/dev-env.sh` and `scripts/clean-env.sh` for easier environment setup
-- 🛠️ Added Makefile with convenient targets (`make dev-env`, `make test`, `make clean-env`)
-- 📦 Modular dependency extras: `[dev]`, `[tests]`, `[coverage]`, `[parallel]`, `[web]`
+- 🚀 New helper scripts: `scripts/dev-env.sh`, `scripts/clean-env.sh`, and `scripts/clean-artifacts.sh` for easier environment setup
+- 🛠️ Added Makefile with convenient targets (`make dev-env`, `make test`, `make coverage`, `make clean-env`, `make clean-artifacts`, `make clean-artifacts-all`)
+- 🧾 Standardized coverage output under `reports/` for easier cleanup and Docker volume sharing
+- 📦 Modular dependency extras: `[dev]`, `[tests]`, `[coverage]`, `[parallel]`
 - 🐍 Python 3.12+ requirement with friendly version check error message
 - ⚡ Improved CI/CD: All 4 CLI commands tested, coverage reporting to Codecov
 
@@ -466,5 +444,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 - **Issues**: [GitHub Issues](https://github.com/maartenk/edugain-qual-improv/issues)
+- **Docs Index**: Browse [docs/README.md](docs/README.md) for additional references
 - **Documentation**: See [README.md](README.md) for full documentation
-- **Development**: See [CLAUDE.md](CLAUDE.md) for development guidelines
+- **Development**: See [docs/CLAUDE.md](docs/CLAUDE.md) for development guidelines
+- **Roadmap**: See [docs/FUTURE_ENHANCEMENTS.md](docs/FUTURE_ENHANCEMENTS.md) for upcoming ideas
