@@ -33,15 +33,18 @@ jobs:
       run: |
         ./scripts/dev-env.sh --fresh --with-tests
 
+    - name: Prepare coverage directories
+      run: mkdir -p reports
+
     - name: Run tests with coverage
       run: |
         . .venv/bin/activate
-        pytest tests/ -v --cov=src/edugain_analysis --cov-report=xml --cov-report=term
+        pytest tests/ -v --cov=src/edugain_analysis --cov-report=term --cov-report=xml:reports/coverage.xml --cov-report=html:reports/htmlcov
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
-        files: ./coverage.xml
+        files: ./reports/coverage.xml
         flags: python-${{ matrix.python-version }}
         name: coverage-py${{ matrix.python-version }}
         fail_ci_if_error: false
@@ -62,3 +65,23 @@ jobs:
 
         # Test Python module invocation
         python -m edugain_analysis --help
+
+  docker-tests:
+    name: Docker Workflow
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Prepare host directories for Compose mounts
+      run: |
+        mkdir -p "${HOME}/.cache/pip" "${HOME}/.cache/edugain" reports
+
+    - name: Show docker compose version
+      run: docker compose version
+
+    - name: Build docker image
+      run: docker compose build
+
+    - name: Run dockerized tests
+      run: docker compose run --rm test
