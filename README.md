@@ -387,28 +387,17 @@ eduGAIN Metadata Analysis Results
 - **missing-both**: SPs missing both privacy and security
 - **urls**: URL validation results (with `--validate`)
 
-## 🏗️ Recent Improvements (v2.2.0)
+## 🏗️ Recent Improvements (v2.3.0)
 
-**Developer Experience & Build Tooling:**
-- 🚀 New helper scripts: `scripts/dev-env.sh`, `scripts/clean-env.sh`, and `scripts/clean-artifacts.sh` for easier environment setup
-- 🛠️ Added Makefile with convenient targets (`make dev-env`, `make test`, `make coverage`, `make clean-env`, `make clean-artifacts`, `make clean-artifacts-all`)
-- 🧾 Standardized coverage output under `reports/` for easier cleanup and Docker volume sharing
-- 📦 Modular dependency extras: `[dev]`, `[tests]`, `[coverage]`, `[parallel]`
-- 🐍 Python 3.12+ requirement with friendly version check error message
-- ⚡ Improved CI/CD: All 4 CLI commands tested, coverage reporting to Codecov
+**Documentation & Guidance:**
+- 📚 README now includes a quick-jump table of contents and expanded command reference with examples for each CLI.
+- 🗂️ Supporting docs moved under `docs/` with an index so contributors can find architecture notes and roadmaps faster.
+- 🛠️ Added detailed developer setup and advanced configuration sections covering helper scripts, cache knobs, and optional extras.
 
-**SIRTFI Compliance Analysis:**
-- 🆕 Added `edugain-sirtfi` CLI for SIRTFI compliance validation
-- 🆕 Added `edugain-broken-privacy` CLI for finding broken privacy statement links
-- 🔍 Detects entities with SIRTFI certification but missing security contacts (compliance violations)
-- 📊 Comprehensive SIRTFI tracking across all output formats (summary, CSV, markdown)
-- ✅ 220+ comprehensive test cases with high code coverage
-
-**Tooling & Code Quality:**
-- 🧹 Using Ruff exclusively for all linting and formatting (removed Black and mypy)
-- 🔧 URL validation improvements: GET fallback for sites blocking HEAD requests
-- 📈 Code coverage tracking with Codecov integration
-- ✅ All tests passing with 100% CLI coverage, 90%+ core module coverage
+**Tooling & Automation:**
+- 🐳 Dockerfile and `docker-compose.yml` refreshed, with matching CI job to keep container builds smoke-tested.
+- 🧹 New maintenance helpers (`scripts/clean-artifacts.sh`, `scripts/docker-cli.sh`, `scripts/local-ci.sh`) streamline local workflows.
+- 🧾 Coverage artifacts standardised beneath `reports/`, making resets and volume mounts simpler.
 
 ## 📋 Requirements
 
