@@ -182,3 +182,5 @@ verify_venv/
 .coverage.*
 htmlcov/
 coverage.xml
+reports/*
+!reports/.gitkeep

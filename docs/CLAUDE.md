@@ -15,10 +15,9 @@ A modern Python package for eduGAIN quality improvement analysis. The codebase f
 ### Environment Setup
 ```bash
 # Fast path: use helper scripts (preferred)
-./scripts/dev-env.sh --fresh --with-tests    # Full stack: pytest/ruff/pre-commit/cov/xdist
+./scripts/dev-env.sh --fresh --with-tests    # pytest/ruff/pre-commit/cov/xdist
 ./scripts/dev-env.sh --with-coverage         # Add pytest-cov later
 ./scripts/dev-env.sh --with-parallel         # Add pytest-xdist later
-./scripts/dev-env.sh --with-web              # Add FastAPI/SQLAlchemy later
 # DEVENV_PYTHON lets you pin a specific interpreter (search order is python3.14 → 3.13 → 3.12 → python3)
 DEVENV_PYTHON=python3.14 ./scripts/dev-env.sh --with-tests
 
@@ -29,89 +28,16 @@ pip install -e .[dev]
 
 # Optional extras (manual)
 pip install -e .[tests]      # pytest-cov + pytest-xdist bundle
-pip install -e .[web]         # FastAPI/SQLAlchemy for web dashboard
 ```
 
-### Usage - Privacy/Security Analysis
+### CLI entry points (quick reminder)
 
-```bash
-# Using convenience wrapper
-python analyze.py                              # Show summary statistics (default)
-python analyze.py --report                     # Generate detailed markdown report
-python analyze.py --report-with-validation     # Report with URL validation
-python analyze.py --csv entities               # Export all entities to CSV
-python analyze.py --csv federations            # Export federation statistics
-python analyze.py --csv urls-validated         # Export URL validation results
-python analyze.py --validate                   # Enable URL validation with summary
-python analyze.py --source metadata.xml        # Use local XML file
-python analyze.py --source https://custom.url  # Use custom metadata URL
+- `edugain-analyze` – primary analysis; mirrors `python analyze.py`. Key options: `--report`, `--report-with-validation`, `--csv <type>`, `--validate`, `--source`.
+- `edugain-seccon` – security contacts present, SIRTFI missing.
+- `edugain-sirtfi` – SIRTFI present, security contacts missing.
+- `edugain-broken-privacy` – discovers SP privacy URLs with HTTP failures (always validates live).
 
-# Using installed CLI command (after pip install)
-edugain-analyze                                # Same options as analyze.py
-edugain-analyze --report
-edugain-analyze --csv entities
-
-# CSV filtering options
-python analyze.py --csv missing-privacy        # SPs missing privacy statements
-python analyze.py --csv missing-security       # Entities missing security contacts
-python analyze.py --csv missing-both           # Entities missing both
-```
-
-**Output Format Notes:**
-- CSV columns: `Federation,EntityType,OrganizationName,EntityID,HasPrivacyStatement,PrivacyStatementURL,HasSecurityContact,HasSIRTFI`
-- Federation names automatically mapped via eduGAIN API (e.g., "InCommon" instead of "https://incommon.org")
-- Privacy statements: Only analyzed for SPs
-- Security contacts: Analyzed for both SPs and IdPs
-- SIRTFI certification: Analyzed for both SPs and IdPs
-- URL validation adds columns: `URLStatusCode,FinalURL,URLAccessible,RedirectCount,ValidationError`
-
-### Usage - SIRTFI Compliance Analysis
-
-The package includes two specialized CLI commands for SIRTFI compliance analysis:
-
-```bash
-# edugain-seccon: Find entities WITH security contacts but WITHOUT SIRTFI certification
-edugain-seccon                                 # Analyze current metadata
-edugain-seccon --local-file metadata.xml       # Use local XML file
-edugain-seccon --no-headers                    # Omit CSV headers
-edugain-seccon --url CUSTOM_URL                # Use custom metadata URL
-edugain-seccon > entities_without_sirtfi.csv   # Save output
-
-# edugain-sirtfi: Find entities WITH SIRTFI but WITHOUT security contacts (compliance violation)
-edugain-sirtfi                                 # Analyze current metadata
-edugain-sirtfi --local-file metadata.xml       # Use local XML file
-edugain-sirtfi --no-headers                    # Omit CSV headers
-edugain-sirtfi --url CUSTOM_URL                # Use custom metadata URL
-edugain-sirtfi > sirtfi_violations.csv         # Save output
-```
-
-**Output:** CSV with columns `RegistrationAuthority,EntityType,OrganizationName,EntityID`
-
-**Use Cases:**
-- `edugain-seccon`: Identify potential candidates for SIRTFI certification (entities with security contacts)
-- `edugain-sirtfi`: Detect SIRTFI compliance violations (SIRTFI entities missing required security contacts)
-
-### Usage - Broken Privacy Links Analysis
-
-```bash
-# edugain-broken-privacy: Find SPs with broken (inaccessible) privacy statement URLs
-edugain-broken-privacy                           # Analyze current metadata (always runs live validation)
-edugain-broken-privacy --local-file metadata.xml # Use local XML file
-edugain-broken-privacy --no-headers              # Omit CSV headers
-edugain-broken-privacy --url CUSTOM_URL          # Use custom metadata URL
-edugain-broken-privacy > broken_links.csv        # Save output
-```
-
-**Output:** CSV with columns `Federation,SP,EntityID,PrivacyLink,ErrorCode,ErrorType,CheckedAt`
-
-**Features:**
-- **Live Validation**: Always performs real-time HTTP checks with 10 parallel workers
-- **Error Categorization**: SSL errors, 404s, timeouts, connection errors, etc.
-- **Federation Mapping**: Automatic federation name resolution
-- **Progress Reporting**: Real-time validation progress updates
-
-**Use Case:**
-- Identify broken privacy statement links across eduGAIN federations for remediation
+See the main `README.md` for end-user examples and CSV column summaries.
 
 ## Architecture
 
@@ -239,14 +165,13 @@ src/edugain_analysis/
 
 **Development (optional):**
 - `pip install -e .[dev]` → pytest, ruff, pre-commit
-- `pip install -e .[web]` → FastAPI, SQLAlchemy, uvicorn, etc.
 - `pip install -e .[coverage]` → pytest-cov (coverage reports)
 - `pip install -e .[parallel]` → pytest-xdist (parallel tests)
 - `pip install -e .[tests]` → pytest-cov + pytest-xdist bundle
 
 ## Development Notes
 
-- Prefer `./scripts/dev-env.sh` (or `make dev-env*` targets) to mirror CI's toolchain. `--with-tests` installs coverage + xdist, `--with-web` adds the FastAPI/SQLAlchemy stack, and `--fresh` recreates `.venv` from scratch. Use `./scripts/clean-env.sh` / `make clean-env` to wipe the virtualenv and caches when you need a reset.
+- Prefer `./scripts/dev-env.sh` (or `make dev-env*` targets) to mirror CI's toolchain. `--with-tests` installs coverage + xdist, and `--fresh` recreates `.venv` from scratch. Use `./scripts/clean-env.sh` / `make clean-env` to wipe the virtualenv and caches when you need a reset.
 
 ### Code Organization
 - **Modular design**: CLI, core logic, formatters, and config are separated
@@ -290,8 +215,8 @@ pytest tests/unit/test_cli_main.py -v
 pytest tests/unit/test_core_analysis.py -v
 
 # Generate HTML coverage report (requires [coverage] extra)
-pytest --cov=src/edugain_analysis --cov-report=html
-open htmlcov/index.html
+pytest --cov=src/edugain_analysis --cov-report=html:reports/htmlcov --cov-report=xml:reports/coverage.xml
+open reports/htmlcov/index.html
 
 # Parallel execution (requires [parallel] extra)
 pytest -n auto
@@ -300,8 +225,8 @@ pytest -n auto
 **Coverage:** High coverage across all modules (100% for CLI, 90%+ for core modules).
 
 ### Coverage Configuration
-- **HTML reports**: Generated in `htmlcov/` directory
-- **XML reports**: For CI/CD integration
+- **HTML reports**: Generated in `reports/htmlcov/` directory
+- **XML reports**: Stored in `reports/coverage.xml` for CI/CD integration
 - **Multi-version testing**: Python 3.12, 3.13, 3.14 tracked separately
 - **Parallel coverage**: Enabled via pytest-cov configuration
 - **Exclusions**: Test files, `__main__` blocks, abstract methods, debug code

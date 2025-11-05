@@ -100,7 +100,7 @@ If implemented:
 - `src/edugain_analysis/web/models.py` - Database models (if applicable)
 - `src/edugain_analysis/web/import_data.py` - Web data import (if applicable)
 - `tests/unit/test_*.py` - All relevant test files
-- `README.md`, `CLAUDE.md` - Documentation
+- `../README.md`, `./CLAUDE.md` - Documentation
 
 ### Discovery Information
 
