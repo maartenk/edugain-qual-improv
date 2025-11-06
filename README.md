@@ -49,6 +49,24 @@ cd edugain-qual-improv
 python -m pip install -e .
 ```
 
+After installation, your environment exposes the CLI entry points `edugain-analyze`, `edugain-seccon`, `edugain-sirtfi`, and `edugain-broken-privacy`. They live in the Python environment’s `bin/` (or `Scripts\` on Windows) like any other console scripts.
+
+Want to run from a clone without installing?
+
+```bash
+# Shell wrappers (from repo root)
+./scripts/app/edugain-analyze.sh --report
+./scripts/app/edugain-seccon.sh
+./scripts/app/edugain-sirtfi.sh
+./scripts/app/edugain-broken-privacy.sh
+
+# Direct module invocation
+python -m edugain_analysis.cli.main
+
+# Convenience wrapper (repo root)
+python analyze.py
+```
+
 ### Run your first analysis
 
 ```bash
@@ -176,7 +194,7 @@ After adjusting the settings file, re-run the CLI—changes take effect immediat
 
 - Run from source: `python analyze.py` mirrors `edugain-analyze`
 - Use Docker: `docker compose build` then `docker compose run --rm cli edugain-analyze`
-- Batch everything locally: `scripts/local-ci.sh` runs linting, tests, coverage, and Docker smoke tests
+- Batch everything locally: `scripts/dev/local-ci.sh` runs linting, tests, coverage, and Docker smoke tests
 - Tweak the helper via env vars: `SKIP_COVERAGE=1` or `SKIP_DOCKER=1` to skip heavier steps
 
 ## 🛠️ Developer Setup
@@ -402,17 +420,12 @@ eduGAIN Metadata Analysis Results
 - **missing-both**: SPs missing both privacy and security
 - **urls**: URL validation results (with `--validate`)
 
-## 🏗️ Recent Improvements (v2.4.0)
+## 🏗️ Recent Improvements (v2.4.1)
 
-**CLI & Core:**
-- ♻️ Introduced shared metadata helpers so each CLI command focuses on its domain while reusing consistent loading, parsing, and CSV output.
-- 🧠 New `core.entities` layer exposes normalized entity records, enabling richer analysis, simplified tests, and less XPath duplication.
-- 🚦 Metadata caching now applies only to the canonical eduGAIN aggregate, preventing stale results when pointing tools at custom feeds.
-
-**Tooling & Automation:**
-- 🐍 Broadened Python support to 3.11+ with matching CI matrix, Docker image defaults, and environment guards.
-- 🛠️ Makefile now drives virtualenv management, linting, and test runs with configurable extras for common workflows.
-- 📄 Documentation and developer scripts refreshed to match the new workflow, including updated setup guidance and cleaned optional extras.
+**CLI & Tooling:**
+- 🧹 `scripts/maintenance/clean-artifacts.sh` now separates artifact and cache cleanup, with `--artifacts-only` / `--cache-only` flags and new `make clean-artifacts` and `make clean-cache` wrappers.
+- 🧭 `make help` is organized into “Run the CLI”, “Develop or extend the app”, and “Maintenance” sections so operators and contributors can find the right commands instantly.
+- ✅ Default version metadata and tests have been bumped to 2.4.1 to accompany this release.
 
 ## 📋 Requirements
 
@@ -430,7 +443,7 @@ eduGAIN Metadata Analysis Results
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes following the coding standards
-4. Run tests and linting (`pytest && scripts/lint.sh`)
+4. Run tests and linting (`pytest && scripts/dev/lint.sh`)
 5. Commit your changes (`git commit -m 'Add amazing feature'`)
 6. Push to the branch (`git push origin feature/amazing-feature`)
 7. Open a Pull Request
