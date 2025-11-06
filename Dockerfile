@@ -1,4 +1,4 @@
-ARG DEVENV_PYTHON=3.12
+ARG DEVENV_PYTHON=3.11
 
 FROM python:${DEVENV_PYTHON}-alpine AS builder
 
@@ -27,7 +27,7 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
 RUN pip install --upgrade pip setuptools wheel
 
-ARG INSTALL_EXTRAS=tests,web
+ARG INSTALL_EXTRAS=tests
 RUN pip install -e .[${INSTALL_EXTRAS}]
 
 FROM python:${DEVENV_PYTHON}-alpine AS runtime

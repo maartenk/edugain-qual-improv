@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/maartenk/edugain-qual-improv/workflows/CI/badge.svg)](https://github.com/maartenk/edugain-qual-improv/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/maartenk/edugain-qual-improv/branch/main/graph/badge.svg)](https://codecov.io/gh/maartenk/edugain-qual-improv)
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![GitHub release](https://img.shields.io/github/v/release/maartenk/edugain-qual-improv)](https://github.com/maartenk/edugain-qual-improv/releases)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -181,19 +181,32 @@ After adjusting the settings file, re-run the CLI—changes take effect immediat
 
 ## 🛠️ Developer Setup
 
-The quickest way to bootstrap a local environment is the helper script; extras can be combined to match your workflow.
+The Makefile now provides an end-user-friendly workflow for managing the virtual environment and tooling:
+
+```bash
+# Create/update .venv and install dev+test extras (Python 3.11+)
+make install EXTRAS=dev,tests PYTHON=python3.11
+
+# Drop into an activated shell (exit with 'exit' or Ctrl-D)
+make shell
+
+# Run linting or the full test suite
+make lint
+make test
+```
+
+Prefer scripts? `scripts/dev-env.sh` remains available for parity with legacy automation:
 
 ```bash
 # Fresh environment with test tooling and coverage plugins
 ./scripts/dev-env.sh --fresh --with-tests --with-coverage
 
-# Add parallel pytest workers or optional web stack dependencies
-./scripts/dev-env.sh --with-parallel --with-web
+# Add parallel pytest workers
+./scripts/dev-env.sh --with-parallel
 ```
 
-- `DEVENV_PYTHON` overrides the interpreter search (order: `python3.14`, `python3.13`, `python3.12`, `python3`). Example: `DEVENV_PYTHON=python3.13 ./scripts/dev-env.sh`.
-- Prefer manual setup? Create a virtualenv and run `pip install -e ".[dev]"`. Add `.[tests]`, `.[coverage]`, or `.[parallel]` as needed.
-- Curious about the experimental web dashboards? Install `pip install -e ".[web]"`—the optional dependency group lives in `pyproject.toml` even though the web module is still evolving.
+- `DEVENV_PYTHON` overrides the interpreter search (order: `python3.14`, `python3.13`, `python3.12`, `python3.11`, `python3`). Example: `DEVENV_PYTHON=python3.11 ./scripts/dev-env.sh`.
+- Manual setup: create a virtualenv and run `pip install -e ".[dev]"`. Layer optional extras like `.[tests]`, `.[coverage]`, or `.[parallel]` as needed.
 - `scripts/clean-env.sh` and `scripts/clean-artifacts.sh` remove virtualenvs and cached outputs when you need a clean slate.
 
 ## 📘 Need developer details?
@@ -401,7 +414,7 @@ eduGAIN Metadata Analysis Results
 
 ## 📋 Requirements
 
-- **Python**: 3.12 or later (tested on 3.12, 3.13, 3.14)
+- **Python**: 3.11 or later (tested on 3.11, 3.12, 3.13, 3.14)
 - **Dependencies**:
   - `requests` (≥2.28.0) - HTTP requests
   - `platformdirs` (≥3.0.0) - XDG-compliant directories

@@ -10,6 +10,15 @@ src_path = Path(__file__).parent.parent / "src"
 sys.path.insert(0, str(src_path))
 
 
+def pytest_sessionstart(session: pytest.Session) -> None:
+    """Abort early on unsupported interpreters with a clear message."""
+    if sys.version_info < (3, 11):  # noqa: UP036 - guard against older interpreters
+        pytest.exit(
+            "Tests require Python 3.11+ to match the package runtime support matrix.",
+            returncode=5,
+        )
+
+
 @pytest.fixture
 def sample_metadata_xml():
     """Sample metadata XML for testing."""

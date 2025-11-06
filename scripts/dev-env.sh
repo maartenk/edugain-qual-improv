@@ -21,17 +21,13 @@ while [[ $# -gt 0 ]]; do
             EXTRAS+=("tests")
             shift
             ;;
-        --with-web)
-            EXTRAS+=("web")
-            shift
-            ;;
         --fresh)
             FRESH=true
             shift
             ;;
         *)
             echo "Unknown option: $1" >&2
-            echo "Usage: $0 [--with-coverage] [--with-parallel] [--with-tests] [--with-web] [--fresh]" >&2
+            echo "Usage: $0 [--with-coverage] [--with-parallel] [--with-tests] [--fresh]" >&2
             exit 1
             ;;
     esac
@@ -50,17 +46,17 @@ select_python() {
         fi
     fi
 
-    local candidates=(python3.14 python3.13 python3.12 python3)
+    local candidates=(python3.14 python3.13 python3.12 python3.11 python3)
     for candidate in "${candidates[@]}"; do
         if command -v "${candidate}" >/dev/null 2>&1; then
-            if "${candidate}" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)' 2>/dev/null; then
+            if "${candidate}" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' 2>/dev/null; then
                 echo "${candidate}"
                 return
             fi
         fi
     done
 
-    echo "No Python >= 3.12 interpreter found. Install python3.12+ or set DEVENV_PYTHON." >&2
+    echo "No Python >= 3.11 interpreter found. Install python3.11+ or set DEVENV_PYTHON." >&2
     exit 1
 }
 

@@ -2,8 +2,8 @@ x-app-base: &app-base
   build:
     context: .
     args:
-      INSTALL_EXTRAS: "tests,web"
-      DEVENV_PYTHON: "${DEVENV_PYTHON:-3.12}"
+      INSTALL_EXTRAS: "tests"
+      DEVENV_PYTHON: "${DEVENV_PYTHON:-3.11}"
   working_dir: /app
   volumes:
     - .:/app
