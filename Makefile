@@ -16,16 +16,12 @@ endef
 .PHONY: help env pip-upgrade deps install extras shell enter leave deps-shell test coverage lint fmt dev-env dev-env-coverage dev-env-parallel dev-env-tests dev-env-fresh clean clean-pycache clean-env clean-artifacts clean-cache clean-artifacts-all clean-all purge
 
 help:
-	@echo "App usage targets (run the eduGAIN tooling):"
+	@echo "Run the CLI (everyday use):"
 	$(call PRINT_HELP,make help,show this message)
-	$(call PRINT_HELP,make install,prepare the local CLI environment with extras ($(EXTRAS)))
-	$(call PRINT_HELP,make shell,enter the project virtualenv for running commands)
-	$(call PRINT_HELP,make test,execute the CLI test suite)
-	$(call PRINT_HELP,make coverage,run tests with coverage reports)
-	$(call PRINT_HELP,make lint,run ruff checks on the project code)
-	$(call PRINT_HELP,make fmt,format the codebase with ruff)
+	$(call PRINT_HELP,make install,set up the eduGAIN CLI locally with extras ($(EXTRAS)))
+	$(call PRINT_HELP,make shell,open the project virtualenv to run commands)
 	@echo ""
-	@echo "Contributor targets (develop or extend the app):"
+	@echo "Develop or extend the app:"
 	$(call PRINT_HELP,make deps,install base requirements only (no extras))
 	$(call PRINT_HELP,make deps-shell,install requirements then drop into the shell)
 	$(call PRINT_HELP,make enter,alias for make shell)
@@ -35,6 +31,10 @@ help:
 	$(call PRINT_HELP,make dev-env-coverage,run dev-env with --with-coverage)
 	$(call PRINT_HELP,make dev-env-parallel,run dev-env with --with-parallel)
 	$(call PRINT_HELP,make dev-env-fresh,run dev-env with --fresh)
+	$(call PRINT_HELP,make test,execute the CLI test suite)
+	$(call PRINT_HELP,make coverage,run tests with coverage reports)
+	$(call PRINT_HELP,make lint,run ruff checks on the project code)
+	$(call PRINT_HELP,make fmt,format the codebase with ruff)
 	@echo ""
 	@echo "Maintenance targets:"
 	$(call PRINT_HELP,make clean,remove build artefacts (retains venv))
@@ -80,53 +80,58 @@ enter: shell
 leave:
 	@echo "Already in an activated shell? Type 'exit' or press Ctrl-D to leave the virtualenv."
 
-deps-shell: install shell
+deps-shell: deps
+	@$(MAKE) shell
 
 test: install
 	@$(PYTHON_BIN) -m pytest
 
 coverage: install
-	@mkdir -p reports
-	@$(PYTHON_BIN) -m pytest --cov=src/edugain_analysis --cov-report=term --cov-report=xml:reports/coverage.xml --cov-report=html:reports/htmlcov
+	@mkdir -p artifacts/coverage/html
+	@$(PYTHON_BIN) -m pytest --cov=src/edugain_analysis --cov-report=term --cov-report=xml:artifacts/coverage/coverage.xml --cov-report=html:artifacts/coverage/html
 
 lint: install
-	@$(VENV)/bin/bash scripts/lint.sh
+	@. "$(VENV)"/bin/activate && ./scripts/dev/lint.sh
 
 fmt: install
 	@$(PYTHON_BIN) -m ruff format src/ tests/
 
 dev-env:
-	./scripts/dev-env.sh
+	./scripts/dev/dev-env.sh
 
 dev-env-coverage:
-	./scripts/dev-env.sh --with-coverage
+	./scripts/dev/dev-env.sh --with-coverage
 
 dev-env-parallel:
-	./scripts/dev-env.sh --with-parallel
+	./scripts/dev/dev-env.sh --with-parallel
 
 dev-env-tests:
-	./scripts/dev-env.sh --with-tests
+	./scripts/dev/dev-env.sh --with-tests
 
 dev-env-fresh:
-	./scripts/dev-env.sh --fresh
-
-clean:
-	@$(MAKE) clean-pycache
-	@rm -rf .pytest_cache .ruff_cache reports/htmlcov *.egg-info
+	./scripts/dev/dev-env.sh --fresh
 
 clean-pycache:
 	@find . -name "__pycache__" -type d -prune -exec rm -rf {} + 2>/dev/null || true
 	@find . -name "*.py[co]" -delete 2>/dev/null || true
 	@find . -name "*.pyo" -delete 2>/dev/null || true
 
+clean:
+	$(MAKE) clean-pycache
+	./scripts/maintenance/clean-artifacts.sh --artifacts-only
+	@rm -rf *.egg-info
+
 clean-env:
 	@rm -rf "$(VENV)"
 
 clean-artifacts:
-	./scripts/clean-artifacts.sh
+	./scripts/maintenance/clean-artifacts.sh --artifacts-only
+
+clean-cache:
+	./scripts/maintenance/clean-artifacts.sh --cache-only
 
 clean-artifacts-all:
-	./scripts/clean-artifacts.sh --reports
+	./scripts/maintenance/clean-artifacts.sh --reports
 
 clean-all: clean clean-env clean-artifacts-all
 
