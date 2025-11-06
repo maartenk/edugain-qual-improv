@@ -195,19 +195,21 @@ make lint
 make test
 ```
 
-Prefer scripts? `scripts/dev-env.sh` remains available for parity with legacy automation:
+Prefer scripts? `scripts/dev/dev-env.sh` remains available if you prefer driving the setup script directly:
 
 ```bash
 # Fresh environment with test tooling and coverage plugins
-./scripts/dev-env.sh --fresh --with-tests --with-coverage
+./scripts/dev/dev-env.sh --fresh --with-tests --with-coverage
 
 # Add parallel pytest workers
-./scripts/dev-env.sh --with-parallel
+./scripts/dev/dev-env.sh --with-parallel
 ```
 
-- `DEVENV_PYTHON` overrides the interpreter search (order: `python3.14`, `python3.13`, `python3.12`, `python3.11`, `python3`). Example: `DEVENV_PYTHON=python3.11 ./scripts/dev-env.sh`.
+- `DEVENV_PYTHON` overrides the interpreter search (order: `python3.14`, `python3.13`, `python3.12`, `python3.11`, `python3`). Example: `DEVENV_PYTHON=python3.11 ./scripts/dev/dev-env.sh`.
 - Manual setup: create a virtualenv and run `pip install -e ".[dev]"`. Layer optional extras like `.[tests]`, `.[coverage]`, or `.[parallel]` as needed.
-- `scripts/clean-env.sh` and `scripts/clean-artifacts.sh` remove virtualenvs and cached outputs when you need a clean slate.
+- `scripts/maintenance/clean-env.sh` and `scripts/maintenance/clean-artifacts.sh` remove virtualenvs and cached outputs when you need a clean slate. Use `make clean-artifacts` or `make clean-cache` for the common paths, or call the script with `--artifacts-only` / `--cache-only` yourself; add `--reports` to prune `reports/`.
+- Test coverage outputs land in `artifacts/coverage/` (HTML + XML). The `reports/` directory is reserved for CLI exports or cached metadata snapshots and is only pruned when you run `scripts/maintenance/clean-artifacts.sh --reports`.
+- Script layout: `scripts/app/` (CLI wrappers), `scripts/dev/` (developer tooling), `scripts/maintenance/` (cache & environment cleanup).
 
 ## 📘 Need developer details?
 
