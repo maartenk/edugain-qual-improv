@@ -24,7 +24,7 @@ if sys.version_info < (3, 11):  # noqa: UP036
         "Please upgrade your Python version or use a compatible interpreter."
     )
 
-__version__ = "2.3.0"
+__version__ = "2.4.0"
 __author__ = "eduGAIN Quality Analysis Team"
 
 from .core import (

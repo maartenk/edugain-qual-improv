@@ -400,17 +400,17 @@ eduGAIN Metadata Analysis Results
 - **missing-both**: SPs missing both privacy and security
 - **urls**: URL validation results (with `--validate`)
 
-## 🏗️ Recent Improvements (v2.3.0)
+## 🏗️ Recent Improvements (v2.4.0)
 
-**Documentation & Guidance:**
-- 📚 README now includes a quick-jump table of contents and expanded command reference with examples for each CLI.
-- 🗂️ Supporting docs moved under `docs/` with an index so contributors can find architecture notes and roadmaps faster.
-- 🛠️ Added detailed developer setup and advanced configuration sections covering helper scripts, cache knobs, and optional extras.
+**CLI & Core:**
+- ♻️ Introduced shared metadata helpers so each CLI command focuses on its domain while reusing consistent loading, parsing, and CSV output.
+- 🧠 New `core.entities` layer exposes normalized entity records, enabling richer analysis, simplified tests, and less XPath duplication.
+- 🚦 Metadata caching now applies only to the canonical eduGAIN aggregate, preventing stale results when pointing tools at custom feeds.
 
 **Tooling & Automation:**
-- 🐳 Dockerfile and `docker-compose.yml` refreshed, with matching CI job to keep container builds smoke-tested.
-- 🧹 New maintenance helpers (`scripts/clean-artifacts.sh`, `scripts/docker-cli.sh`, `scripts/local-ci.sh`) streamline local workflows.
-- 🧾 Coverage artifacts standardised beneath `reports/`, making resets and volume mounts simpler.
+- 🐍 Broadened Python support to 3.11+ with matching CI matrix, Docker image defaults, and environment guards.
+- 🛠️ Makefile now drives virtualenv management, linting, and test runs with configurable extras for common workflows.
+- 📄 Documentation and developer scripts refreshed to match the new workflow, including updated setup guidance and cleaned optional extras.
 
 ## 📋 Requirements
 
