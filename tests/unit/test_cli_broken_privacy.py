@@ -2,10 +2,9 @@
 
 import os
 import sys
-import tempfile
 import xml.etree.ElementTree as ET
 from io import StringIO
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 # Add src to Python path for imports
 sys.path.insert(
@@ -13,6 +12,7 @@ sys.path.insert(
 )
 
 from edugain_analysis.cli.broken_privacy import (
+    EDUGAIN_METADATA_URL,
     analyze_broken_links,
     categorize_error,
     collect_sp_privacy_urls,
@@ -27,26 +27,21 @@ from edugain_analysis.cli.broken_privacy import (
 class TestDownloadMetadata:
     """Test the download_metadata function."""
 
-    @patch("requests.get")
-    def test_download_metadata_success(self, mock_get):
+    @patch("edugain_analysis.cli.broken_privacy.get_metadata")
+    def test_download_metadata_success(self, mock_get_metadata):
         """Test successful metadata download."""
-        mock_response = MagicMock()
-        mock_response.content = b"<xml>test content</xml>"
-        mock_get.return_value = mock_response
+        mock_get_metadata.return_value = b"<xml>test content</xml>"
 
         result = download_metadata("https://example.org/metadata")
 
         assert result == b"<xml>test content</xml>"
-        mock_response.raise_for_status.assert_called_once()
-        mock_get.assert_called_once_with("https://example.org/metadata", timeout=30)
+        mock_get_metadata.assert_called_once_with("https://example.org/metadata", 30)
 
-    @patch("requests.get")
+    @patch("edugain_analysis.cli.broken_privacy.get_metadata")
     @patch("sys.exit")
-    def test_download_metadata_request_exception(self, mock_exit, mock_get):
+    def test_download_metadata_request_exception(self, mock_exit, mock_get_metadata):
         """Test download metadata with request exception."""
-        import requests
-
-        mock_get.side_effect = requests.exceptions.RequestException("Network error")
+        mock_get_metadata.side_effect = RuntimeError("Network error")
 
         with patch("sys.stderr", new_callable=StringIO) as mock_stderr:
             download_metadata("https://example.org/metadata")
@@ -59,21 +54,13 @@ class TestDownloadMetadata:
 class TestGetFederationMapping:
     """Test the get_federation_mapping function."""
 
-    @patch("requests.get")
-    def test_get_federation_mapping_success(self, mock_get):
+    @patch("edugain_analysis.cli.broken_privacy.core_get_federation_mapping")
+    def test_get_federation_mapping_success(self, mock_core_mapping):
         """Test successful federation mapping retrieval."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "fed1": {
-                "reg_auth": "https://example.org",
-                "name": "Example Federation",
-            },
-            "fed2": {
-                "reg_auth": "https://test.org",
-                "name": "Test Federation",
-            },
+        mock_core_mapping.return_value = {
+            "https://example.org": "Example Federation",
+            "https://test.org": "Test Federation",
         }
-        mock_get.return_value = mock_response
 
         result = get_federation_mapping()
 
@@ -81,14 +68,12 @@ class TestGetFederationMapping:
             "https://example.org": "Example Federation",
             "https://test.org": "Test Federation",
         }
-        mock_response.raise_for_status.assert_called_once()
+        mock_core_mapping.assert_called_once()
 
-    @patch("requests.get")
-    def test_get_federation_mapping_error(self, mock_get):
+    @patch("edugain_analysis.cli.broken_privacy.core_get_federation_mapping")
+    def test_get_federation_mapping_error(self, mock_core_mapping):
         """Test federation mapping with request error."""
-        import requests
-
-        mock_get.side_effect = requests.exceptions.RequestException("API error")
+        mock_core_mapping.side_effect = RuntimeError("API error")
 
         with patch("sys.stderr", new_callable=StringIO) as mock_stderr:
             result = get_federation_mapping()
@@ -96,111 +81,56 @@ class TestGetFederationMapping:
         assert result == {}
         assert "Warning: Could not fetch federation mapping" in mock_stderr.getvalue()
 
-    @patch("requests.get")
-    def test_get_federation_mapping_partial_data(self, mock_get):
+    @patch("edugain_analysis.cli.broken_privacy.core_get_federation_mapping")
+    def test_get_federation_mapping_partial_data(self, mock_core_mapping):
         """Test federation mapping with missing fields."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "fed1": {"reg_auth": "https://example.org", "name": "Example Federation"},
-            "fed2": {"reg_auth": "https://test.org"},  # Missing name
-            "fed3": {"name": "Missing RegAuth"},  # Missing reg_auth
+        mock_core_mapping.return_value = {
+            "https://example.org": "Example Federation",
+            "https://test.org": None,
         }
-        mock_get.return_value = mock_response
 
         result = get_federation_mapping()
 
-        # Only fed1 should be included
-        assert result == {"https://example.org": "Example Federation"}
+        assert result == mock_core_mapping.return_value
 
 
 class TestValidateURL:
     """Test the validate_url function."""
 
-    @patch("requests.head")
-    def test_validate_url_success(self, mock_head):
+    @patch("edugain_analysis.cli.broken_privacy.validate_privacy_url")
+    def test_validate_url_success(self, mock_validate):
         """Test successful URL validation."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_head.return_value = mock_response
+        mock_validate.return_value = {
+            "status_code": 200,
+            "accessible": True,
+            "error": "",
+            "checked_at": "2025-01-01T00:00:00Z",
+            "final_url": "https://example.org/privacy",
+            "redirect_count": 0,
+        }
 
         result = validate_url("https://example.org/privacy")
 
+        mock_validate.assert_called_once()
+        args, kwargs = mock_validate.call_args
+        assert args == ("https://example.org/privacy", None)
+        assert kwargs == {"use_semaphore": False}
         assert result["status_code"] == 200
         assert result["accessible"] is True
         assert result["error"] == ""
-        assert "checked_at" in result
+        assert result["final_url"] == "https://example.org/privacy"
 
-    @patch("requests.head")
-    def test_validate_url_ssl_error(self, mock_head):
-        """Test URL validation with SSL error."""
-        import requests
-
-        mock_head.side_effect = requests.exceptions.SSLError("Certificate error")
-
-        result = validate_url("https://example.org/privacy")
-
-        assert result["status_code"] == 0
-        assert result["accessible"] is False
-        assert "SSL error" in result["error"]
-
-    @patch("requests.head")
-    def test_validate_url_connection_error(self, mock_head):
-        """Test URL validation with connection error."""
-        import requests
-
-        mock_head.side_effect = requests.exceptions.ConnectionError("Connection failed")
-
-        result = validate_url("https://example.org/privacy")
-
-        assert result["status_code"] == 0
-        assert result["accessible"] is False
-        assert "Connection error" in result["error"]
-
-    @patch("requests.head")
-    def test_validate_url_timeout(self, mock_head):
-        """Test URL validation with timeout."""
-        import requests
-
-        mock_head.side_effect = requests.exceptions.Timeout()
-
-        result = validate_url("https://example.org/privacy")
-
-        assert result["status_code"] == 0
-        assert result["accessible"] is False
-        assert result["error"] == "Timeout"
-
-    @patch("requests.head")
-    def test_validate_url_too_many_redirects(self, mock_head):
-        """Test URL validation with too many redirects."""
-        import requests
-
-        mock_head.side_effect = requests.exceptions.TooManyRedirects()
-
-        result = validate_url("https://example.org/privacy")
-
-        assert result["status_code"] == 0
-        assert result["accessible"] is False
-        assert result["error"] == "Too many redirects"
-
-    @patch("requests.head")
-    def test_validate_url_client_error(self, mock_head):
-        """Test URL validation with 404 error."""
-        mock_response = MagicMock()
-        mock_response.status_code = 404
-        mock_head.return_value = mock_response
-
-        result = validate_url("https://example.org/privacy")
-
-        assert result["status_code"] == 404
-        assert result["accessible"] is False
-        assert result["error"] == ""
-
-    @patch("requests.head")
-    def test_validate_url_server_error(self, mock_head):
-        """Test URL validation with 500 error."""
-        mock_response = MagicMock()
-        mock_response.status_code = 500
-        mock_head.return_value = mock_response
+    @patch("edugain_analysis.cli.broken_privacy.validate_privacy_url")
+    def test_validate_url_normalizes_missing_error(self, mock_validate):
+        """Ensure missing error strings are normalised."""
+        mock_validate.return_value = {
+            "status_code": 500,
+            "accessible": False,
+            "error": None,
+            "checked_at": "2025-01-01T00:00:00Z",
+            "final_url": "https://example.org/privacy",
+            "redirect_count": 1,
+        }
 
         result = validate_url("https://example.org/privacy")
 
@@ -208,16 +138,23 @@ class TestValidateURL:
         assert result["accessible"] is False
         assert result["error"] == ""
 
-    @patch("requests.head")
-    def test_validate_url_generic_exception(self, mock_head):
-        """Test URL validation with generic exception."""
-        mock_head.side_effect = ValueError("Unexpected error")
+    @patch("edugain_analysis.cli.broken_privacy.validate_privacy_url")
+    def test_validate_url_preserves_error_message(self, mock_validate):
+        """Ensure error messages are preserved."""
+        mock_validate.return_value = {
+            "status_code": 0,
+            "accessible": False,
+            "error": "SSL error: cert failed",
+            "checked_at": "2025-01-01T00:00:00Z",
+            "final_url": "https://example.org/privacy",
+            "redirect_count": 0,
+        }
 
         result = validate_url("https://example.org/privacy")
 
         assert result["status_code"] == 0
         assert result["accessible"] is False
-        assert result["error"] == "Unexpected error"
+        assert result["error"] == "SSL error: cert failed"
 
 
 class TestCategorizeError:
@@ -472,8 +409,8 @@ class TestCollectSPPrivacyURLs:
 class TestValidatePrivacyURLs:
     """Test the validate_privacy_urls function."""
 
-    @patch("edugain_analysis.cli.broken_privacy.validate_url")
-    def test_validate_privacy_urls_success(self, mock_validate):
+    @patch("edugain_analysis.cli.broken_privacy.validate_urls_parallel")
+    def test_validate_privacy_urls_success(self, mock_validate_parallel):
         """Test validating privacy URLs successfully."""
         sp_data = [
             (
@@ -496,11 +433,19 @@ class TestValidatePrivacyURLs:
             ),  # Duplicate URL
         ]
 
-        mock_validate.return_value = {
-            "status_code": 200,
-            "accessible": True,
-            "error": "",
-            "checked_at": "2025-01-01T00:00:00Z",
+        mock_validate_parallel.return_value = {
+            "https://privacy1.org": {
+                "status_code": 200,
+                "accessible": True,
+                "error": "",
+                "checked_at": "2025-01-01T00:00:00Z",
+            },
+            "https://privacy2.org": {
+                "status_code": 200,
+                "accessible": True,
+                "error": "",
+                "checked_at": "2025-01-01T00:00:00Z",
+            },
         }
 
         with patch("sys.stderr", new_callable=StringIO):
@@ -510,10 +455,12 @@ class TestValidatePrivacyURLs:
         assert len(result) == 2
         assert "https://privacy1.org" in result
         assert "https://privacy2.org" in result
-        assert mock_validate.call_count == 2
+        mock_validate_parallel.assert_called_once()
+        args, _ = mock_validate_parallel.call_args
+        assert set(args[0]) == {"https://privacy1.org", "https://privacy2.org"}
 
-    @patch("edugain_analysis.cli.broken_privacy.validate_url")
-    def test_validate_privacy_urls_with_errors(self, mock_validate):
+    @patch("edugain_analysis.cli.broken_privacy.validate_urls_parallel")
+    def test_validate_privacy_urls_with_errors(self, mock_validate_parallel):
         """Test validating privacy URLs with some errors."""
         sp_data = [
             (
@@ -524,7 +471,14 @@ class TestValidatePrivacyURLs:
             ),
         ]
 
-        mock_validate.side_effect = Exception("Validation error")
+        mock_validate_parallel.return_value = {
+            "https://privacy1.org": {
+                "status_code": 0,
+                "accessible": False,
+                "error": "Validation error",
+                "checked_at": "2025-01-01T00:00:00Z",
+            }
+        }
 
         with patch("sys.stderr", new_callable=StringIO):
             result = validate_privacy_urls(sp_data, max_workers=1)
@@ -532,6 +486,7 @@ class TestValidatePrivacyURLs:
         # Should still return result with error
         assert len(result) == 1
         assert result["https://privacy1.org"]["accessible"] is False
+        mock_validate_parallel.assert_called_once_with(["https://privacy1.org"], {}, 1)
 
 
 class TestAnalyzeBrokenLinks:
@@ -664,12 +619,12 @@ class TestAnalyzeBrokenLinks:
 class TestMain:
     """Test the main function."""
 
-    @patch("edugain_analysis.cli.broken_privacy.download_metadata")
+    @patch("edugain_analysis.cli.utils.load_metadata_for_cli")
     @patch("edugain_analysis.cli.broken_privacy.get_federation_mapping")
     @patch("edugain_analysis.cli.broken_privacy.validate_privacy_urls")
     @patch("sys.argv", ["broken_privacy.py"])
     def test_main_default_options(
-        self, mock_validate, mock_get_federation, mock_download
+        self, mock_validate, mock_get_federation, mock_load_metadata
     ):
         """Test main with default options."""
         xml_content = """<?xml version="1.0" encoding="UTF-8"?>
@@ -693,7 +648,7 @@ class TestMain:
             </md:EntityDescriptor>
         </md:EntitiesDescriptor>"""
 
-        mock_download.return_value = xml_content.encode()
+        mock_load_metadata.return_value = ET.fromstring(xml_content)
         mock_get_federation.return_value = {"https://example.org": "Example Federation"}
         mock_validate.return_value = {
             "https://example.org/privacy": {
@@ -711,44 +666,39 @@ class TestMain:
         output = mock_stdout.getvalue()
         assert "Federation" in output
         assert "Example Federation" in output
+        mock_load_metadata.assert_called_once_with(
+            None, EDUGAIN_METADATA_URL, EDUGAIN_METADATA_URL, 30
+        )
 
-    @patch("sys.argv", ["broken_privacy.py", "--local-file", "test.xml"])
+    @patch("edugain_analysis.cli.utils.load_metadata_for_cli")
     @patch("edugain_analysis.cli.broken_privacy.get_federation_mapping")
     @patch("edugain_analysis.cli.broken_privacy.validate_privacy_urls")
-    @patch("sys.exit")
-    def test_main_local_file(self, mock_exit, mock_validate, mock_get_federation):
+    def test_main_local_file(self, mock_validate, mock_get_federation, mock_load):
         """Test main with local file."""
         xml_content = """<?xml version="1.0" encoding="UTF-8"?>
         <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"/>"""
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", delete=False) as f:
-            f.write(xml_content)
-            temp_file = f.name
+        mock_load.return_value = ET.fromstring(xml_content)
+        mock_get_federation.return_value = {}
+        mock_validate.return_value = {}
 
-        try:
-            mock_get_federation.return_value = {}
-            mock_validate.return_value = {}
+        with patch("sys.argv", ["broken_privacy.py", "--local-file", "test.xml"]):
+            with patch("sys.stdout", new_callable=StringIO):
+                with patch("sys.stderr", new_callable=StringIO):
+                    main()
 
-            with patch("sys.argv", ["broken_privacy.py", "--local-file", temp_file]):
-                with patch("sys.stdout", new_callable=StringIO):
-                    with patch("sys.stderr", new_callable=StringIO):
-                        main()
-        finally:
-            os.unlink(temp_file)
+        mock_load.assert_called_once_with("test.xml", None, EDUGAIN_METADATA_URL, 30)
 
-    @patch("edugain_analysis.cli.broken_privacy.download_metadata")
+    @patch("edugain_analysis.cli.utils.load_metadata_for_cli")
     @patch("edugain_analysis.cli.broken_privacy.get_federation_mapping")
     @patch("edugain_analysis.cli.broken_privacy.validate_privacy_urls")
-    @patch("sys.exit")
     @patch("sys.argv", ["broken_privacy.py", "--no-headers"])
-    def test_main_no_headers(
-        self, mock_exit, mock_validate, mock_get_federation, mock_download
-    ):
+    def test_main_no_headers(self, mock_validate, mock_get_federation, mock_load):
         """Test main with --no-headers option."""
         xml_content = """<?xml version="1.0" encoding="UTF-8"?>
         <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"/>"""
 
-        mock_download.return_value = xml_content.encode()
+        mock_load.return_value = ET.fromstring(xml_content)
         mock_get_federation.return_value = {}
         mock_validate.return_value = {}
 
@@ -757,22 +707,18 @@ class TestMain:
                 main()
 
         output = mock_stdout.getvalue()
-        # Should not have headers
-        assert "Federation" not in output or output.count("Federation") == 0
+        assert "Federation" not in output
 
-    @patch("edugain_analysis.cli.broken_privacy.download_metadata")
+    @patch("edugain_analysis.cli.utils.load_metadata_for_cli")
     @patch("edugain_analysis.cli.broken_privacy.get_federation_mapping")
     @patch("edugain_analysis.cli.broken_privacy.validate_privacy_urls")
-    @patch("sys.exit")
     @patch("sys.argv", ["broken_privacy.py", "--url", "https://custom.url/metadata"])
-    def test_main_custom_url(
-        self, mock_exit, mock_validate, mock_get_federation, mock_download
-    ):
+    def test_main_custom_url(self, mock_validate, mock_get_federation, mock_load):
         """Test main with custom URL."""
         xml_content = """<?xml version="1.0" encoding="UTF-8"?>
         <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"/>"""
 
-        mock_download.return_value = xml_content.encode()
+        mock_load.return_value = ET.fromstring(xml_content)
         mock_get_federation.return_value = {}
         mock_validate.return_value = {}
 
@@ -780,7 +726,9 @@ class TestMain:
             with patch("sys.stderr", new_callable=StringIO):
                 main()
 
-        mock_download.assert_called_once_with("https://custom.url/metadata")
+        mock_load.assert_called_once_with(
+            None, "https://custom.url/metadata", EDUGAIN_METADATA_URL, 30
+        )
 
     @patch("sys.argv", ["broken_privacy.py", "--help"])
     @patch("sys.exit")
@@ -792,38 +740,25 @@ class TestMain:
         # argparse calls sys.exit(0) after printing help
         mock_exit.assert_called_once_with(0)
 
+    @patch("edugain_analysis.cli.utils.load_metadata_for_cli")
     @patch("sys.exit")
     @patch("sys.argv", ["broken_privacy.py", "--local-file", "/tmp/invalid.xml"])
-    def test_main_xml_parse_error_local_file(self, mock_exit):
+    def test_main_xml_parse_error_local_file(self, mock_exit, mock_load):
         """Test main with XML parse error from local file."""
-        import tempfile
+        mock_load.side_effect = ET.ParseError("Invalid XML")
 
-        # Create a temporary file with invalid XML
-        temp_file = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".xml")
-        temp_file.write("This is not valid XML")
-        temp_file.close()
+        with patch("sys.stderr", new_callable=StringIO) as mock_stderr:
+            main()
 
-        try:
-            with patch(
-                "sys.argv", ["broken_privacy.py", "--local-file", temp_file.name]
-            ):
-                with patch("sys.stderr", new_callable=StringIO) as mock_stderr:
-                    main()
+        mock_exit.assert_called_once_with(1)
+        assert "Error loading metadata" in mock_stderr.getvalue()
 
-            # Should exit with error
-            mock_exit.assert_called_once_with(1)
-            stderr_output = mock_stderr.getvalue()
-            assert "Error parsing XML" in stderr_output
-        finally:
-            os.unlink(temp_file.name)
-
-    @patch("edugain_analysis.cli.broken_privacy.download_metadata")
+    @patch("edugain_analysis.cli.utils.load_metadata_for_cli")
     @patch("sys.exit")
     @patch("sys.argv", ["broken_privacy.py"])
-    def test_main_xml_parse_error_downloaded(self, mock_exit, mock_download):
+    def test_main_xml_parse_error_downloaded(self, mock_exit, mock_load):
         """Test main with XML parse error from downloaded content."""
-        # Return invalid XML
-        mock_download.return_value = b"This is not valid XML"
+        mock_load.side_effect = ET.ParseError("Invalid XML")
 
         with patch("sys.stderr", new_callable=StringIO) as mock_stderr:
             main()
@@ -831,4 +766,4 @@ class TestMain:
         # Should exit with error
         mock_exit.assert_called_once_with(1)
         stderr_output = mock_stderr.getvalue()
-        assert "Error parsing XML" in stderr_output
+        assert "Error loading metadata" in stderr_output

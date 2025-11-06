@@ -1,6 +1,7 @@
 """Core analysis functionality for eduGAIN metadata."""
 
 from .analysis import analyze_privacy_security, filter_entities
+from .entities import EntityRecord, iter_entity_records
 from .metadata import (
     get_federation_mapping,
     get_metadata,
@@ -19,4 +20,6 @@ __all__ = [
     "load_url_validation_cache",
     "save_url_validation_cache",
     "validate_privacy_url",
+    "EntityRecord",
+    "iter_entity_records",
 ]

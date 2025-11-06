@@ -9,7 +9,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 from ..config import NAMESPACES, URL_VALIDATION_THREADS
-from .metadata import map_registration_authority
+from .entities import iter_entity_records
 from .validation import validate_urls_parallel
 
 
@@ -67,38 +67,19 @@ def analyze_privacy_security(
     # Federation-level statistics by registration authority
     federation_stats = {}
 
-    entities = root.findall("./md:EntityDescriptor", NAMESPACES)
-
-    # Pre-compile XPath expressions for performance
-    privacy_xpath = ".//mdui:PrivacyStatementURL"
-    sec_contact_refeds = './md:ContactPerson[@remd:contactType="http://refeds.org/metadata/contactType/security"]'
-    sec_contact_incommon = './md:ContactPerson[@icmd:contactType="http://id.incommon.org/metadata/contactType/security"]'
-    sirtfi_xpath = './md:Extensions/mdattr:EntityAttributes/saml:Attribute[@Name="urn:oasis:names:tc:SAML:attribute:assurance-certification"]/saml:AttributeValue'
-    reg_info_xpath = "./md:Extensions/mdrpi:RegistrationInfo"
-    org_name_xpath = "./md:Organization/md:OrganizationDisplayName"
-    sp_descriptor_xpath = "./md:SPSSODescriptor"
-    idp_descriptor_xpath = "./md:IDPSSODescriptor"
-
-    # SIRTFI value to match
-    sirtfi_value = "https://refeds.org/sirtfi"
+    records = list(iter_entity_records(root, federation_mapping or {}))
+    stats["total_entities"] = len(root.findall(".//md:EntityDescriptor", NAMESPACES))
 
     # Collect all privacy URLs for parallel validation
     if validate_urls:
         print("Collecting privacy statement URLs for validation...", file=sys.stderr)
         urls_to_validate = []
-        for entity in entities:
-            ent_id = entity.attrib.get("entityID")
-            if not ent_id:
-                continue
-
-            # Only collect URLs for SPs
-            is_sp = entity.find(sp_descriptor_xpath, NAMESPACES) is not None
-            if is_sp:
-                privacy_elem = entity.find(privacy_xpath, NAMESPACES)
-                if privacy_elem is not None and privacy_elem.text is not None:
-                    privacy_url = privacy_elem.text.strip()
-                    if privacy_url and privacy_url not in urls_to_validate:
-                        urls_to_validate.append(privacy_url)
+        seen_urls = set()
+        for record in records:
+            if record.is_sp and record.has_privacy and record.privacy_url:
+                if record.privacy_url not in seen_urls:
+                    urls_to_validate.append(record.privacy_url)
+                    seen_urls.add(record.privacy_url)
 
         # Validate all URLs in parallel
         if urls_to_validate:
@@ -114,75 +95,21 @@ def analyze_privacy_security(
     else:
         url_validation_results = {}
 
-    for entity in entities:
-        stats["total_entities"] += 1
-
-        # Early exit if no entityID
-        ent_id = entity.attrib.get("entityID")
-        if not ent_id:
-            continue
-
-        # Get organization name early for logging
-        orgname_elem = entity.find(org_name_xpath, NAMESPACES)
-        orgname = (
-            orgname_elem.text.strip()
-            if orgname_elem is not None and orgname_elem.text
-            else "Unknown"
-        )
-
-        # Determine entity type first
-        is_sp = entity.find(sp_descriptor_xpath, NAMESPACES) is not None
-        is_idp = entity.find(idp_descriptor_xpath, NAMESPACES) is not None
+    for record in records:
+        is_sp = record.is_sp
+        is_idp = record.is_idp
+        ent_type_display = record.entity_type
 
         if is_sp:
-            ent_type = "SP"
             stats["total_sps"] += 1
-        elif is_idp:
-            ent_type = "IdP"
-            stats["total_idps"] += 1
-        else:
-            ent_type = "Unknown"
-
-        # Check for privacy statement URL (only for SPs)
-        has_privacy = False
-        privacy_url = ""
-        url_validation_result = None
-
-        if is_sp:
-            privacy_elem = entity.find(privacy_xpath, NAMESPACES)
-            has_privacy = privacy_elem is not None and privacy_elem.text is not None
-            privacy_url = privacy_elem.text.strip() if has_privacy else ""
-
-            if has_privacy:
+            if record.has_privacy:
                 stats["sps_has_privacy"] += 1
-
-                # Get URL validation result if validation was enabled
-                if (
-                    validate_urls
-                    and privacy_url
-                    and privacy_url in url_validation_results
-                ):
-                    url_validation_result = url_validation_results[privacy_url]
-
-                    # Update validation statistics
-                    stats["urls_checked"] += 1
-                    if url_validation_result["accessible"]:
-                        stats["urls_accessible"] += 1
-                    else:
-                        stats["urls_broken"] += 1
-
             else:
                 stats["sps_missing_privacy"] += 1
+        elif is_idp:
+            stats["total_idps"] += 1
 
-        # Check for security contact (both REFEDS and InCommon types)
-        sec_contact_refeds_elem = entity.find(sec_contact_refeds, NAMESPACES)
-        sec_contact_incommon_elem = entity.find(sec_contact_incommon, NAMESPACES)
-        has_security = (
-            sec_contact_refeds_elem is not None or sec_contact_incommon_elem is not None
-        )
-
-        # Update security contact statistics by entity type
-        if has_security:
+        if record.has_security:
             stats["total_has_security"] += 1
             if is_sp:
                 stats["sps_has_security"] += 1
@@ -195,15 +122,8 @@ def analyze_privacy_security(
             elif is_idp:
                 stats["idps_missing_security"] += 1
 
-        # Check for SIRTFI certification (for both SPs and IdPs)
-        has_sirtfi = any(
-            ec.text == sirtfi_value
-            for ec in entity.findall(sirtfi_xpath, NAMESPACES)
-            if ec.text
-        )
-
         # Update SIRTFI statistics by entity type
-        if has_sirtfi:
+        if record.has_sirtfi:
             stats["total_has_sirtfi"] += 1
             if is_sp:
                 stats["sps_has_sirtfi"] += 1
@@ -218,28 +138,36 @@ def analyze_privacy_security(
 
         # Update combined statistics (only for SPs since privacy is SP-only)
         if is_sp:
-            if has_privacy and has_security:
+            if record.has_privacy and record.has_security:
                 stats["sps_has_both"] += 1
-            elif not has_privacy and not has_security:
+            elif not record.has_privacy and not record.has_security:
                 stats["sps_missing_both"] += 1
 
-        # Get registration authority and map to federation name
-        registration_info = entity.find(reg_info_xpath, NAMESPACES)
-        registration_authority = ""
-        if registration_info is not None:
-            registration_authority = registration_info.attrib.get(
-                "registrationAuthority", ""
-            ).strip()
-
-        # Map registration authority to federation name for display
-        federation_name = map_registration_authority(
-            registration_authority, federation_mapping or {}
+        has_privacy_display = (
+            "Yes" if record.has_privacy else ("N/A" if not is_sp else "No")
+        )
+        privacy_url_display = (
+            record.privacy_url if record.has_privacy else ("N/A" if not is_sp else "")
         )
 
+        url_validation_result = None
+        if (
+            validate_urls
+            and is_sp
+            and record.has_privacy
+            and record.privacy_url in url_validation_results
+        ):
+            url_validation_result = url_validation_results[record.privacy_url]
+            stats["urls_checked"] += 1
+            if url_validation_result["accessible"]:
+                stats["urls_accessible"] += 1
+            else:
+                stats["urls_broken"] += 1
+
         # Update federation-level statistics (use federation name as key)
-        if registration_authority:
-            if federation_name not in federation_stats:
-                federation_stats[federation_name] = {
+        if record.registration_authority:
+            if record.federation_name not in federation_stats:
+                federation_stats[record.federation_name] = {
                     "total_entities": 0,
                     "total_sps": 0,
                     "total_idps": 0,
@@ -266,16 +194,16 @@ def analyze_privacy_security(
                     "urls_broken": 0,
                 }
 
-            fed_stats = federation_stats[federation_name]
+            fed_stats = federation_stats[record.federation_name]
             fed_stats["total_entities"] += 1
 
             if is_sp:
                 fed_stats["total_sps"] += 1
-                if has_privacy:
+                if record.has_privacy:
                     fed_stats["sps_has_privacy"] += 1
 
                     # Update federation URL validation stats
-                    if validate_urls and url_validation_result:
+                    if validate_urls and url_validation_result is not None:
                         fed_stats["urls_checked"] += 1
                         if url_validation_result["accessible"]:
                             fed_stats["urls_accessible"] += 1
@@ -285,51 +213,51 @@ def analyze_privacy_security(
                 else:
                     fed_stats["sps_missing_privacy"] += 1
 
-                if has_security:
+                if record.has_security:
                     fed_stats["sps_has_security"] += 1
                 else:
                     fed_stats["sps_missing_security"] += 1
 
                 # SP SIRTFI stats
-                if has_sirtfi:
+                if record.has_sirtfi:
                     fed_stats["sps_has_sirtfi"] += 1
                 else:
                     fed_stats["sps_missing_sirtfi"] += 1
 
-                if has_privacy and has_security:
+                if record.has_privacy and record.has_security:
                     fed_stats["sps_has_both"] += 1
-                elif not has_privacy and not has_security:
+                elif not record.has_privacy and not record.has_security:
                     fed_stats["sps_missing_both"] += 1
 
             elif is_idp:
                 fed_stats["total_idps"] += 1
-                if has_security:
+                if record.has_security:
                     fed_stats["idps_has_security"] += 1
                 else:
                     fed_stats["idps_missing_security"] += 1
 
                 # IdP SIRTFI stats
-                if has_sirtfi:
+                if record.has_sirtfi:
                     fed_stats["idps_has_sirtfi"] += 1
                 else:
                     fed_stats["idps_missing_sirtfi"] += 1
 
             # Overall federation security stats
-            if has_security:
+            if record.has_security:
                 fed_stats["total_has_security"] += 1
             else:
                 fed_stats["total_missing_security"] += 1
 
             # Overall federation SIRTFI stats
-            if has_sirtfi:
+            if record.has_sirtfi:
                 fed_stats["total_has_sirtfi"] += 1
             else:
                 fed_stats["total_missing_sirtfi"] += 1
 
         # Prepare validation data for entity list
-        if validate_urls and url_validation_result:
+        if validate_urls and url_validation_result is not None:
             url_status = url_validation_result.get("status_code", 0)
-            final_url = url_validation_result.get("final_url", privacy_url)
+            final_url = url_validation_result.get("final_url", record.privacy_url)
             url_accessible = (
                 "Yes" if url_validation_result.get("accessible", False) else "No"
             )
@@ -337,7 +265,7 @@ def analyze_privacy_security(
             validation_error = url_validation_result.get("error", "")
         else:
             url_status = "" if not validate_urls else "Not Checked"
-            final_url = privacy_url if has_privacy else ""
+            final_url = privacy_url_display
             url_accessible = "" if not validate_urls else "Not Checked"
             redirect_count = "" if not validate_urls else "Not Checked"
             validation_error = "" if not validate_urls else "URL validation disabled"
@@ -347,16 +275,14 @@ def analyze_privacy_security(
             # Extended format with enhanced validation results
             entities_list.append(
                 [
-                    federation_name,
-                    ent_type,
-                    orgname,
-                    ent_id,
-                    "Yes" if has_privacy else ("N/A" if ent_type == "IdP" else "No"),
-                    privacy_url
-                    if has_privacy
-                    else ("N/A" if ent_type == "IdP" else ""),
-                    "Yes" if has_security else "No",
-                    "Yes" if has_sirtfi else "No",
+                    record.federation_name,
+                    ent_type_display,
+                    record.org_name,
+                    record.entity_id,
+                    has_privacy_display,
+                    privacy_url_display,
+                    "Yes" if record.has_security else "No",
+                    "Yes" if record.has_sirtfi else "No",
                     str(url_status),
                     final_url,
                     url_accessible,
@@ -368,16 +294,14 @@ def analyze_privacy_security(
             # Original format without validation
             entities_list.append(
                 [
-                    federation_name,
-                    ent_type,
-                    orgname,
-                    ent_id,
-                    "Yes" if has_privacy else ("N/A" if ent_type == "IdP" else "No"),
-                    privacy_url
-                    if has_privacy
-                    else ("N/A" if ent_type == "IdP" else ""),
-                    "Yes" if has_security else "No",
-                    "Yes" if has_sirtfi else "No",
+                    record.federation_name,
+                    ent_type_display,
+                    record.org_name,
+                    record.entity_id,
+                    has_privacy_display,
+                    privacy_url_display,
+                    "Yes" if record.has_security else "No",
+                    "Yes" if record.has_sirtfi else "No",
                 ]
             )
 
