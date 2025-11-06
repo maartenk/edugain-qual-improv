@@ -16,100 +16,58 @@ Based on the code of https://gitlab.geant.org/edugain/edugain-contacts
 """
 
 import argparse
-import csv
 import sys
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import UTC, datetime
 from xml.etree import ElementTree as ET
 
-import requests
+from ..core import (
+    get_federation_mapping as core_get_federation_mapping,
+)
+from ..core import (
+    get_metadata,
+)
+from ..core.entities import iter_entity_records
+from ..core.validation import validate_privacy_url, validate_urls_parallel
+from .utils import run_csv_cli
 
 # Configuration
 EDUGAIN_METADATA_URL = "https://mds.edugain.org/edugain-v2.xml"
-FEDERATION_API_URL = "https://technical.edugain.org/api.php?action=list_feds"
 REQUEST_TIMEOUT = 30
 VALIDATION_WORKERS = 10
-
-# SAML metadata namespaces
-NAMESPACES = {
-    "md": "urn:oasis:names:tc:SAML:2.0:metadata",
-    "mdui": "urn:oasis:names:tc:SAML:metadata:ui",
-    "mdrpi": "urn:oasis:names:tc:SAML:metadata:rpi",
-}
+HEADERS = [
+    "Federation",
+    "SP",
+    "EntityID",
+    "PrivacyLink",
+    "ErrorCode",
+    "ErrorType",
+    "CheckedAt",
+]
 
 
 def download_metadata(url: str) -> bytes:
-    """Download eduGAIN metadata from the specified URL."""
+    """Wrapper around core.get_metadata for backwards compatibility."""
     try:
-        response = requests.get(url, timeout=REQUEST_TIMEOUT)
-        response.raise_for_status()
-        return response.content
-    except requests.exceptions.RequestException as e:
-        print(f"Error downloading metadata: {e}", file=sys.stderr)
+        return get_metadata(url, REQUEST_TIMEOUT)
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"Error downloading metadata: {exc}", file=sys.stderr)
         sys.exit(1)
 
 
 def get_federation_mapping() -> dict[str, str]:
-    """Fetch federation name mapping from eduGAIN API."""
+    """Wrapper that delegates to core.get_federation_mapping."""
     try:
-        response = requests.get(
-            FEDERATION_API_URL,
-            timeout=REQUEST_TIMEOUT,
-            headers={
-                "User-Agent": "eduGAIN-Privacy-Checker/1.0",
-                "Accept": "application/json",
-            },
-        )
-        response.raise_for_status()
-        federations_data = response.json()
-
-        # API returns dict with federation keys, each value has "reg_auth" and "name"
-        federation_mapping = {}
-        for federation_data in federations_data.values():
-            reg_auth = federation_data.get("reg_auth")
-            name = federation_data.get("name")
-            if reg_auth and name:
-                federation_mapping[reg_auth] = name
-
-        return federation_mapping
-    except Exception as e:
-        print(f"Warning: Could not fetch federation mapping: {e}", file=sys.stderr)
+        return core_get_federation_mapping()
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"Warning: Could not fetch federation mapping: {exc}", file=sys.stderr)
         return {}
 
 
 def validate_url(url: str) -> dict:
     """
-    Validate a single URL by making an HTTP request.
-
-    Returns dict with: status_code, accessible, error, checked_at
+    Backwards-compatible wrapper around core.validate_privacy_url.
     """
-    result = {
-        "status_code": 0,
-        "accessible": False,
-        "error": "",
-        "checked_at": datetime.now(UTC).isoformat(),
-    }
-
-    try:
-        response = requests.head(
-            url,
-            timeout=10,
-            allow_redirects=True,
-            headers={"User-Agent": "eduGAIN-Privacy-Checker/1.0"},
-        )
-        result["status_code"] = response.status_code
-        result["accessible"] = 200 <= response.status_code < 400
-    except requests.exceptions.SSLError as e:
-        result["error"] = f"SSL error: {str(e)}"
-    except requests.exceptions.ConnectionError as e:
-        result["error"] = f"Connection error: {str(e)}"
-    except requests.exceptions.Timeout:
-        result["error"] = "Timeout"
-    except requests.exceptions.TooManyRedirects:
-        result["error"] = "Too many redirects"
-    except Exception as e:
-        result["error"] = str(e)
-
+    result = validate_privacy_url(url, None, use_semaphore=False)
+    result["error"] = result.get("error") or ""
     return result
 
 
@@ -153,44 +111,25 @@ def collect_sp_privacy_urls(root: ET.Element) -> list[tuple[str, str, str, str]]
     """
     sp_urls = []
 
-    for entity in root.findall("./md:EntityDescriptor", NAMESPACES):
-        entity_id = entity.attrib.get("entityID")
-        if not entity_id:
+    for record in iter_entity_records(root):
+        if not record.is_sp:
             continue
 
-        # Only SPs
-        if entity.find("./md:SPSSODescriptor", NAMESPACES) is None:
+        if not record.registration_authority or not record.has_privacy:
             continue
 
-        # Get privacy statement URL
-        privacy_elem = entity.find(".//mdui:PrivacyStatementURL", NAMESPACES)
-        if privacy_elem is None or not privacy_elem.text:
-            continue
-
-        privacy_url = privacy_elem.text.strip()
+        privacy_url = record.privacy_url.strip()
         if not privacy_url:
             continue
 
-        # Get registration authority
-        reg_info = entity.find("./md:Extensions/mdrpi:RegistrationInfo", NAMESPACES)
-        if reg_info is None:
-            continue
-
-        reg_authority = reg_info.attrib.get("registrationAuthority", "").strip()
-        if not reg_authority:
-            continue
-
-        # Get organization name
-        org_elem = entity.find(
-            "./md:Organization/md:OrganizationDisplayName", NAMESPACES
+        sp_urls.append(
+            (
+                record.registration_authority,
+                record.org_name,
+                record.entity_id,
+                privacy_url,
+            )
         )
-        org_name = (
-            org_elem.text.strip()
-            if org_elem is not None and org_elem.text
-            else "Unknown"
-        )
-
-        sp_urls.append((reg_authority, org_name, entity_id, privacy_url))
 
     return sp_urls
 
@@ -208,46 +147,13 @@ def validate_privacy_urls(
     Returns:
         Dict mapping URL -> validation_result
     """
-    # Extract unique URLs
     unique_urls = list({url for _, _, _, url in sp_data})
+    if not unique_urls:
+        return {}
 
-    print(
-        f"Validating {len(unique_urls)} unique privacy URLs with {max_workers} workers...",
-        file=sys.stderr,
-    )
-
-    validation_results = {}
-
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all validation tasks
-        future_to_url = {executor.submit(validate_url, url): url for url in unique_urls}
-
-        # Collect results as they complete
-        completed = 0
-        for future in as_completed(future_to_url):
-            url = future_to_url[future]
-            try:
-                result = future.result()
-                validation_results[url] = result
-                completed += 1
-                if completed % 50 == 0:
-                    print(
-                        f"  Progress: {completed}/{len(unique_urls)}", file=sys.stderr
-                    )
-            except Exception as e:
-                print(f"  Error validating {url}: {e}", file=sys.stderr)
-                validation_results[url] = {
-                    "status_code": 0,
-                    "accessible": False,
-                    "error": str(e),
-                    "checked_at": datetime.now(UTC).isoformat(),
-                }
-
-    print(
-        f"Validation complete: {completed}/{len(unique_urls)} URLs checked",
-        file=sys.stderr,
-    )
-    return validation_results
+    validation_cache: dict[str, dict] = {}
+    results = validate_urls_parallel(unique_urls, validation_cache, max_workers)
+    return results
 
 
 def analyze_broken_links(
@@ -326,66 +232,42 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    # Get federation mapping
-    print("Fetching federation name mapping...", file=sys.stderr)
-    federation_mapping = get_federation_mapping()
-    print(f"Loaded {len(federation_mapping)} federation names", file=sys.stderr)
+    def rows_factory(root: ET.Element) -> list[list[str]]:
+        print("Fetching federation name mapping...", file=sys.stderr)
+        federation_mapping = get_federation_mapping()
+        print(f"Loaded {len(federation_mapping)} federation names", file=sys.stderr)
 
-    # Get metadata
-    root: ET.Element | None = None
-    if args.local_file:
-        print(f"Parsing local metadata: {args.local_file}", file=sys.stderr)
-        try:
-            root = ET.parse(args.local_file).getroot()
-        except ET.ParseError as e:
-            print(f"Error parsing XML: {e}", file=sys.stderr)
-            sys.exit(1)
-            return
-    else:
-        print(f"Downloading metadata from {args.url}...", file=sys.stderr)
-        xml_content = download_metadata(args.url)
-        try:
-            root = ET.fromstring(xml_content)
-        except ET.ParseError as e:
-            print(f"Error parsing XML: {e}", file=sys.stderr)
-            sys.exit(1)
-            return
+        print("Collecting SPs with privacy statement URLs...", file=sys.stderr)
+        sp_data = collect_sp_privacy_urls(root)
+        print(f"Found {len(sp_data)} SPs with privacy statement URLs", file=sys.stderr)
 
-    if root is None:
-        return
+        if not sp_data:
+            print("No SPs with privacy URLs found", file=sys.stderr)
+            return []
 
-    # Collect SPs with privacy URLs
-    print("Collecting SPs with privacy statement URLs...", file=sys.stderr)
-    sp_data = collect_sp_privacy_urls(root)
-    print(f"Found {len(sp_data)} SPs with privacy statement URLs", file=sys.stderr)
+        validation_results = validate_privacy_urls(sp_data, VALIDATION_WORKERS)
 
-    if not sp_data:
-        print("No SPs with privacy URLs found", file=sys.stderr)
-        sys.exit(0)
-
-    # Validate URLs in parallel
-    validation_results = validate_privacy_urls(sp_data, VALIDATION_WORKERS)
-
-    # Analyze for broken links
-    print("Analyzing results for broken links...", file=sys.stderr)
-    broken_links = analyze_broken_links(sp_data, validation_results, federation_mapping)
-    print(f"Found {len(broken_links)} SPs with broken privacy links", file=sys.stderr)
-
-    # Output CSV
-    writer = csv.writer(sys.stdout)
-    if not args.no_headers:
-        writer.writerow(
-            [
-                "Federation",
-                "SP",
-                "EntityID",
-                "PrivacyLink",
-                "ErrorCode",
-                "ErrorType",
-                "CheckedAt",
-            ]
+        print("Analyzing results for broken links...", file=sys.stderr)
+        broken_links = analyze_broken_links(
+            sp_data, validation_results, federation_mapping
         )
-    writer.writerows(broken_links)
+        print(
+            f"Found {len(broken_links)} SPs with broken privacy links",
+            file=sys.stderr,
+        )
+
+        return broken_links
+
+    run_csv_cli(
+        rows_factory,
+        HEADERS,
+        local_file=args.local_file,
+        url=None if args.local_file else args.url,
+        default_url=EDUGAIN_METADATA_URL,
+        timeout=REQUEST_TIMEOUT,
+        include_headers=not args.no_headers,
+        error_label="broken privacy analysis",
+    )
 
 
 if __name__ == "__main__":

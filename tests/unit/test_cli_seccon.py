@@ -2,7 +2,6 @@
 
 import os
 import sys
-import tempfile
 import xml.etree.ElementTree as ET
 from io import StringIO
 from unittest.mock import MagicMock, patch
@@ -16,108 +15,10 @@ sys.path.insert(
 
 from edugain_analysis.cli.seccon import (
     EDUGAIN_METADATA_URL,
+    REQUEST_TIMEOUT,
     analyze_entities,
-    download_metadata,
     main,
-    parse_metadata,
 )
-
-
-class TestDownloadMetadata:
-    """Test the download_metadata function."""
-
-    @patch("requests.get")
-    def test_download_metadata_success(self, mock_get):
-        """Test successful metadata download."""
-        mock_response = MagicMock()
-        mock_response.content = b"<xml>test content</xml>"
-        mock_get.return_value = mock_response
-
-        result = download_metadata("https://example.org/metadata")
-
-        assert result == b"<xml>test content</xml>"
-        mock_response.raise_for_status.assert_called_once()
-        mock_get.assert_called_once_with("https://example.org/metadata", timeout=30)
-
-    @patch("requests.get")
-    @patch("sys.exit")
-    def test_download_metadata_request_exception(self, mock_exit, mock_get):
-        """Test download metadata with request exception."""
-        import requests
-
-        mock_get.side_effect = requests.exceptions.RequestException("Network error")
-
-        with patch("sys.stderr", new_callable=StringIO) as mock_stderr:
-            download_metadata("https://example.org/metadata")
-
-        mock_exit.assert_called_once_with(1)
-        assert "Error downloading metadata" in mock_stderr.getvalue()
-        assert "Network error" in mock_stderr.getvalue()
-
-    @patch("requests.get")
-    def test_download_metadata_custom_timeout(self, mock_get):
-        """Test download metadata with custom timeout."""
-        mock_response = MagicMock()
-        mock_response.content = b"<xml>test</xml>"
-        mock_get.return_value = mock_response
-
-        download_metadata("https://example.org/metadata", timeout=60)
-
-        mock_get.assert_called_once_with("https://example.org/metadata", timeout=60)
-
-
-class TestParseMetadata:
-    """Test the parse_metadata function."""
-
-    def test_parse_metadata_from_content(self):
-        """Test parsing metadata from XML content."""
-        xml_content = b"""<?xml version="1.0" encoding="UTF-8"?>
-        <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata">
-            <md:EntityDescriptor entityID="https://example.org/sp"/>
-        </md:EntitiesDescriptor>"""
-
-        root = parse_metadata(xml_content)
-
-        assert root.tag.endswith("EntitiesDescriptor")
-
-    def test_parse_metadata_from_local_file(self):
-        """Test parsing metadata from local file."""
-        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
-        <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata">
-            <md:EntityDescriptor entityID="https://example.org/sp"/>
-        </md:EntitiesDescriptor>"""
-
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", delete=False) as f:
-            f.write(xml_content)
-            temp_file = f.name
-
-        try:
-            root = parse_metadata(None, local_file=temp_file)
-            assert root.tag.endswith("EntitiesDescriptor")
-        finally:
-            os.unlink(temp_file)
-
-    @patch("sys.exit")
-    def test_parse_metadata_invalid_xml(self, mock_exit):
-        """Test parsing invalid XML content."""
-        with patch("sys.stderr", new_callable=StringIO) as mock_stderr:
-            parse_metadata(b"<invalid xml")
-
-        mock_exit.assert_called_once_with(1)
-        assert "Error parsing XML" in mock_stderr.getvalue()
-
-    @patch("sys.exit")
-    def test_parse_metadata_file_not_found(self, mock_exit):
-        """Test parsing non-existent local file."""
-        with patch("sys.stderr", new_callable=StringIO) as mock_stderr:
-            # This will actually try to parse the file and fail with FileNotFoundError
-            # which gets caught and converted to ParseError, then handled by sys.exit(1)
-            with patch("xml.etree.ElementTree.parse") as mock_parse:
-                mock_parse.side_effect = ET.ParseError("File not found")
-                parse_metadata(None, local_file="/nonexistent/file.xml")
-
-        mock_exit.assert_called_once_with(1)
-        assert "Error parsing XML" in mock_stderr.getvalue()
 
 
 class TestAnalyzeEntities:
@@ -356,13 +257,11 @@ class TestAnalyzeEntities:
 class TestCSVOutput:
     """Test CSV output functionality within main function."""
 
-    @patch("edugain_analysis.cli.seccon.download_metadata")
-    @patch("edugain_analysis.cli.seccon.parse_metadata")
+    @patch("edugain_analysis.cli.utils.load_metadata_for_cli")
     @patch("edugain_analysis.cli.seccon.analyze_entities")
-    def test_csv_output_with_headers(self, mock_analyze, mock_parse, mock_download):
+    def test_csv_output_with_headers(self, mock_analyze, mock_load):
         """Test CSV output with headers through main function."""
-        mock_download.return_value = b"<xml>metadata</xml>"
-        mock_parse.return_value = MagicMock()
+        mock_load.return_value = MagicMock()
         mock_analyze.return_value = [
             ["https://incommon.org", "SP", "Example SP", "https://sp.example.org"],
             ["https://ukfed.org.uk", "IdP", "Example IdP", "https://idp.example.org"],
@@ -377,14 +276,15 @@ class TestCSVOutput:
         lines = result.strip().split("\n")
         assert "RegistrationAuthority,EntityType,OrganizationName,EntityID" in lines[0]
         assert "https://incommon.org,SP,Example SP,https://sp.example.org" in result
+        mock_load.assert_called_once_with(
+            None, EDUGAIN_METADATA_URL, EDUGAIN_METADATA_URL, REQUEST_TIMEOUT
+        )
 
-    @patch("edugain_analysis.cli.seccon.download_metadata")
-    @patch("edugain_analysis.cli.seccon.parse_metadata")
+    @patch("edugain_analysis.cli.utils.load_metadata_for_cli")
     @patch("edugain_analysis.cli.seccon.analyze_entities")
-    def test_csv_output_without_headers(self, mock_analyze, mock_parse, mock_download):
+    def test_csv_output_without_headers(self, mock_analyze, mock_load):
         """Test CSV output without headers through main function."""
-        mock_download.return_value = b"<xml>metadata</xml>"
-        mock_parse.return_value = MagicMock()
+        mock_load.return_value = MagicMock()
         mock_analyze.return_value = [
             ["https://incommon.org", "SP", "Example SP", "https://sp.example.org"],
         ]
@@ -397,18 +297,19 @@ class TestCSVOutput:
 
         assert "RegistrationAuthority" not in result
         assert "https://incommon.org,SP,Example SP,https://sp.example.org" in result
+        mock_load.assert_called_once_with(
+            None, EDUGAIN_METADATA_URL, EDUGAIN_METADATA_URL, REQUEST_TIMEOUT
+        )
 
 
 class TestMain:
     """Test the main function."""
 
-    @patch("edugain_analysis.cli.seccon.download_metadata")
-    @patch("edugain_analysis.cli.seccon.parse_metadata")
+    @patch("edugain_analysis.cli.utils.load_metadata_for_cli")
     @patch("edugain_analysis.cli.seccon.analyze_entities")
-    def test_main_default_options(self, mock_analyze, mock_parse, mock_download):
+    def test_main_default_options(self, mock_analyze, mock_load):
         """Test main function with default options."""
-        mock_download.return_value = b"<xml>metadata</xml>"
-        mock_parse.return_value = MagicMock()
+        mock_load.return_value = MagicMock()
         mock_analyze.return_value = [["reg_auth", "SP", "Org", "entity_id"]]
 
         test_args = ["seccon"]
@@ -416,15 +317,16 @@ class TestMain:
             with patch("sys.stdout", new_callable=StringIO):
                 main()
 
-        mock_download.assert_called_once_with(EDUGAIN_METADATA_URL)
-        mock_parse.assert_called_once()
-        mock_analyze.assert_called_once()
+        mock_load.assert_called_once_with(
+            None, EDUGAIN_METADATA_URL, EDUGAIN_METADATA_URL, REQUEST_TIMEOUT
+        )
+        mock_analyze.assert_called_once_with(mock_load.return_value)
 
-    @patch("edugain_analysis.cli.seccon.parse_metadata")
+    @patch("edugain_analysis.cli.utils.load_metadata_for_cli")
     @patch("edugain_analysis.cli.seccon.analyze_entities")
-    def test_main_local_file(self, mock_analyze, mock_parse):
+    def test_main_local_file(self, mock_analyze, mock_load):
         """Test main function with local file option."""
-        mock_parse.return_value = MagicMock()
+        mock_load.return_value = MagicMock()
         mock_analyze.return_value = [["reg_auth", "SP", "Org", "entity_id"]]
 
         test_args = ["seccon", "--local-file", "metadata.xml"]
@@ -432,16 +334,16 @@ class TestMain:
             with patch("sys.stdout", new_callable=StringIO):
                 main()
 
-        mock_parse.assert_called_once_with(None, "metadata.xml")
-        mock_analyze.assert_called_once()
+        mock_load.assert_called_once_with(
+            "metadata.xml", None, EDUGAIN_METADATA_URL, REQUEST_TIMEOUT
+        )
+        mock_analyze.assert_called_once_with(mock_load.return_value)
 
-    @patch("edugain_analysis.cli.seccon.download_metadata")
-    @patch("edugain_analysis.cli.seccon.parse_metadata")
+    @patch("edugain_analysis.cli.utils.load_metadata_for_cli")
     @patch("edugain_analysis.cli.seccon.analyze_entities")
-    def test_main_no_headers(self, mock_analyze, mock_parse, mock_download):
+    def test_main_no_headers(self, mock_analyze, mock_load):
         """Test main function with no headers option."""
-        mock_download.return_value = b"<xml>metadata</xml>"
-        mock_parse.return_value = MagicMock()
+        mock_load.return_value = MagicMock()
         mock_analyze.return_value = [["reg_auth", "SP", "Org", "entity_id"]]
 
         test_args = ["seccon", "--no-headers"]
@@ -452,14 +354,15 @@ class TestMain:
 
         # Should not contain headers
         assert "RegistrationAuthority" not in result
+        mock_load.assert_called_once_with(
+            None, EDUGAIN_METADATA_URL, EDUGAIN_METADATA_URL, REQUEST_TIMEOUT
+        )
 
-    @patch("edugain_analysis.cli.seccon.download_metadata")
-    @patch("edugain_analysis.cli.seccon.parse_metadata")
+    @patch("edugain_analysis.cli.utils.load_metadata_for_cli")
     @patch("edugain_analysis.cli.seccon.analyze_entities")
-    def test_main_custom_url(self, mock_analyze, mock_parse, mock_download):
+    def test_main_custom_url(self, mock_analyze, mock_load):
         """Test main function with custom URL option."""
-        mock_download.return_value = b"<xml>metadata</xml>"
-        mock_parse.return_value = MagicMock()
+        mock_load.return_value = MagicMock()
         mock_analyze.return_value = [["reg_auth", "SP", "Org", "entity_id"]]
 
         test_args = ["seccon", "--url", "https://custom.example.org/metadata"]
@@ -467,7 +370,12 @@ class TestMain:
             with patch("sys.stdout", new_callable=StringIO):
                 main()
 
-        mock_download.assert_called_once_with("https://custom.example.org/metadata")
+        mock_load.assert_called_once_with(
+            None,
+            "https://custom.example.org/metadata",
+            EDUGAIN_METADATA_URL,
+            REQUEST_TIMEOUT,
+        )
 
     def test_main_help_option(self):
         """Test main function with help option."""
