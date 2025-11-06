@@ -420,12 +420,12 @@ eduGAIN Metadata Analysis Results
 - **missing-both**: SPs missing both privacy and security
 - **urls**: URL validation results (with `--validate`)
 
-## 🏗️ Recent Improvements (v2.4.1)
+## 🏗️ Recent Improvements (v2.4.2)
 
 **CLI & Tooling:**
-- 🧹 `scripts/maintenance/clean-artifacts.sh` now separates artifact and cache cleanup, with `--artifacts-only` / `--cache-only` flags and new `make clean-artifacts` and `make clean-cache` wrappers.
-- 🧭 `make help` is organized into “Run the CLI”, “Develop or extend the app”, and “Maintenance” sections so operators and contributors can find the right commands instantly.
-- ✅ Default version metadata and tests have been bumped to 2.4.1 to accompany this release.
+- 🧭 `make help` now guides everyday CLI users vs. contributors with tone-matched sections (“Run the CLI”, “Develop or extend the app”, “Maintenance”).
+- 🧹 Maintenance scripts live under `scripts/maintenance/`, dev helpers under `scripts/dev/`, and app wrappers under `scripts/app/`, so you can run CLIs without installing and keep automation clean.
+- 🧪 `scripts/dev/local-ci.sh` mirrors CI locally (lint, tests, coverage, Docker) and respects `SKIP_COVERAGE` / `SKIP_DOCKER` toggles.
 
 ## 📋 Requirements
 
