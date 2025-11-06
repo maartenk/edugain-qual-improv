@@ -223,16 +223,20 @@ def get_metadata(
     Returns:
         bytes: Raw metadata content
     """
-    # Try to load from cache first
-    cached_content = load_metadata_cache()
-    if cached_content:
-        return cached_content
+    use_cache = url == EDUGAIN_METADATA_URL
+
+    # Try to load from cache first (only for the default metadata URL)
+    if use_cache:
+        cached_content = load_metadata_cache()
+        if cached_content:
+            return cached_content
 
     # Download fresh metadata
     content = download_metadata(url, timeout)
 
-    # Save to cache
-    save_metadata_cache(content)
+    # Save to cache only for the default metadata feed
+    if use_cache:
+        save_metadata_cache(content)
 
     return content
 

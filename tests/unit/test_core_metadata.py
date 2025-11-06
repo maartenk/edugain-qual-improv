@@ -17,6 +17,7 @@ sys.path.insert(
 )
 
 from edugain_analysis.core.metadata import (
+    REQUEST_TIMEOUT,
     download_metadata,
     fetch_federation_names,
     get_cache_dir,
@@ -362,6 +363,24 @@ class TestMetadataCache:
         assert result == b"<xml>fresh</xml>"
         mock_download.assert_called_once()
         mock_save.assert_called_once_with(b"<xml>fresh</xml>")
+
+    @patch("edugain_analysis.core.metadata.load_metadata_cache")
+    @patch("edugain_analysis.core.metadata.download_metadata")
+    @patch("edugain_analysis.core.metadata.save_metadata_cache")
+    def test_get_metadata_custom_url_skips_cache(
+        self, mock_save, mock_download, mock_load
+    ):
+        """Custom metadata sources should bypass cache read/write."""
+        mock_load.return_value = b"<xml>cached</xml>"
+        mock_download.return_value = b"<xml>custom</xml>"
+
+        custom_url = "https://custom.example.org/metadata.xml"
+        result = get_metadata(custom_url)
+
+        assert result == b"<xml>custom</xml>"
+        mock_load.assert_not_called()
+        mock_save.assert_not_called()
+        mock_download.assert_called_once_with(custom_url, REQUEST_TIMEOUT)
 
 
 class TestMetadataParsing:
