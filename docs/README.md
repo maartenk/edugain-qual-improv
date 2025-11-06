@@ -10,7 +10,11 @@ This folder collects supporting documentation for the eduGAIN analysis toolkit. 
 - `CLAUDE.md` — coding guidelines and workflows for automation agents collaborating on the project.
 - `FUTURE_ENHANCEMENTS.md` — roadmap and research ideas under consideration.
 - `../Dockerfile` & `../docker-compose.yml` — containerized workflow for running the CLI and tests.
-- `../reports/` — generated coverage reports (via `make coverage` or `pytest --cov`).
+- `../scripts/app/` — wrapper entry points for running the CLI without installation.
+- `../scripts/dev/` — developer tooling (env bootstrap, linting, local CI, Docker helpers).
+- `../scripts/maintenance/` — cache and environment cleanup utilities.
+- `../artifacts/coverage/` — generated coverage reports (via `make coverage` or `pytest --cov`).
+- `../reports/` — scratch area for CLI exports, downloaded metadata snapshots, etc.
 
 **Adding new docs**
 1. Create a markdown file in this directory (use `TITLE_GOES_HERE.md` naming).

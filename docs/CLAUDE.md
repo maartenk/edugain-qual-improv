@@ -19,11 +19,11 @@ make install EXTRAS=dev,tests        # ensure .venv exists + install extras
 make shell                           # activate venv in a subshell (exit to leave)
 
 # Helper script remains available
-./scripts/dev-env.sh --fresh --with-tests    # pytest/ruff/pre-commit/cov/xdist
-./scripts/dev-env.sh --with-coverage         # add pytest-cov later
-./scripts/dev-env.sh --with-parallel         # add pytest-xdist later
+./scripts/dev/dev-env.sh --fresh --with-tests    # pytest/ruff/pre-commit/cov/xdist
+./scripts/dev/dev-env.sh --with-coverage         # add pytest-cov later
+./scripts/dev/dev-env.sh --with-parallel         # add pytest-xdist later
 # DEVENV_PYTHON lets you pin an interpreter (search order python3.14 → 3.13 → 3.12 → 3.11 → python3)
-DEVENV_PYTHON=python3.11 ./scripts/dev-env.sh --with-tests
+DEVENV_PYTHON=python3.11 ./scripts/dev/dev-env.sh --with-tests
 
 # Alternative: manual setup (Python 3.11+ required)
 python3 -m venv .venv
@@ -175,7 +175,7 @@ src/edugain_analysis/
 
 ## Development Notes
 
-- Prefer `./scripts/dev-env.sh` (or `make dev-env*` targets) to mirror CI's toolchain. `--with-tests` installs coverage + xdist, and `--fresh` recreates `.venv` from scratch. Use `./scripts/clean-env.sh` / `make clean-env` to wipe the virtualenv and caches when you need a reset.
+- Prefer `./scripts/dev/dev-env.sh` (or `make dev-env*` targets) to mirror CI's toolchain. `--with-tests` installs coverage + xdist, and `--fresh` recreates `.venv` from scratch. Use `./scripts/maintenance/clean-env.sh` / `make clean-env` to wipe the virtualenv and caches when you need a reset.
 
 ### Code Organization
 - **Modular design**: CLI, core logic, formatters, and config are separated
@@ -219,8 +219,8 @@ pytest tests/unit/test_cli_main.py -v
 pytest tests/unit/test_core_analysis.py -v
 
 # Generate HTML coverage report (requires [coverage] extra)
-pytest --cov=src/edugain_analysis --cov-report=html:reports/htmlcov --cov-report=xml:reports/coverage.xml
-open reports/htmlcov/index.html
+pytest --cov=src/edugain_analysis --cov-report=html:artifacts/coverage/html --cov-report=xml:artifacts/coverage/coverage.xml
+open artifacts/coverage/html/index.html
 
 # Parallel execution (requires [parallel] extra)
 pytest -n auto
@@ -229,8 +229,8 @@ pytest -n auto
 **Coverage:** High coverage across all modules (100% for CLI, 90%+ for core modules).
 
 ### Coverage Configuration
-- **HTML reports**: Generated in `reports/htmlcov/` directory
-- **XML reports**: Stored in `reports/coverage.xml` for CI/CD integration
+- **HTML reports**: Generated in `artifacts/coverage/html/` directory
+- **XML reports**: Stored in `artifacts/coverage/coverage.xml` for CI/CD integration
 - **Multi-version testing**: Python 3.11, 3.12, 3.13, 3.14 tracked separately
 - **Parallel coverage**: Enabled via pytest-cov configuration
 - **Exclusions**: Test files, `__main__` blocks, abstract methods, debug code
@@ -315,7 +315,7 @@ pre-commit run --all-files
 - **Import errors**: Ensure package installed with `pip install -e .`
 - **Cache issues**: Clear cache at `~/.cache/edugain-analysis/`
 - **Test failures**: Run `pytest -v` for detailed output, check mock configurations
-- **Coverage gaps**: Run `pytest --cov-report=html` and review `htmlcov/index.html`
+- **Coverage gaps**: Run `pytest --cov-report=html` and review `artifacts/coverage/html/index.html`
 
 ### Performance Tips
 - URL validation is slow by design (network I/O) - use caching

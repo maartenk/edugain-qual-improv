@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${ROOT_DIR}"
 
 : "${PYTHON_BIN:=.venv/bin/python}"
@@ -21,7 +21,7 @@ if [[ ! -x ${PYTHON_BIN} ]]; then
   exit 1
 fi
 
-run_step "Lint (ruff)" ./scripts/lint.sh
+run_step "Lint (ruff)" ./scripts/dev/lint.sh
 run_step "Unit tests" bash -c ". .venv/bin/activate && pytest"
 
 if [[ ${SKIP_COVERAGE} -eq 0 ]]; then

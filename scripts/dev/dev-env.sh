@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Helper script to create/refresh the local developer environment.
-# Usage: scripts/dev-env.sh [--with-coverage] [--with-parallel] [--with-tests] [--fresh]
+# Usage: scripts/dev/dev-env.sh [--with-coverage] [--with-parallel] [--with-tests] [--fresh]
 
 set -euo pipefail
 
