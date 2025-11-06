@@ -54,15 +54,6 @@ If implemented, the following would need to be updated:
   - Option 2: Use existing columns but remove "N/A" for IdPs
 - [ ] Update federation CSV exports to include IdP privacy counts
 
-#### Web Dashboard (if applicable)
-- [ ] Add IdP privacy statistics to dashboard cards
-- [ ] Update federation detail pages to show IdP privacy breakdown
-- [ ] Add IdP privacy statement links to entity detail pages
-- [ ] Update trend charts to include IdP privacy coverage over time
-
-#### Database Models (if web dashboard exists)
-- [ ] Consider whether current schema needs changes
-- [ ] May need migration to support historical IdP privacy data
 
 ### Implementation Considerations
 
@@ -76,7 +67,6 @@ If implemented, the following would need to be updated:
 - Breaking change for CSV consumers (column structure changes)
 - Need to decide on output format (separate columns vs. unified)
 - Existing tools/scripts may rely on current "N/A" behavior
-- May require database migration for web dashboard
 
 **Backward Compatibility:**
 - Could add a flag `--include-idp-privacy` to opt-in to new behavior
@@ -97,8 +87,6 @@ If implemented:
 - `src/edugain_analysis/core/analysis.py` - Core detection logic
 - `src/edugain_analysis/formatters/base.py` - Output formatters
 - `src/edugain_analysis/cli/main.py` - CLI interface
-- `src/edugain_analysis/web/models.py` - Database models (if applicable)
-- `src/edugain_analysis/web/import_data.py` - Web data import (if applicable)
 - `tests/unit/test_*.py` - All relevant test files
 - `../README.md`, `./CLAUDE.md` - Documentation
 

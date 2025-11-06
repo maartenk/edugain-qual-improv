@@ -14,14 +14,18 @@ A modern Python package for eduGAIN quality improvement analysis. The codebase f
 
 ### Environment Setup
 ```bash
-# Fast path: use helper scripts (preferred)
-./scripts/dev-env.sh --fresh --with-tests    # pytest/ruff/pre-commit/cov/xdist
-./scripts/dev-env.sh --with-coverage         # Add pytest-cov later
-./scripts/dev-env.sh --with-parallel         # Add pytest-xdist later
-# DEVENV_PYTHON lets you pin a specific interpreter (search order is python3.14 → 3.13 → 3.12 → python3)
-DEVENV_PYTHON=python3.14 ./scripts/dev-env.sh --with-tests
+# Fast path: Makefile helpers
+make install EXTRAS=dev,tests        # ensure .venv exists + install extras
+make shell                           # activate venv in a subshell (exit to leave)
 
-# Alternative: manual setup (Python 3.12+ required)
+# Helper script remains available
+./scripts/dev-env.sh --fresh --with-tests    # pytest/ruff/pre-commit/cov/xdist
+./scripts/dev-env.sh --with-coverage         # add pytest-cov later
+./scripts/dev-env.sh --with-parallel         # add pytest-xdist later
+# DEVENV_PYTHON lets you pin an interpreter (search order python3.14 → 3.13 → 3.12 → 3.11 → python3)
+DEVENV_PYTHON=python3.11 ./scripts/dev-env.sh --with-tests
+
+# Alternative: manual setup (Python 3.11+ required)
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]
@@ -161,7 +165,7 @@ src/edugain_analysis/
 **Core:**
 - **requests ≥2.28.0**: HTTP client for metadata and API calls
 - **platformdirs ≥3.0.0**: XDG Base Directory compliance for cache storage
-- **Python 3.12+**: Type hints, xml.etree.ElementTree, csv, concurrent.futures
+- **Python 3.11+**: Type hints, xml.etree.ElementTree, csv, concurrent.futures
 
 **Development (optional):**
 - `pip install -e .[dev]` → pytest, ruff, pre-commit
@@ -227,7 +231,7 @@ pytest -n auto
 ### Coverage Configuration
 - **HTML reports**: Generated in `reports/htmlcov/` directory
 - **XML reports**: Stored in `reports/coverage.xml` for CI/CD integration
-- **Multi-version testing**: Python 3.12, 3.13, 3.14 tracked separately
+- **Multi-version testing**: Python 3.11, 3.12, 3.13, 3.14 tracked separately
 - **Parallel coverage**: Enabled via pytest-cov configuration
 - **Exclusions**: Test files, `__main__` blocks, abstract methods, debug code
 
@@ -236,7 +240,7 @@ pytest -n auto
 - **Trigger events**: Push to any branch, pull requests to any branch, manual workflow dispatch
 - **Coverage reporting**: Automatic coverage generation and upload to Codecov with multi-version flags
 - **Quality gates**: All tests must pass (no continue-on-error), linting and formatting (ruff)
-- **Matrix testing**: Python 3.12, 3.13, and 3.14 tested in parallel
+- **Matrix testing**: Python 3.11, 3.12, 3.13, and 3.14 tested in parallel
 - **CLI entry point tests**: Validates all 4 CLI commands (analyze, seccon, sirtfi, broken-privacy)
 
 ## Key Features
