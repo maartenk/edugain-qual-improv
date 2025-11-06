@@ -16,21 +16,21 @@ endef
 .PHONY: help env pip-upgrade deps install extras shell enter leave deps-shell test coverage lint fmt dev-env dev-env-coverage dev-env-parallel dev-env-tests dev-env-fresh clean clean-pycache clean-env clean-artifacts clean-cache clean-artifacts-all clean-all purge
 
 help:
-	@echo "End-user targets:"
+	@echo "App usage targets (run the eduGAIN tooling):"
 	$(call PRINT_HELP,make help,show this message)
-	$(call PRINT_HELP,make install,create/update .venv and install extras ($(EXTRAS)))
-	$(call PRINT_HELP,make shell,activate the virtualenv in a subshell)
-	$(call PRINT_HELP,make test,run pytest)
-	$(call PRINT_HELP,make coverage,run pytest with coverage reports)
-	$(call PRINT_HELP,make lint,run ruff checks)
+	$(call PRINT_HELP,make install,prepare the local CLI environment with extras ($(EXTRAS)))
+	$(call PRINT_HELP,make shell,enter the project virtualenv for running commands)
+	$(call PRINT_HELP,make test,execute the CLI test suite)
+	$(call PRINT_HELP,make coverage,run tests with coverage reports)
+	$(call PRINT_HELP,make lint,run ruff checks on the project code)
 	$(call PRINT_HELP,make fmt,format the codebase with ruff)
 	@echo ""
-	@echo "Development targets:"
-	$(call PRINT_HELP,make deps,install base requirements only)
+	@echo "Contributor targets (develop or extend the app):"
+	$(call PRINT_HELP,make deps,install base requirements only (no extras))
 	$(call PRINT_HELP,make deps-shell,install requirements then drop into the shell)
 	$(call PRINT_HELP,make enter,alias for make shell)
 	$(call PRINT_HELP,make leave,print instructions for leaving the shell)
-	$(call PRINT_HELP,make dev-env,run scripts/dev/dev-env.sh)
+	$(call PRINT_HELP,make dev-env,bootstrap the dev helper scripts/dev/dev-env.sh)
 	$(call PRINT_HELP,make dev-env-tests,run dev-env with --with-tests)
 	$(call PRINT_HELP,make dev-env-coverage,run dev-env with --with-coverage)
 	$(call PRINT_HELP,make dev-env-parallel,run dev-env with --with-parallel)
