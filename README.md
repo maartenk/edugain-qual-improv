@@ -420,7 +420,7 @@ eduGAIN Metadata Analysis Results
 - **missing-both**: SPs missing both privacy and security
 - **urls**: URL validation results (with `--validate`)
 
-## 🏗️ Recent Improvements (v2.4.2)
+## 🏗️ Recent Improvements (v2.4.3)
 
 **CLI & Tooling:**
 - 🧭 `make help` now guides everyday CLI users vs. contributors with tone-matched sections (“Run the CLI”, “Develop or extend the app”, “Maintenance”).
