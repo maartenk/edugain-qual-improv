@@ -7,15 +7,18 @@ x-app-base: &app-base
   working_dir: /app
   volumes:
     - .:/app
-    - ${HOME}/.cache/pip:/root/.cache/pip
-    - ${HOME}/.cache/edugain:/root/.cache/edugain
-    - ./reports:/app/reports
+    - pip-cache:/root/.cache/pip
+    - edugain-cache:/root/.cache/edugain
 
 services:
   cli:
     <<: *app-base
-    command: python analyze.py
+    command: edugain-analyze
 
   test:
     <<: *app-base
     command: pytest
+
+volumes:
+  pip-cache:
+  edugain-cache:

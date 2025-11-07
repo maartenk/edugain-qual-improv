@@ -193,7 +193,7 @@ After adjusting the settings file, re-run the CLI—changes take effect immediat
 ## 🧰 Advanced (optional)
 
 - Run from source: `python analyze.py` mirrors `edugain-analyze`
-- Use Docker: `docker compose build` then `docker compose run --rm cli edugain-analyze`
+- Use Docker: `docker compose build` then `docker compose run --rm cli -- --help` (defaults to `edugain-analyze`; swap in `edugain-seccon`, `edugain-sirtfi`, or `edugain-broken-privacy` as needed)
 - Batch everything locally: `scripts/dev/local-ci.sh` runs linting, tests, coverage, and Docker smoke tests
 - Tweak the helper via env vars: `SKIP_COVERAGE=1` or `SKIP_DOCKER=1` to skip heavier steps
 
@@ -426,6 +426,24 @@ eduGAIN Metadata Analysis Results
 - 🧭 `make help` now guides everyday CLI users vs. contributors with tone-matched sections (“Run the CLI”, “Develop or extend the app”, “Maintenance”).
 - 🧹 Maintenance scripts live under `scripts/maintenance/`, dev helpers under `scripts/dev/`, and app wrappers under `scripts/app/`, so you can run CLIs without installing and keep automation clean.
 - 🧪 `scripts/dev/local-ci.sh` mirrors CI locally (lint, tests, coverage, Docker) and respects `SKIP_COVERAGE` / `SKIP_DOCKER` toggles.
+
+## 🐳 Run via Docker
+
+The Docker image ships with the package pre-installed inside `/opt/venv` and exposes the CLI entry points through a lightweight entrypoint script:
+
+```bash
+# Build once (respects DEVENV_PYTHON and INSTALL_EXTRAS build args)
+docker compose build
+
+# Run the main analyzer (defaults to edugain-analyze when no args are given)
+docker compose run --rm cli -- --report --output artifacts/report.md
+
+# Run other CLIs by overriding the command
+docker compose run --rm cli edugain-seccon --summary
+docker compose run --rm cli edugain-broken-privacy --validate
+```
+
+Pip downloads and eduGAIN metadata caches are persisted in the named volumes declared in `docker-compose.yml` (`pip-cache`, `edugain-cache`). Remove them with `docker volume rm` if you need a cold start. The project folder is still bind-mounted into `/app`, so anything written to `reports/` or `artifacts/` is immediately available on the host.
 
 ## 📋 Requirements
 
