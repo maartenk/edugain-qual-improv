@@ -47,6 +47,13 @@ tests = [
     "pytest-cov>=4.1.0",
     "pytest-xdist>=3.3.0",
 ]
+web = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.6",
+    "sqlalchemy>=2.0.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/maartenk/edugain-qual-improv"
@@ -58,6 +65,7 @@ edugain-analyze = "edugain_analysis.cli.main:main"
 edugain-seccon = "edugain_analysis.cli.seccon:main"
 edugain-sirtfi = "edugain_analysis.cli.sirtfi:main"
 edugain-broken-privacy = "edugain_analysis.cli.broken_privacy:main"
+edugain-analysis-web = "edugain_analysis_web.app:cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]

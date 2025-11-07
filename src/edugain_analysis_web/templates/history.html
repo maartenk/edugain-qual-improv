@@ -1,0 +1,430 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<!-- Chart.js for historical trend visualization -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<h1>📈 Historical Analysis</h1>
+
+<!-- Date Range and Federation Selector -->
+<div class="controls-container">
+    <div>
+        <label for="days-select">Time Range:</label>
+        <select id="days-select" onchange="updateHistory()">
+            <option value="7" {% if days == 7 %}selected{% endif %}>Last 7 Days</option>
+            <option value="30" {% if days == 30 %}selected{% endif %}>Last 30 Days</option>
+            <option value="90" {% if days == 90 %}selected{% endif %}>Last 90 Days</option>
+            <option value="180" {% if days == 180 %}selected{% endif %}>Last 6 Months</option>
+            <option value="365" {% if days == 365 %}selected{% endif %}>Last Year</option>
+        </select>
+    </div>
+
+    <div>
+        <label for="federation-select">Federation:</label>
+        <select id="federation-select" onchange="updateHistory()">
+            <option value="">All Federations</option>
+            {% for fed_name in federation_names %}
+            <option value="{{ fed_name }}" {% if selected_federation == fed_name %}selected{% endif %}>{{ fed_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<script>
+function updateHistory() {
+    const days = document.getElementById('days-select').value;
+    const federation = document.getElementById('federation-select').value;
+    let url = `/history?days=${days}`;
+    if (federation) {
+        url += `&federation_name=${encodeURIComponent(federation)}`;
+    }
+    window.location.href = url;
+}
+</script>
+
+<!-- Snapshot Timeline Summary -->
+<section>
+    <h2>Snapshot Timeline</h2>
+    <p>Found <strong>{{ snapshots|length }}</strong> snapshots in the selected time range.</p>
+
+    {% if snapshots|length == 0 %}
+    <article style="background: var(--pico-card-background-color);">
+        <p>No snapshots found in this time range. Try selecting a longer period or importing more data.</p>
+    </article>
+    {% else %}
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Total Entities</th>
+                    <th>SPs</th>
+                    <th>IdPs</th>
+                    <th>Coverage %</th>
+                    <th>Metadata Source</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for snap in snapshots %}
+                <tr>
+                    <td>{{ snap.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ snap.total_entities }}</td>
+                    <td>{{ snap.total_sps }}</td>
+                    <td>{{ snap.total_idps }}</td>
+                    <td>{{ "%.2f"|format(snap.coverage_pct) }}%</td>
+                    <td>{{ snap.metadata_source or "eduGAIN Production" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</section>
+
+<!-- Overall Coverage Trend Chart -->
+{% if snapshots|length > 1 %}
+<section style="margin-top: 2rem;">
+    <h2>Overall Coverage Trend</h2>
+    <canvas id="overall-trend-chart" style="max-height: 400px;"></canvas>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('overall-trend-chart');
+
+    const snapshots = {{ snapshots|map(attribute='timestamp')|map('string')|list|tojson }};
+    const coveragePct = {{ snapshots|map(attribute='coverage_pct')|list|tojson }};
+    const totalEntities = {{ snapshots|map(attribute='total_entities')|list|tojson }};
+    const spsWithPrivacy = {{ snapshots|map(attribute='sps_with_privacy')|list|tojson }};
+    const spsHasSecurity = {{ snapshots|map(attribute='sps_has_security')|list|tojson }};
+    const idpsHasSecurity = {{ snapshots|map(attribute='idps_has_security')|list|tojson }};
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: snapshots.map(ts => new Date(ts).toLocaleDateString()),
+            datasets: [
+                {
+                    label: 'Overall Coverage %',
+                    data: coveragePct,
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1,
+                    yAxisID: 'y-percent'
+                },
+                {
+                    label: 'Total Entities',
+                    data: totalEntities,
+                    borderColor: 'rgb(153, 102, 255)',
+                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                    tension: 0.1,
+                    yAxisID: 'y-count'
+                },
+                {
+                    label: 'SPs with Privacy',
+                    data: spsWithPrivacy,
+                    borderColor: 'rgb(54, 162, 235)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    tension: 0.1,
+                    yAxisID: 'y-count'
+                },
+                {
+                    label: 'SPs with Security Contact',
+                    data: spsHasSecurity,
+                    borderColor: 'rgb(255, 159, 64)',
+                    backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                    tension: 0.1,
+                    yAxisID: 'y-count'
+                },
+                {
+                    label: 'IdPs with Security Contact',
+                    data: idpsHasSecurity,
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    tension: 0.1,
+                    yAxisID: 'y-count'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            scales: {
+                'y-percent': {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Coverage %'
+                    },
+                    min: 0,
+                    max: 100
+                },
+                'y-count': {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Entity Count'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                if (context.dataset.yAxisID === 'y-percent') {
+                                    label += context.parsed.y.toFixed(2) + '%';
+                                } else {
+                                    label += context.parsed.y;
+                                }
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endif %}
+
+<!-- Federation-Specific Analysis -->
+{% if selected_federation and federation_history|length > 0 %}
+<section style="margin-top: 2rem;">
+    <h2>Federation: {{ selected_federation }}</h2>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Total Entities</th>
+                    <th>SPs</th>
+                    <th>IdPs</th>
+                    <th>SPs with Privacy</th>
+                    <th>SPs with Security</th>
+                    <th>IdPs with Security</th>
+                    <th>Coverage %</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in federation_history %}
+                <tr>
+                    <td>{{ item.snapshot.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ item.federation.total_entities }}</td>
+                    <td>{{ item.federation.total_sps }}</td>
+                    <td>{{ item.federation.total_idps }}</td>
+                    <td>{{ item.federation.sps_with_privacy }}</td>
+                    <td>{{ item.federation.sps_has_security }}</td>
+                    <td>{{ item.federation.idps_has_security }}</td>
+                    <td>{{ "%.2f"|format(item.federation.coverage_pct) }}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Federation Trend Chart -->
+    {% if federation_history|length > 1 %}
+    <h3 style="margin-top: 2rem;">Coverage Trend</h3>
+    <canvas id="federation-trend-chart" style="max-height: 300px;"></canvas>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('federation-trend-chart');
+
+        const timestamps = {{ federation_history|map(attribute='snapshot.timestamp')|map('string')|list|tojson }};
+        const coveragePct = {{ federation_history|map(attribute='federation.coverage_pct')|list|tojson }};
+        const spsWithPrivacy = {{ federation_history|map(attribute='federation.sps_with_privacy')|list|tojson }};
+        const totalSPs = {{ federation_history|map(attribute='federation.total_sps')|list|tojson }};
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: timestamps.map(ts => new Date(ts).toLocaleDateString()),
+                datasets: [
+                    {
+                        label: 'Coverage %',
+                        data: coveragePct,
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        tension: 0.1,
+                        yAxisID: 'y-percent'
+                    },
+                    {
+                        label: 'SPs with Privacy',
+                        data: spsWithPrivacy,
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        tension: 0.1,
+                        yAxisID: 'y-count'
+                    },
+                    {
+                        label: 'Total SPs',
+                        data: totalSPs,
+                        borderColor: 'rgb(153, 102, 255)',
+                        backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                        tension: 0.1,
+                        yAxisID: 'y-count'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                scales: {
+                    'y-percent': {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Coverage %'
+                        },
+                        min: 0,
+                        max: 100
+                    },
+                    'y-count': {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Entity Count'
+                        },
+                        grid: {
+                            drawOnChartArea: false,
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    if (context.dataset.yAxisID === 'y-percent') {
+                                        label += context.parsed.y.toFixed(2) + '%';
+                                    } else {
+                                        label += context.parsed.y;
+                                    }
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+    </script>
+    {% endif %}
+</section>
+{% elif selected_federation %}
+<section style="margin-top: 2rem;">
+    <article style="background: var(--pico-card-background-color);">
+        <p>No historical data found for federation "{{ selected_federation }}" in the selected time range.</p>
+    </article>
+</section>
+{% endif %}
+
+<!-- Entity Status Changes -->
+{% if snapshots|length >= 2 %}
+<section style="margin-top: 2rem;">
+    <h2>Entity Status Changes</h2>
+    <p>Compare snapshots to see which entities changed their privacy or security status.</p>
+
+    <div class="controls-container">
+        <div>
+            <label for="snapshot1-select">Compare:</label>
+            <select id="snapshot1-select">
+                {% for snap in snapshots %}
+                <option value="{{ snap.id }}" {% if loop.first %}selected{% endif %}>{{ snap.timestamp.strftime('%Y-%m-%d %H:%M') }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label for="snapshot2-select">With:</label>
+            <select id="snapshot2-select">
+                <option value="">Previous snapshot</option>
+                {% for snap in snapshots %}
+                <option value="{{ snap.id }}" {% if loop.index == 2 %}selected{% endif %}>{{ snap.timestamp.strftime('%Y-%m-%d %H:%M') }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="display: flex; align-items: flex-end;">
+            <button onclick="loadChanges()">Compare Snapshots</button>
+        </div>
+    </div>
+
+    <div id="entity-changes-container">
+        <p><small>Select snapshots and click "Compare Snapshots" to view changes.</small></p>
+    </div>
+
+    <script>
+    function loadChanges() {
+        const snapshot1 = document.getElementById('snapshot1-select').value;
+        const snapshot2 = document.getElementById('snapshot2-select').value;
+
+        let url = `/partials/entity_changes?snapshot1_id=${snapshot1}`;
+        if (snapshot2) {
+            url += `&snapshot2_id=${snapshot2}`;
+        }
+
+        fetch(url)
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('entity-changes-container').innerHTML = html;
+            })
+            .catch(error => {
+                document.getElementById('entity-changes-container').innerHTML =
+                    '<p style="color: var(--pico-del-color);">Error loading changes: ' + error + '</p>';
+            });
+    }
+
+    // Auto-load changes on page load if we have at least 2 snapshots
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if snapshots|length >= 2 %}
+        loadChanges();
+        {% endif %}
+    });
+    </script>
+</section>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,186 @@
+{% if entities %}
+    <div class="table-responsive">
+        <table role="grid">
+            <thead>
+                <tr>
+                    <th>
+                        <a hx-get="/partials/entity_table?sort_by=organization&sort_order={% if sort_by == 'organization' and sort_order == 'asc' %}desc{% else %}asc{% endif %}{% if federation %}&federation_id={{ federation.id }}{% endif %}"
+                           hx-target="#entity-table-wrapper"
+                           hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
+                           style="cursor: pointer; text-decoration: none;">
+                            Organization {% if sort_by == "organization" %}{{ "▼" if sort_order == "desc" else "▲" }}{% endif %}
+                        </a>
+                    </th>
+                    <th>
+                        <a hx-get="/partials/entity_table?sort_by=type&sort_order={% if sort_by == 'type' and sort_order == 'asc' %}desc{% else %}asc{% endif %}{% if federation %}&federation_id={{ federation.id }}{% endif %}"
+                           hx-target="#entity-table-wrapper"
+                           hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
+                           style="cursor: pointer; text-decoration: none;">
+                            Type {% if sort_by == "type" %}{{ "▼" if sort_order == "desc" else "▲" }}{% endif %}
+                        </a>
+                    </th>
+                    <th>
+                        <a hx-get="/partials/entity_table?sort_by=privacy&sort_order={% if sort_by == 'privacy' and sort_order == 'asc' %}desc{% else %}asc{% endif %}{% if federation %}&federation_id={{ federation.id }}{% endif %}"
+                           hx-target="#entity-table-wrapper"
+                           hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
+                           style="cursor: pointer; text-decoration: none;">
+                            Privacy {% if sort_by == "privacy" %}{{ "▼" if sort_order == "desc" else "▲" }}{% endif %}
+                        </a>
+                    </th>
+                    <th>
+                        <a hx-get="/partials/entity_table?sort_by=security&sort_order={% if sort_by == 'security' and sort_order == 'asc' %}desc{% else %}asc{% endif %}{% if federation %}&federation_id={{ federation.id }}{% endif %}"
+                           hx-target="#entity-table-wrapper"
+                           hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
+                           style="cursor: pointer; text-decoration: none;">
+                            Security {% if sort_by == "security" %}{{ "▼" if sort_order == "desc" else "▲" }}{% endif %}
+                        </a>
+                    </th>
+                    <th>
+                        <a hx-get="/partials/entity_table?sort_by=sirtfi&sort_order={% if sort_by == 'sirtfi' and sort_order == 'asc' %}desc{% else %}asc{% endif %}{% if federation %}&federation_id={{ federation.id }}{% endif %}"
+                           hx-target="#entity-table-wrapper"
+                           hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
+                           style="cursor: pointer; text-decoration: none;">
+                            SIRTFI {% if sort_by == "sirtfi" %}{{ "▼" if sort_order == "desc" else "▲" }}{% endif %}
+                        </a>
+                    </th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for entity in entities %}
+                <tr>
+                    <td>
+                        <strong>{{ entity.organization_name or "N/A" }}</strong><br>
+                        <small style="word-break: break-all;">{{ entity.entity_id[:60] }}{% if entity.entity_id|length > 60 %}...{% endif %}</small>
+                    </td>
+                    <td>
+                        <span class="badge">{{ entity.entity_type }}</span>
+                    </td>
+                    <td>
+                        {% if entity.entity_type == "IdP" %}
+                            <span style="color: #888;">N/A</span>
+                        {% elif entity.has_privacy_statement %}
+                            <span style="color: var(--pico-ins-color);">✅ Yes</span>
+                        {% else %}
+                            <span style="color: var(--pico-del-color);">❌ No</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if entity.has_security_contact %}
+                            <span style="color: var(--pico-ins-color);">✅ Yes</span>
+                        {% else %}
+                            <span style="color: var(--pico-del-color);">❌ No</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if entity.has_sirtfi %}
+                            <span style="color: var(--pico-ins-color);">✅ Yes</span>
+                        {% else %}
+                            <span style="color: var(--pico-del-color);">❌ No</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="/entities/{{ entity.entity_id }}" role="button" class="outline secondary" style="font-size: 0.8em; padding: 0.25rem 0.5rem; margin: 0;">View Details</a>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination Info and Controls -->
+    {% if total_count > 0 %}
+    <div style="margin-top: 1rem;">
+        <p><small>Showing {{ ((page - 1) * limit + 1) }} - {{ ((page - 1) * limit + entities|length) }} of {{ total_count }} entities</small></p>
+
+        {% if total_pages > 1 %}
+        <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 1rem; flex-wrap: wrap;">
+            <!-- Previous button -->
+            <button hx-get="/partials/entity_table?page={{ page - 1 }}{% if federation %}&federation_id={{ federation.id }}{% endif %}{% if entity_type %}&entity_type={{ entity_type }}{% endif %}{% if privacy_filter %}&privacy_filter={{ privacy_filter }}{% endif %}{% if security_filter %}&security_filter={{ security_filter }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}"
+                    hx-target="#entity-table-wrapper"
+                    hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
+                    class="secondary outline"
+                    style="padding: 0.25rem 0.75rem; margin: 0;"
+                    {% if page <= 1 %}disabled{% endif %}>
+                ← Previous
+            </button>
+
+            <!-- Page numbers -->
+            <div style="display: flex; gap: 0.25rem; flex-wrap: wrap;">
+            {% set start_page = [1, page - 2]|max %}
+            {% set end_page = [total_pages, page + 2]|min %}
+
+            {% if start_page > 1 %}
+                <button hx-get="/partials/entity_table?page=1{% if federation %}&federation_id={{ federation.id }}{% endif %}{% if entity_type %}&entity_type={{ entity_type }}{% endif %}{% if privacy_filter %}&privacy_filter={{ privacy_filter }}{% endif %}{% if security_filter %}&security_filter={{ security_filter }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}"
+                        hx-target="#entity-table-wrapper"
+                        hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
+                        class="secondary outline"
+                        style="padding: 0.25rem 0.5rem; margin: 0; min-width: 2.5rem;">
+                    1
+                </button>
+                {% if start_page > 2 %}
+                <span style="padding: 0.25rem 0.5rem;">...</span>
+                {% endif %}
+            {% endif %}
+
+            {% for p in range(start_page, end_page + 1) %}
+                <button hx-get="/partials/entity_table?page={{ p }}{% if federation %}&federation_id={{ federation.id }}{% endif %}{% if entity_type %}&entity_type={{ entity_type }}{% endif %}{% if privacy_filter %}&privacy_filter={{ privacy_filter }}{% endif %}{% if security_filter %}&security_filter={{ security_filter }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}"
+                        hx-target="#entity-table-wrapper"
+                        hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
+                        class="{% if p == page %}contrast{% else %}secondary outline{% endif %}"
+                        style="padding: 0.25rem 0.5rem; margin: 0; min-width: 2.5rem;"
+                        {% if p == page %}disabled{% endif %}>
+                    {{ p }}
+                </button>
+            {% endfor %}
+
+            {% if end_page < total_pages %}
+                {% if end_page < total_pages - 1 %}
+                <span style="padding: 0.25rem 0.5rem;">...</span>
+                {% endif %}
+                <button hx-get="/partials/entity_table?page={{ total_pages }}{% if federation %}&federation_id={{ federation.id }}{% endif %}{% if entity_type %}&entity_type={{ entity_type }}{% endif %}{% if privacy_filter %}&privacy_filter={{ privacy_filter }}{% endif %}{% if security_filter %}&security_filter={{ security_filter }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}"
+                        hx-target="#entity-table-wrapper"
+                        hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
+                        class="secondary outline"
+                        style="padding: 0.25rem 0.5rem; margin: 0; min-width: 2.5rem;">
+                    {{ total_pages }}
+                </button>
+            {% endif %}
+            </div>
+
+            <!-- Next button -->
+            <button hx-get="/partials/entity_table?page={{ page + 1 }}{% if federation %}&federation_id={{ federation.id }}{% endif %}{% if entity_type %}&entity_type={{ entity_type }}{% endif %}{% if privacy_filter %}&privacy_filter={{ privacy_filter }}{% endif %}{% if security_filter %}&security_filter={{ security_filter }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}"
+                    hx-target="#entity-table-wrapper"
+                    hx-include="[name='entity_type'], [name='privacy-filter'], [name='security-filter']"
+                    class="secondary outline"
+                    style="padding: 0.25rem 0.75rem; margin: 0;"
+                    {% if page >= total_pages %}disabled{% endif %}>
+                Next →
+            </button>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+{% else %}
+    <p>No entities found matching the selected filters.</p>
+{% endif %}
+
+<!-- Export Buttons -->
+<div class="grid" style="margin-top: 1rem;">
+    <div>
+        <a href="/api/export/entities?export_format=csv{% if federation %}&federation_id={{ federation.id }}{% endif %}{% if entity_type %}&entity_type={{ entity_type }}{% endif %}{% if privacy_filter %}&privacy_filter={{ privacy_filter }}{% endif %}{% if security_filter %}&security_filter={{ security_filter }}{% endif %}"
+           role="button"
+           class="secondary"
+           style="width: 100%; text-align: center;">
+            📊 Export to CSV
+        </a>
+    </div>
+    <div>
+        <a href="/api/export/entities?export_format=json{% if federation %}&federation_id={{ federation.id }}{% endif %}{% if entity_type %}&entity_type={{ entity_type }}{% endif %}{% if privacy_filter %}&privacy_filter={{ privacy_filter }}{% endif %}{% if security_filter %}&security_filter={{ security_filter }}{% endif %}"
+           role="button"
+           class="secondary outline"
+           style="width: 100%; text-align: center;">
+            📋 Export to JSON
+        </a>
+    </div>
+</div>

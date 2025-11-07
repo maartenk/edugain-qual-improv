@@ -25,6 +25,9 @@ make shell                           # activate venv in a subshell (exit to leav
 # DEVENV_PYTHON lets you pin an interpreter (search order python3.14 → 3.13 → 3.12 → 3.11 → python3)
 DEVENV_PYTHON=python3.11 ./scripts/dev/dev-env.sh --with-tests
 
+# Web interface helper (installs [web] extras, launches uvicorn)
+./scripts/web/dev.sh
+
 # Alternative: manual setup (Python 3.11+ required)
 python3 -m venv .venv
 source .venv/bin/activate

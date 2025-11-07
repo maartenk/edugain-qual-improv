@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - eduGAIN Quality</title>
+
+    <!-- Pico CSS: Minimal, classless CSS framework (10KB) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/custom.css">
+
+    <!-- HTMX: Dynamic HTML without JavaScript (14KB) -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="container-fluid">
+        <ul>
+            <li><strong>📊 eduGAIN Quality Dashboard</strong></li>
+        </ul>
+        <ul>
+            <li><a href="/" {% if request.url.path == '/' %}aria-current="page"{% endif %}>Dashboard</a></li>
+            <li><a href="/federations" {% if request.url.path == '/federations' %}aria-current="page"{% endif %}>Federations</a></li>
+            <li><a href="/history" {% if request.url.path == '/history' %}aria-current="page"{% endif %}>History</a></li>
+            <li><a href="/validation" {% if request.url.path == '/validation' %}aria-current="page"{% endif %}>URL Validation</a></li>
+            <li><a href="/config" {% if request.url.path == '/config' %}aria-current="page"{% endif %}>Config</a></li>
+            <li>
+                <details role="list" dir="rtl">
+                    <summary aria-haspopup="listbox" role="link">🔍 Search</summary>
+                    <ul role="listbox" style="width: 400px; max-width: 90vw;">
+                        <li>
+                            <form style="padding: 1rem;">
+                                <input
+                                    type="search"
+                                    name="q"
+                                    placeholder="Search entities or federations..."
+                                    hx-get="/partials/search"
+                                    hx-trigger="keyup changed delay:300ms"
+                                    hx-target="#search-results"
+                                    autocomplete="off"
+                                >
+                                <div id="search-results" style="margin-top: 1rem; max-height: 400px; overflow-y: auto;">
+                                    <p><small>Start typing to search...</small></p>
+                                </div>
+                            </form>
+                        </li>
+                    </ul>
+                </details>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Global Refresh Status Banner -->
+    <div id="global-refresh-banner" style="display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+        <div class="container" style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <span id="global-refresh-icon" style="font-size: 1.2rem;">⏳</span>
+                    <div style="flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 0.25rem;">
+                            <span id="global-refresh-stage">Data Refresh in Progress</span>
+                            <span id="global-refresh-percentage" style="margin-left: 0.5rem;">0%</span>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.2); border-radius: 4px; height: 6px; overflow: hidden;">
+                            <div id="global-refresh-bar" style="background: white; height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+                        </div>
+                        <small id="global-refresh-message" style="opacity: 0.9; margin-top: 0.25rem; display: block;">Starting...</small>
+                    </div>
+                </div>
+            </div>
+            <a href="/config" style="color: white; text-decoration: underline; white-space: nowrap; margin-left: 1rem;">View Details</a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="container" id="main-content" style="transition: margin-top 0.3s ease;">
+        <!-- Data Freshness Indicator -->
+        {% if snapshot %}
+        {% set hours_ago = ((now - snapshot.timestamp).total_seconds() / 3600)|int %}
+        <div style="margin-bottom: 1rem;">
+            <small style="{% if hours_ago > 24 %}color: var(--pico-del-color);{% elif hours_ago > 12 %}color: orange;{% else %}color: var(--pico-ins-color);{% endif %}">
+                {% if hours_ago > 24 %}
+                    ⚠️ Data is stale (last updated {{ snapshot.timestamp|time_ago }})
+                {% elif hours_ago > 12 %}
+                    ⚠️ Data may be outdated (last updated {{ snapshot.timestamp|time_ago }})
+                {% else %}
+                    ✅ Data is fresh (last updated {{ snapshot.timestamp|time_ago }})
+                {% endif %}
+                <span title="{{ snapshot.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}">
+                    - {{ snapshot.timestamp.strftime('%Y-%m-%d %H:%M') }}
+                </span>
+            </small>
+        </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="container">
+        <small>
+            eduGAIN Quality Analysis Tool |
+            <a href="https://github.com/maartenk/edugain-qual-improv" target="_blank">GitHub</a> |
+            <a href="/health">Health Check</a>
+        </small>
+    </footer>
+
+    {% block extra_scripts %}{% endblock %}
+
+    <!-- Global Refresh Status Checker -->
+    <script>
+    (function() {
+        let globalRefreshInterval = null;
+        const banner = document.getElementById('global-refresh-banner');
+        const mainContent = document.getElementById('main-content');
+        const progressBar = document.getElementById('global-refresh-bar');
+        const percentage = document.getElementById('global-refresh-percentage');
+        const stage = document.getElementById('global-refresh-stage');
+        const message = document.getElementById('global-refresh-message');
+        const icon = document.getElementById('global-refresh-icon');
+
+        async function checkGlobalRefreshStatus() {
+            try {
+                const response = await fetch('/api/refresh/status');
+                const status = await response.json();
+
+                if (status.status === 'running') {
+                    // Show banner
+                    banner.style.display = 'block';
+                    mainContent.style.marginTop = '80px';
+
+                    // Update progress
+                    const progress = status.progress || 0;
+                    progressBar.style.width = progress + '%';
+                    percentage.textContent = progress + '%';
+
+                    // Update stage with icon
+                    const stageIcons = {
+                        'initializing': '🔄',
+                        'downloading': '📥',
+                        'federations': '🏛️',
+                        'analyzing': '🔍',
+                        'saving': '💾',
+                        'completed': '✅'
+                    };
+                    const stageIcon = stageIcons[status.stage] || '⏳';
+                    icon.textContent = stageIcon;
+
+                    const stageName = status.stage ? status.stage.charAt(0).toUpperCase() + status.stage.slice(1) : 'Processing';
+                    stage.textContent = stageName;
+                    message.textContent = status.message || 'Processing...';
+
+                    // Continue polling
+                    if (!globalRefreshInterval) {
+                        globalRefreshInterval = setInterval(checkGlobalRefreshStatus, 1000);
+                    }
+                } else if (status.status === 'completed') {
+                    // Show completion briefly then hide
+                    banner.style.display = 'block';
+                    mainContent.style.marginTop = '80px';
+                    progressBar.style.width = '100%';
+                    percentage.textContent = '100%';
+                    icon.textContent = '✅';
+                    stage.textContent = 'Completed';
+                    message.textContent = status.message || 'Data refresh completed successfully';
+
+                    if (globalRefreshInterval) {
+                        clearInterval(globalRefreshInterval);
+                        globalRefreshInterval = null;
+                    }
+
+                    // Hide after 3 seconds and reload if not on config page
+                    setTimeout(() => {
+                        banner.style.display = 'none';
+                        mainContent.style.marginTop = '0';
+
+                        // Reload page if not on config page
+                        if (!window.location.pathname.includes('/config')) {
+                            window.location.reload();
+                        }
+                    }, 3000);
+                } else if (status.status === 'error') {
+                    // Show error briefly
+                    banner.style.display = 'block';
+                    banner.style.background = 'linear-gradient(135deg, #ea4335 0%, #c62828 100%)';
+                    mainContent.style.marginTop = '80px';
+                    icon.textContent = '❌';
+                    stage.textContent = 'Error';
+                    message.textContent = status.message || 'Data refresh failed';
+
+                    if (globalRefreshInterval) {
+                        clearInterval(globalRefreshInterval);
+                        globalRefreshInterval = null;
+                    }
+
+                    // Hide after 5 seconds
+                    setTimeout(() => {
+                        banner.style.display = 'none';
+                        mainContent.style.marginTop = '0';
+                        banner.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                    }, 5000);
+                } else {
+                    // No refresh running - hide banner
+                    banner.style.display = 'none';
+                    mainContent.style.marginTop = '0';
+                    if (globalRefreshInterval) {
+                        clearInterval(globalRefreshInterval);
+                        globalRefreshInterval = null;
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking global refresh status:', error);
+            }
+        }
+
+        // Check status on page load
+        checkGlobalRefreshStatus();
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            if (globalRefreshInterval) {
+                clearInterval(globalRefreshInterval);
+            }
+        });
+    })();
+    </script>
+</body>
+</html>
