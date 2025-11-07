@@ -31,8 +31,14 @@ jobs:
           pyproject.toml
 
     - name: Install dependencies
+      shell: bash
       run: |
-        DEVENV_PYTHON=python${{ matrix.python-version }} ./scripts/dev-env.sh --fresh --with-tests
+        set -euo pipefail
+        if [[ -x ./scripts/dev/dev-env.sh ]]; then
+          DEVENV_PYTHON=python${{ matrix.python-version }} ./scripts/dev/dev-env.sh --fresh --with-tests
+        else
+          DEVENV_PYTHON=python${{ matrix.python-version }} ./scripts/dev-env.sh --fresh --with-tests
+        fi
 
     - name: Prepare coverage directories
       run: mkdir -p reports
