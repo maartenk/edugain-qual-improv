@@ -13,7 +13,7 @@ define PRINT_HELP
 	@printf "  %-$(HELP_COL)s %s\n" "$(1)" "$(2)"
 endef
 
-.PHONY: help env pip-upgrade deps install extras shell enter leave deps-shell test coverage lint fmt dev-env dev-env-coverage dev-env-parallel dev-env-tests dev-env-fresh clean clean-pycache clean-env clean-artifacts clean-cache clean-artifacts-all clean-all purge
+.PHONY: help env pip-upgrade deps install extras shell enter leave deps-shell test coverage lint fmt dev-env dev-env-coverage dev-env-parallel dev-env-tests dev-env-fresh web-dev clean clean-pycache clean-env clean-artifacts clean-cache clean-artifacts-all clean-all purge
 
 help:
 	@echo "Run the CLI (everyday use):"
@@ -31,6 +31,7 @@ help:
 	$(call PRINT_HELP,make dev-env-coverage,run dev-env with --with-coverage)
 	$(call PRINT_HELP,make dev-env-parallel,run dev-env with --with-parallel)
 	$(call PRINT_HELP,make dev-env-fresh,run dev-env with --fresh)
+	$(call PRINT_HELP,make web-dev,install [web] extras then launch the FastAPI interface)
 	$(call PRINT_HELP,make test,execute the CLI test suite)
 	$(call PRINT_HELP,make coverage,run tests with coverage reports)
 	$(call PRINT_HELP,make lint,run ruff checks on the project code)
@@ -110,6 +111,9 @@ dev-env-tests:
 
 dev-env-fresh:
 	./scripts/dev/dev-env.sh --fresh
+
+web-dev:
+	./scripts/web/dev.sh
 
 clean-pycache:
 	@find . -name "__pycache__" -type d -prune -exec rm -rf {} + 2>/dev/null || true

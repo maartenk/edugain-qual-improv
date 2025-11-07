@@ -1,0 +1,169 @@
+{% if snapshots|length == 0 %}
+<p>No historical data available for the selected time period.</p>
+{% else %}
+<div class="chart-container" style="height: 300px;">
+    <canvas id="trend-chart"></canvas>
+</div>
+
+<!-- Only load Chart.js on this partial (lazy loading) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+
+<script>
+(function() {
+    // Wait for Chart.js to be available
+    function initChart() {
+        if (typeof Chart === 'undefined') {
+            setTimeout(initChart, 100);
+            return;
+        }
+
+        // Destroy existing chart if it exists
+        const existingChart = Chart.getChart("trend-chart");
+        if (existingChart) {
+            existingChart.destroy();
+        }
+
+        const ctx = document.getElementById('trend-chart');
+        if (!ctx) {
+            console.error('Canvas element not found');
+            return;
+        }
+
+        const data = {
+            labels: [
+                {% for s in snapshots %}
+                '{{ s.timestamp.strftime("%m/%d %H:%M") }}'{% if not loop.last %},{% endif %}
+                {% endfor %}
+            ],
+            datasets: [
+                {
+                    label: 'Privacy Coverage (SPs)',
+                    data: [
+                        {% for s in snapshots %}
+                        {{ "%.2f"|format(s.coverage_pct) }}{% if not loop.last %},{% endif %}
+                        {% endfor %}
+                    ],
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                },
+                {
+                    label: 'Security Contacts (SPs)',
+                    data: [
+                        {% for s in snapshots %}
+                        {{ "%.2f"|format((s.sps_has_security / s.total_sps * 100) if s.total_sps > 0 else 0) }}{% if not loop.last %},{% endif %}
+                        {% endfor %}
+                    ],
+                    borderColor: 'rgb(255, 159, 64)',
+                    backgroundColor: 'rgba(255, 159, 64, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                },
+                {
+                    label: 'Security Contacts (IdPs)',
+                    data: [
+                        {% for s in snapshots %}
+                        {{ "%.2f"|format((s.idps_has_security / s.total_idps * 100) if s.total_idps > 0 else 0) }}{% if not loop.last %},{% endif %}
+                        {% endfor %}
+                    ],
+                    borderColor: 'rgb(153, 102, 255)',
+                    backgroundColor: 'rgba(153, 102, 255, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                },
+                {
+                    label: 'SIRTFI Coverage (SPs)',
+                    data: [
+                        {% for s in snapshots %}
+                        {{ "%.2f"|format((s.sps_has_sirtfi / s.total_sps * 100) if s.total_sps > 0 else 0) }}{% if not loop.last %},{% endif %}
+                        {% endfor %}
+                    ],
+                    borderColor: 'rgb(54, 162, 235)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                },
+                {
+                    label: 'SIRTFI Coverage (IdPs)',
+                    data: [
+                        {% for s in snapshots %}
+                        {{ "%.2f"|format((s.idps_has_sirtfi / s.total_idps * 100) if s.total_idps > 0 else 0) }}{% if not loop.last %},{% endif %}
+                        {% endfor %}
+                    ],
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                }
+            ]
+        };
+
+        new Chart(ctx, {
+            type: 'line',
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Coverage %'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + '%';
+                            }
+                        }
+                    },
+                    zoom: {
+                        zoom: {
+                            wheel: {
+                                enabled: false
+                            },
+                            pinch: {
+                                enabled: false
+                            },
+                            mode: 'xy'
+                        },
+                        pan: {
+                            enabled: false,
+                            mode: 'xy'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Start initialization
+    initChart();
+})();
+</script>
+{% endif %}

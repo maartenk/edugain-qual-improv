@@ -8,8 +8,30 @@ on:
   workflow_dispatch:
 
 jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - id: filter
+      uses: dorny/paths-filter@v3
+      with:
+        filters: |
+          web:
+            - 'src/edugain_analysis_web/**'
+            - 'tests/unit/test_web_*.py'
+            - 'scripts/web/**'
+            - 'requirements-web.txt'
+            - 'docs/WEB_INTERFACE_MVP.md'
+            - 'production.md'
+            - 'docker-compose.yml'
+
   test:
     name: Test (Python ${{ matrix.python-version }})
+    needs: detect-changes
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -75,6 +97,7 @@ jobs:
 
   docker-tests:
     name: Docker Workflow
+    needs: detect-changes
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -92,3 +115,29 @@ jobs:
 
     - name: Run dockerized tests
       run: docker compose run --rm test
+
+  web-tests:
+    name: Web Interface Tests
+    needs: detect-changes
+    if: needs.detect-changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install web dependencies
+      run: |
+        python -m venv .venv
+        . .venv/bin/activate
+        python -m pip install --upgrade pip
+        python -m pip install -e ".[tests,web]"
+
+    - name: Run web tests
+      run: |
+        . .venv/bin/activate
+        pytest tests/unit/test_web_* -v

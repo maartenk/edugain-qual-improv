@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+    <h1 style="margin: 0;">Dashboard</h1>
+</div>
+
+<!-- Auto-refreshing stats cards (updates every 60 seconds) -->
+<section hx-get="/partials/stats"
+         hx-trigger="load, every 60s"
+         hx-swap="outerHTML">
+    {% include "partials/stats_cards.html" %}
+</section>
+
+<!-- Trends Chart -->
+<section>
+    <article>
+        <header>
+            <strong>📈 Coverage Trends</strong>
+            <span style="float: right;">
+                <select id="days-select"
+                        hx-get="/partials/trends"
+                        hx-target="#trends-chart"
+                        hx-swap="innerHTML"
+                        hx-include="this"
+                        hx-trigger="change"
+                        name="days"
+                        style="display: inline-block; width: auto;">
+                    <option value="7">Last 7 days</option>
+                    <option value="30" selected>Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                    <option value="180">Last 180 days</option>
+                    <option value="365">Last 365 days</option>
+                </select>
+            </span>
+        </header>
+
+        <div id="trends-chart"
+             hx-get="/partials/trends?days=30"
+             hx-trigger="load, revealed"
+             hx-swap="innerHTML">
+            <p aria-busy="true">Loading trends...</p>
+        </div>
+    </article>
+</section>
+
+<!-- Top/Bottom Federations -->
+<section>
+    <article>
+        <header>
+            <strong>Top 10 Federations by Coverage</strong>
+            <span style="float: right;">
+                <button hx-get="/partials/federations?sort=coverage&order=desc&limit=10"
+                        hx-target="#federation-table"
+                        hx-swap="innerHTML"
+                        class="secondary">
+                    Refresh
+                </button>
+            </span>
+        </header>
+
+        <div id="federation-table">
+            {% include "partials/federation_table.html" %}
+        </div>
+
+        <footer>
+            <a href="/federations" role="button" class="secondary">View All Federations →</a>
+        </footer>
+    </article>
+</section>
+{% endblock %}

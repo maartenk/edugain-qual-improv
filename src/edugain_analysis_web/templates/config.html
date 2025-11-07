@@ -1,0 +1,434 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>⚙️ Configuration</h1>
+
+<!-- Cache Status Card -->
+<section>
+    <article>
+        <header><strong>📊 Cache Status</strong></header>
+        <div id="cache-status-container">
+            <p>Loading cache status...</p>
+        </div>
+        <script>
+            // Fetch cache status on page load
+            fetch('/api/cache/status')
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('cache-status-container');
+                    let statusColor = 'var(--pico-ins-color)';
+                    let statusIcon = '✅';
+
+                    if (data.status === 'stale') {
+                        statusColor = 'orange';
+                        statusIcon = '⚠️';
+                    } else if (data.status === 'expired' || data.status === 'no_data') {
+                        statusColor = 'var(--pico-del-color)';
+                        statusIcon = '❌';
+                    }
+
+                    if (data.status === 'no_data') {
+                        container.innerHTML = `
+                            <p style="color: ${statusColor};">${statusIcon} <strong>${data.message}</strong></p>
+                            <p><small>Run: <code>python -m edugain_analysis_web.import_data</code></small></p>
+                        `;
+                    } else {
+                        container.innerHTML = `
+                            <p style="color: ${statusColor};">${statusIcon} <strong>${data.message}</strong></p>
+                            <div class="grid" style="margin-top: 1rem;">
+                                <div>
+                                    <small><strong>Last Updated:</strong></small><br>
+                                    <span>${new Date(data.timestamp).toLocaleString()}</span>
+                                </div>
+                                <div>
+                                    <small><strong>Data Age:</strong></small><br>
+                                    <span>${data.age_hours.toFixed(1)} hours</span>
+                                </div>
+                                <div>
+                                    <small><strong>Metadata Source:</strong></small><br>
+                                    <span>${data.metadata_source}</span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching cache status:', error);
+                    document.getElementById('cache-status-container').innerHTML = '<p style="color: var(--pico-del-color);">❌ Error loading cache status</p>';
+                });
+        </script>
+        <footer>
+            <div class="grid" style="margin-top: 1rem;">
+                <button type="button" id="refresh-button" onclick="refreshData(false)">
+                    🔄 Refresh Data
+                </button>
+                <button type="button" class="secondary outline" id="refresh-validate-button" onclick="refreshData(true)">
+                    🔍 Refresh with URL Validation
+                </button>
+            </div>
+
+            <!-- Progress indicator -->
+            <div id="refresh-progress" style="margin-top: 1rem; display: none;">
+                <div style="margin-bottom: 0.5rem;">
+                    <small id="progress-stage" style="font-weight: bold;"></small>
+                    <small id="progress-percentage" style="float: right;"></small>
+                </div>
+                <progress id="progress-bar" value="0" max="100" style="width: 100%; height: 1.5rem;"></progress>
+                <p id="progress-message" style="margin-top: 0.5rem; font-size: 0.9rem;"></p>
+            </div>
+
+            <div id="refresh-status" style="margin-top: 1rem;"></div>
+            <p style="margin-top: 1rem;"><small>Or manually run: <code>python -m edugain_analysis_web.import_data</code></small></p>
+        </footer>
+    </article>
+</section>
+
+<script>
+let statusCheckInterval = null;
+
+async function refreshData(validateUrls) {
+    const refreshButton = document.getElementById('refresh-button');
+    const refreshValidateButton = document.getElementById('refresh-validate-button');
+    const statusDiv = document.getElementById('refresh-status');
+    const progressDiv = document.getElementById('refresh-progress');
+
+    // Disable buttons
+    refreshButton.disabled = true;
+    refreshValidateButton.disabled = true;
+
+    // Show progress indicator
+    progressDiv.style.display = 'block';
+    statusDiv.innerHTML = '';
+
+    try {
+        const response = await fetch(`/api/refresh?validate_urls=${validateUrls}`, {
+            method: 'POST',
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            // Start polling for status
+            if (statusCheckInterval) {
+                clearInterval(statusCheckInterval);
+            }
+            statusCheckInterval = setInterval(checkRefreshStatus, 1000);
+        } else {
+            progressDiv.style.display = 'none';
+            statusDiv.innerHTML = `<p style="color: var(--pico-del-color);">❌ ${data.message}</p>`;
+            refreshButton.disabled = false;
+            refreshValidateButton.disabled = false;
+        }
+    } catch (error) {
+        progressDiv.style.display = 'none';
+        statusDiv.innerHTML = `<p style="color: var(--pico-del-color);">❌ Error starting refresh</p>`;
+        refreshButton.disabled = false;
+        refreshValidateButton.disabled = false;
+    }
+}
+
+async function checkRefreshStatus() {
+    const refreshButton = document.getElementById('refresh-button');
+    const refreshValidateButton = document.getElementById('refresh-validate-button');
+    const statusDiv = document.getElementById('refresh-status');
+    const progressDiv = document.getElementById('refresh-progress');
+    const progressBar = document.getElementById('progress-bar');
+    const progressStage = document.getElementById('progress-stage');
+    const progressPercentage = document.getElementById('progress-percentage');
+    const progressMessage = document.getElementById('progress-message');
+
+    try {
+        const response = await fetch('/api/refresh/status');
+        const status = await response.json();
+
+        if (status.status === 'running') {
+            // Update progress bar
+            progressBar.value = status.progress || 0;
+            progressPercentage.textContent = `${status.progress || 0}%`;
+
+            // Update stage indicator
+            const stageIcons = {
+                'initializing': '🔄',
+                'downloading': '📥',
+                'federations': '🏛️',
+                'analyzing': '🔍',
+                'saving': '💾',
+                'completed': '✅'
+            };
+            const icon = stageIcons[status.stage] || '⏳';
+            progressStage.textContent = `${icon} ${status.stage ? status.stage.charAt(0).toUpperCase() + status.stage.slice(1) : 'Processing'}`;
+
+            // Update message
+            progressMessage.textContent = status.message;
+            progressMessage.style.color = 'var(--pico-ins-color)';
+        } else if (status.status === 'completed') {
+            // Show 100% complete
+            progressBar.value = 100;
+            progressPercentage.textContent = '100%';
+            progressStage.textContent = '✅ Completed';
+            progressMessage.textContent = status.message;
+            progressMessage.style.color = 'var(--pico-ins-color)';
+
+            clearInterval(statusCheckInterval);
+            statusCheckInterval = null;
+
+            // Hide progress and show success after delay
+            setTimeout(() => {
+                progressDiv.style.display = 'none';
+                statusDiv.innerHTML = `<p style="color: var(--pico-ins-color);">✅ ${status.message}</p>`;
+                refreshButton.disabled = false;
+                refreshValidateButton.disabled = false;
+
+                // Reload page to show new data
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            }, 1500);
+        } else if (status.status === 'error') {
+            progressDiv.style.display = 'none';
+            statusDiv.innerHTML = `<p style="color: var(--pico-del-color);">❌ ${status.message}</p>`;
+            if (status.error) {
+                statusDiv.innerHTML += `<p><small>${status.error}</small></p>`;
+            }
+            clearInterval(statusCheckInterval);
+            statusCheckInterval = null;
+            refreshButton.disabled = false;
+            refreshValidateButton.disabled = false;
+        }
+    } catch (error) {
+        console.error('Error checking refresh status:', error);
+    }
+}
+
+// Check status on page load in case a refresh is already running
+checkRefreshStatus();
+</script>
+
+<!-- Settings Form -->
+<section>
+    <article>
+        <header><strong>⚙️ Analysis Settings</strong></header>
+        <form id="settings-form">
+            <div class="grid">
+                <div>
+                    <label for="auto_refresh_interval">
+                        Auto-Refresh Interval (hours)
+                        <small>How often to check for new data (1-168)</small>
+                    </label>
+                    <input type="number" id="auto_refresh_interval" name="auto_refresh_interval"
+                           min="1" max="168" value="{{ settings.auto_refresh_interval }}" required>
+                </div>
+
+                <div>
+                    <label for="metadata_cache_expiry">
+                        Metadata Cache Expiry (hours)
+                        <small>How long to cache metadata (1-168)</small>
+                    </label>
+                    <input type="number" id="metadata_cache_expiry" name="metadata_cache_expiry"
+                           min="1" max="168" value="{{ settings.metadata_cache_expiry }}" required>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div>
+                    <label for="url_validation_timeout">
+                        URL Validation Timeout (seconds)
+                        <small>HTTP request timeout (1-60)</small>
+                    </label>
+                    <input type="number" id="url_validation_timeout" name="url_validation_timeout"
+                           min="1" max="60" value="{{ settings.url_validation_timeout }}" required>
+                </div>
+
+                <div>
+                    <label for="url_validation_threads">
+                        URL Validation Threads
+                        <small>Parallel validation threads (1-50)</small>
+                    </label>
+                    <input type="number" id="url_validation_threads" name="url_validation_threads"
+                           min="1" max="50" value="{{ settings.url_validation_threads }}" required>
+                </div>
+            </div>
+
+            <div>
+                <label for="federation_cache_expiry">
+                    Federation Cache Expiry (hours)
+                    <small>How long to cache federation names (1-8760 = 1 year)</small>
+                </label>
+                <input type="number" id="federation_cache_expiry" name="federation_cache_expiry"
+                       min="1" max="8760" value="{{ settings.federation_cache_expiry }}" required>
+            </div>
+
+            <div id="settings-message" style="margin-top: 1rem;"></div>
+
+            <div class="grid">
+                <button type="submit" id="save-button">💾 Save Settings</button>
+                <button type="button" class="secondary outline" id="reset-button">🔄 Reset to Defaults</button>
+            </div>
+        </form>
+
+        <script>
+            // Save settings
+            document.getElementById('settings-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const saveButton = document.getElementById('save-button');
+                const messageDiv = document.getElementById('settings-message');
+
+                saveButton.disabled = true;
+                saveButton.textContent = '⏳ Saving...';
+
+                const formData = new FormData(e.target);
+                const params = new URLSearchParams();
+                for (const [key, value] of formData) {
+                    params.append(key, value);
+                }
+
+                try {
+                    const response = await fetch(`/api/settings?${params.toString()}`, {
+                        method: 'POST',
+                    });
+                    const data = await response.json();
+
+                    if (data.error) {
+                        messageDiv.innerHTML = `<p style="color: var(--pico-del-color);">❌ ${data.error}</p>`;
+                    } else {
+                        messageDiv.innerHTML = `<p style="color: var(--pico-ins-color);">✅ ${data.message}</p>`;
+                    }
+                } catch (error) {
+                    messageDiv.innerHTML = `<p style="color: var(--pico-del-color);">❌ Error saving settings</p>`;
+                } finally {
+                    saveButton.disabled = false;
+                    saveButton.textContent = '💾 Save Settings';
+                }
+            });
+
+            // Reset to defaults
+            document.getElementById('reset-button').addEventListener('click', async () => {
+                const resetButton = document.getElementById('reset-button');
+                const messageDiv = document.getElementById('settings-message');
+
+                if (!confirm('Are you sure you want to reset all settings to defaults?')) {
+                    return;
+                }
+
+                resetButton.disabled = true;
+                resetButton.textContent = '⏳ Resetting...';
+
+                try {
+                    const response = await fetch('/api/settings/reset', {
+                        method: 'POST',
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        messageDiv.innerHTML = `<p style="color: var(--pico-ins-color);">✅ ${data.message}</p>`;
+                        // Reload page to show default values
+                        setTimeout(() => window.location.reload(), 1000);
+                    } else {
+                        messageDiv.innerHTML = `<p style="color: var(--pico-del-color);">❌ Error resetting settings</p>`;
+                    }
+                } catch (error) {
+                    messageDiv.innerHTML = `<p style="color: var(--pico-del-color);">❌ Error resetting settings</p>`;
+                } finally {
+                    resetButton.disabled = false;
+                    resetButton.textContent = '🔄 Reset to Defaults';
+                }
+            });
+        </script>
+    </article>
+</section>
+
+<!-- Database Backup/Restore -->
+<section>
+    <article>
+        <header><strong>💾 Database Backup & Restore</strong></header>
+        <p>Export or import the entire database for backup, sharing, or migration purposes.</p>
+
+        <div class="grid" style="margin-top: 1rem;">
+            <div>
+                <h6 style="margin-bottom: 0.5rem;">📥 Export Database</h6>
+                <p style="margin-bottom: 0.5rem;"><small>Download complete database as SQLite file</small></p>
+                <button type="button" onclick="exportDatabase()" style="width: 100%;">
+                    Download Database File
+                </button>
+            </div>
+
+            <div>
+                <h6 style="margin-bottom: 0.5rem;">📤 Import Database <small style="color: var(--pico-del-color);">⚠️ Replaces all data!</small></h6>
+                <form id="import-form" enctype="multipart/form-data" style="margin-bottom: 0;">
+                    <input type="file" id="database-file" name="database_file" accept=".db,.sqlite,.sqlite3" style="margin-bottom: 0.5rem;">
+                    <button type="button" onclick="importDatabase()" style="width: 100%; margin-bottom: 0;">
+                        Upload & Replace Database
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div id="database-message" style="margin-top: 1rem;"></div>
+
+        <script>
+            function exportDatabase() {
+                // Direct download via link
+                window.location.href = '/api/database/export';
+            }
+
+            async function importDatabase() {
+                const fileInput = document.getElementById('database-file');
+                const messageDiv = document.getElementById('database-message');
+
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    messageDiv.innerHTML = '<p style="color: var(--pico-del-color);">❌ Please select a database file first</p>';
+                    return;
+                }
+
+                if (!confirm('⚠️ WARNING: This will replace ALL existing data with the imported database. A backup will be created automatically. Continue?')) {
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('database_file', fileInput.files[0]);
+
+                messageDiv.innerHTML = '<p style="color: var(--pico-ins-color);">⏳ Importing database...</p>';
+
+                try {
+                    const response = await fetch('/api/database/import', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        messageDiv.innerHTML = `
+                            <p style="color: var(--pico-ins-color);">✅ ${data.message}</p>
+                            <p><small>Backup saved to: ${data.backup_path}</small></p>
+                            <p><small>Reloading page in 3 seconds...</small></p>
+                        `;
+                        setTimeout(() => window.location.reload(), 3000);
+                    } else {
+                        messageDiv.innerHTML = `<p style="color: var(--pico-del-color);">❌ ${data.error}</p>`;
+                    }
+                } catch (error) {
+                    messageDiv.innerHTML = `<p style="color: var(--pico-del-color);">❌ Error importing database: ${error.message}</p>`;
+                }
+            }
+        </script>
+    </article>
+</section>
+
+<section>
+    <article>
+        <header><strong>ℹ️ About Settings</strong></header>
+        <p>These settings control the behavior of the analysis and caching system:</p>
+        <ul>
+            <li><strong>Auto-Refresh Interval:</strong> Reserved for future auto-refresh feature</li>
+            <li><strong>Metadata Cache Expiry:</strong> Controls how long eduGAIN metadata is cached</li>
+            <li><strong>URL Validation Timeout:</strong> Maximum time to wait for URL validation responses</li>
+            <li><strong>URL Validation Threads:</strong> Number of parallel threads for URL validation (higher = faster but more load)</li>
+            <li><strong>Federation Cache Expiry:</strong> How long federation name mappings are cached</li>
+        </ul>
+        <p><small>Note: Settings changes only affect new data imports. Run <code>python -m edugain_analysis_web.import_data</code> to apply changes.</small></p>
+    </article>
+</section>
+
+<footer>
+    <p><small>Last settings update: {% if settings.updated_at %}{{ settings.updated_at.strftime('%Y-%m-%d %H:%M') }}{% else %}Never{% endif %}</small></p>
+</footer>
+{% endblock %}

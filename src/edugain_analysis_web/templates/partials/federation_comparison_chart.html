@@ -1,0 +1,112 @@
+{% if federations|length == 0 %}
+<p>No federation data available.</p>
+{% else %}
+<!-- Chart.js already loaded from trend chart -->
+<div class="chart-container" style="height: 400px;">
+    <canvas id="federation-comparison-chart"></canvas>
+</div>
+
+<script>
+(function() {
+    // Destroy existing chart if it exists
+    const existingChart = Chart.getChart("federation-comparison-chart");
+    if (existingChart) {
+        existingChart.destroy();
+    }
+
+    const ctx = document.getElementById('federation-comparison-chart');
+
+    // Get top 20 federations by total entities
+    const fedData = [
+        {% for fed in federations[:20] %}
+        {
+            name: '{{ fed.name }}',
+            privacy: {{ "%.2f"|format(fed.coverage_pct) }},
+            spSecurity: {{ "%.2f"|format((fed.sps_has_security / fed.total_sps * 100) if fed.total_sps > 0 else 0) }},
+            idpSecurity: {{ "%.2f"|format((fed.idps_has_security / fed.total_idps * 100) if fed.total_idps > 0 else 0) }},
+            entities: {{ fed.total_entities }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    // Sort by total entities descending
+    fedData.sort((a, b) => b.entities - a.entities);
+
+    const data = {
+        labels: fedData.map(f => f.name.length > 15 ? f.name.substring(0, 15) + '...' : f.name),
+        datasets: [
+            {
+                label: 'Privacy Coverage (SPs)',
+                data: fedData.map(f => f.privacy),
+                backgroundColor: 'rgba(75, 192, 192, 0.7)',
+            },
+            {
+                label: 'Security Contacts (SPs)',
+                data: fedData.map(f => f.spSecurity),
+                backgroundColor: 'rgba(255, 159, 64, 0.7)',
+            },
+            {
+                label: 'Security Contacts (IdPs)',
+                data: fedData.map(f => f.idpSecurity),
+                backgroundColor: 'rgba(153, 102, 255, 0.7)',
+            }
+        ]
+    };
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: data,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Coverage %'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Federation'
+                    },
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 45
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + '%';
+                        },
+                        afterLabel: function(context) {
+                            const fed = fedData[context.dataIndex];
+                            return 'Total entities: ' + fed.entities;
+                        }
+                    }
+                }
+            }
+        }
+    });
+})();
+</script>
+{% endif %}

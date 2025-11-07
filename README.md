@@ -194,6 +194,7 @@ After adjusting the settings file, re-run the CLI—changes take effect immediat
 
 - Run from source: `python analyze.py` mirrors `edugain-analyze`
 - Use Docker: `docker compose build` then `docker compose run --rm cli -- --help` (defaults to `edugain-analyze`; swap in `edugain-seccon`, `edugain-sirtfi`, or `edugain-broken-privacy` as needed)
+- Run the web interface locally: `pip install -e ".[web]"` then `edugain-analysis-web --reload --host 0.0.0.0 --port 8000` (or `scripts/web/dev.sh`)
 - Batch everything locally: `scripts/dev/local-ci.sh` runs linting, tests, coverage, and Docker smoke tests
 - Tweak the helper via env vars: `SKIP_COVERAGE=1` or `SKIP_DOCKER=1` to skip heavier steps
 
@@ -229,6 +230,17 @@ Prefer scripts? `scripts/dev/dev-env.sh` remains available if you prefer driving
 - Test coverage outputs land in `artifacts/coverage/` (HTML + XML). The `reports/` directory is reserved for CLI exports or cached metadata snapshots and is only pruned when you run `scripts/maintenance/clean-artifacts.sh --reports`.
 - Script layout: `scripts/app/` (CLI wrappers), `scripts/dev/` (developer tooling), `scripts/maintenance/` (cache & environment cleanup).
 
+## 🌐 Web Interface (FastAPI + HTMX)
+
+- Install extras: `pip install -e ".[web]"` (or run `scripts/web/dev.sh` to bootstrap + launch in one step).
+- Launch manually: `edugain-analysis-web --host 0.0.0.0 --port 8000 --reload`.
+- Database defaults to `~/.cache/edugain-analysis/webapp.db`; override via:
+  - `EDUGAIN_WEB_DB_URL` – full SQLAlchemy URL (e.g., `sqlite:////data/webapp.db` or `postgresql://...`).
+  - `EDUGAIN_WEB_DB_FILE` – path to a SQLite file (auto-wrapped into a URL).
+  - `EDUGAIN_WEB_CACHE_DIR` – overrides the cache root used when falling back to SQLite.
+- Import fresh analysis data into the web database with `python -m edugain_analysis_web.import_data --validate-urls`.
+- Documentation: `docs/WEB_INTERFACE_MVP.md` captures the original MVP scope and status.
+
 ## 📘 Need developer details?
 
 Developer tooling, architecture notes, and testing guidance now live in `docs/CLAUDE.md`. The docs index at `docs/README.md` links to all supporting material.
@@ -250,8 +262,9 @@ src/edugain_analysis/
 │   ├── seccon.py           # Security contact CLI (edugain-seccon)
 │   ├── sirtfi.py           # SIRTFI compliance CLI (edugain-sirtfi)
 │   └── broken_privacy.py   # Broken privacy links CLI (edugain-broken-privacy)
-└── config/                  # Configuration and patterns
-    └── settings.py         # Constants and validation patterns
+├── config/                  # Configuration and patterns
+│   └── settings.py         # Constants and validation patterns
+└── edugain_analysis_web/    # Optional FastAPI/HTMX interface (installed via [web] extra)
 ```
 
 ## 🔍 Privacy Statement URL Validation
@@ -441,9 +454,12 @@ docker compose run --rm cli -- --report --output artifacts/report.md
 # Run other CLIs by overriding the command
 docker compose run --rm cli edugain-seccon --summary
 docker compose run --rm cli edugain-broken-privacy --validate
+
+# Serve the web interface (binds to WEB_PORT, default 8000)
+WEB_PORT=8000 docker compose up web
 ```
 
-Pip downloads and eduGAIN metadata caches are persisted in the named volumes declared in `docker-compose.yml` (`pip-cache`, `edugain-cache`). Remove them with `docker volume rm` if you need a cold start. The project folder is still bind-mounted into `/app`, so anything written to `reports/` or `artifacts/` is immediately available on the host.
+Pip downloads and eduGAIN metadata caches are persisted in the named volumes declared in `docker-compose.yml` (`pip-cache`, `edugain-cache`). Remove them with `docker volume rm` if you need a cold start. The project folder is still bind-mounted into `/app`, so anything written to `reports/` or `artifacts/` is immediately available on the host. The `web` service honors `EDUGAIN_WEB_DB_URL`, `EDUGAIN_WEB_DB_FILE`, and `EDUGAIN_WEB_CACHE_DIR` environment variables for custom database/cache locations.
 
 ## 📋 Requirements
 

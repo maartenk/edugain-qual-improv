@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Federation Breakdown</h1>
+
+<!-- Summary Stats -->
+<section hx-get="/partials/stats"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+    {% include "partials/stats_cards.html" %}
+</section>
+
+<!-- Federation Table with Sorting -->
+<section>
+    <article>
+        <header style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <strong>All Federations</strong>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button hx-get="/partials/federations?sort=name&order=asc&limit=0"
+                        hx-target="#federation-table"
+                        hx-swap="innerHTML"
+                        class="secondary"
+                        style="margin: 0;">
+                    📝 Sort by Name
+                </button>
+                <button hx-get="/partials/federations?sort=coverage&order=desc&limit=0"
+                        hx-target="#federation-table"
+                        hx-swap="innerHTML"
+                        class="secondary"
+                        style="margin: 0;">
+                    📊 Sort by Coverage
+                </button>
+                <button hx-get="/partials/federations?sort=entities&order=desc&limit=0"
+                        hx-target="#federation-table"
+                        hx-swap="innerHTML"
+                        class="secondary"
+                        style="margin: 0;">
+                    🔢 Sort by Entities
+                </button>
+            </div>
+        </header>
+
+        <div id="federation-table">
+            {% include "partials/federation_table.html" %}
+        </div>
+
+        <footer>
+            <div class="grid">
+                <div>
+                    <a href="/api/export/federations?export_format=csv"
+                       role="button"
+                       class="secondary"
+                       style="width: 100%; text-align: center;">
+                        📊 Export Federations to CSV
+                    </a>
+                </div>
+                <div>
+                    <a href="/api/export/federations?export_format=json"
+                       role="button"
+                       class="secondary outline"
+                       style="width: 100%; text-align: center;">
+                        📋 Export Federations to JSON
+                    </a>
+                </div>
+            </div>
+        </footer>
+    </article>
+</section>
+{% endblock %}

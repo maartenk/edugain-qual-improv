@@ -2,7 +2,7 @@ x-app-base: &app-base
   build:
     context: .
     args:
-      INSTALL_EXTRAS: "tests"
+      INSTALL_EXTRAS: "${DOCKER_INSTALL_EXTRAS:-tests}"
       DEVENV_PYTHON: "${DEVENV_PYTHON:-3.11}"
   working_dir: /app
   volumes:
@@ -18,6 +18,17 @@ services:
   test:
     <<: *app-base
     command: pytest
+
+  web:
+    <<: *app-base
+    build:
+      context: .
+      args:
+        INSTALL_EXTRAS: "web"
+        DEVENV_PYTHON: "${DEVENV_PYTHON:-3.11}"
+    command: edugain-analysis-web --host 0.0.0.0 --port 8000
+    ports:
+      - "${WEB_PORT:-8000}:8000"
 
 volumes:
   pip-cache:

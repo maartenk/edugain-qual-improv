@@ -8,6 +8,7 @@ This folder collects supporting documentation for the eduGAIN analysis toolkit. 
 - `../README.md#-developer-setup` — How to bootstrap the development toolchain and optional extras.
 
 - `CLAUDE.md` — coding guidelines and workflows for automation agents collaborating on the project.
+- `WEB_INTERFACE_MVP.md` — history and scope of the web interface MVP.
 - `FUTURE_ENHANCEMENTS.md` — roadmap and research ideas under consideration.
 - `../Dockerfile` & `../docker-compose.yml` — containerized workflow for running the CLI and tests.
 - `../scripts/app/` — wrapper entry points for running the CLI without installation.

@@ -1,0 +1,90 @@
+<div>
+    <h4>Changes between {{ snapshot2.timestamp.strftime('%Y-%m-%d %H:%M') }} and {{ snapshot1.timestamp.strftime('%Y-%m-%d %H:%M') }}</h4>
+
+    {% if changes|length == 0 %}
+    <p>No entity status changes detected between these snapshots.</p>
+    {% else %}
+    <p>Found <strong>{{ changes|length }}</strong> entities with status changes.</p>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Organization</th>
+                    <th>Type</th>
+                    <th>Change Type</th>
+                    <th>Privacy Statement</th>
+                    <th>Security Contact</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for change in changes %}
+                <tr>
+                    <td>
+                        <a href="/entities/{{ change.entity.entity_id }}">
+                            {{ change.entity.organization_name or "Unknown" }}
+                        </a>
+                    </td>
+                    <td>{{ change.entity.entity_type }}</td>
+                    <td>
+                        {% if change.change_type == "new" %}
+                        <span style="color: var(--pico-ins-color);">✨ New</span>
+                        {% elif change.change_type == "removed" %}
+                        <span style="color: var(--pico-del-color);">🗑️ Removed</span>
+                        {% else %}
+                        <span style="color: orange;">📝 Modified</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if change.privacy_changed %}
+                        <span>
+                            {% if change.old_privacy is none %}
+                            —
+                            {% elif change.old_privacy %}
+                            ✅
+                            {% else %}
+                            ❌
+                            {% endif %}
+                            →
+                            {% if change.new_privacy is none %}
+                            —
+                            {% elif change.new_privacy %}
+                            <span style="color: var(--pico-ins-color);">✅</span>
+                            {% else %}
+                            <span style="color: var(--pico-del-color);">❌</span>
+                            {% endif %}
+                        </span>
+                        {% else %}
+                        <span style="color: gray;">No change</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if change.security_changed %}
+                        <span>
+                            {% if change.old_security is none %}
+                            —
+                            {% elif change.old_security %}
+                            ✅
+                            {% else %}
+                            ❌
+                            {% endif %}
+                            →
+                            {% if change.new_security is none %}
+                            —
+                            {% elif change.new_security %}
+                            <span style="color: var(--pico-ins-color);">✅</span>
+                            {% else %}
+                            <span style="color: var(--pico-del-color);">❌</span>
+                            {% endif %}
+                        </span>
+                        {% else %}
+                        <span style="color: gray;">No change</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
