@@ -32,7 +32,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        DEVENV_PYTHON=python${{ matrix.python-version }} ./scripts/dev-env.sh --fresh --with-tests
+        DEVENV_PYTHON=python${{ matrix.python-version }} ./scripts/dev/dev-env.sh --fresh --with-tests
 
     - name: Prepare coverage directories
       run: mkdir -p reports
