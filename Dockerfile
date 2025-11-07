@@ -10,25 +10,22 @@ RUN apk add --no-cache \
     build-base \
     ca-certificates \
     curl \
-    git \
     libffi-dev \
     openssl-dev
 
 WORKDIR /src
 
-# Copy project metadata first for better layer caching
+# Copy metadata separately to leverage Docker layer caching
 COPY pyproject.toml README.md requirements.txt requirements-runtime.txt ./
-COPY scripts ./scripts
 COPY analyze.py ./analyze.py
 COPY src ./src
-COPY tests ./tests
 
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
 RUN pip install --upgrade pip setuptools wheel
 
 ARG INSTALL_EXTRAS=tests
-RUN pip install -e .[${INSTALL_EXTRAS}]
+RUN pip install --no-cache-dir ".[${INSTALL_EXTRAS}]"
 
 FROM python:${DEVENV_PYTHON}-alpine AS runtime
 
@@ -40,13 +37,14 @@ RUN apk add --no-cache \
     bash \
     ca-certificates \
     curl \
-    git \
     libffi \
     openssl
 
 WORKDIR /app
 
 COPY --from=builder /opt/venv /opt/venv
-COPY --from=builder /src /app
+COPY docker/entrypoint.sh /usr/local/bin/edugain-entrypoint.sh
+RUN chmod +x /usr/local/bin/edugain-entrypoint.sh
 
-CMD ["python", "analyze.py"]
+ENTRYPOINT ["edugain-entrypoint.sh"]
+CMD ["edugain-analyze"]
