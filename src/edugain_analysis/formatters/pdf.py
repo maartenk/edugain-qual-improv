@@ -288,10 +288,10 @@ def _build_charts(stats: dict, include_validation: bool) -> list[ChartImage]:
         # Add error breakdown table if there are broken URLs
         error_breakdown = stats.get("error_breakdown", {})
         if error_breakdown and urls_broken > 0:
-            # Sort by count (descending) and take top 10 error types
+            # Sort by count (descending) and take top 5 error types
             sorted_errors = sorted(
                 error_breakdown.items(), key=lambda x: x[1], reverse=True
-            )[:10]
+            )[:5]
 
             # Create table data
             table_data = [["Error Type", "Count", "% of Errors"]]
@@ -300,7 +300,7 @@ def _build_charts(stats: dict, include_validation: bool) -> list[ChartImage]:
                 table_data.append([error_type, f"{count:,}", f"{error_pct:.1f}%"])
 
             # Create matplotlib table
-            fig, ax = plt.subplots(figsize=(3.4, 2.8), dpi=150)
+            fig, ax = plt.subplots(figsize=(3.4, 2.3), dpi=150)
             ax.axis("tight")
             ax.axis("off")
 
@@ -309,12 +309,12 @@ def _build_charts(stats: dict, include_validation: bool) -> list[ChartImage]:
                 cellText=table_data,
                 cellLoc="left",
                 loc="center",
-                colWidths=[0.55, 0.25, 0.20],
+                colWidths=[0.50, 0.25, 0.25],
             )
 
             # Style table
             table.auto_set_font_size(False)
-            table.set_fontsize(7)
+            table.set_fontsize(6)
             table.scale(1, 1.4)
 
             # Header row styling
@@ -323,16 +323,29 @@ def _build_charts(stats: dict, include_validation: bool) -> list[ChartImage]:
                 cell.set_facecolor("#1E5AA8")
                 cell.set_text_props(weight="bold", color="white")
 
-            # Alternate row colors
+            # Data rows: alternate colors, right-align numeric columns, add borders
             for i in range(1, len(table_data)):
                 for j in range(3):
                     cell = table[(i, j)]
+                    # Alternate row colors
                     if i % 2 == 0:
                         cell.set_facecolor("#F4F5F6")
                     else:
                         cell.set_facecolor("white")
+                    # Right-align numeric columns (Count and %)
+                    if j > 0:
+                        cell.set_text_props(ha="right")
+                    # Add subtle borders
+                    cell.set_linewidth(0.5)
+                    cell.set_edgecolor("#D0D0D0")
 
-            ax.set_title("Error Breakdown (Top 10)", fontsize=9, weight="bold", pad=10)
+            # Add borders to header cells too
+            for i in range(3):
+                cell = table[(0, i)]
+                cell.set_linewidth(0.5)
+                cell.set_edgecolor("#1E5AA8")
+
+            ax.set_title("Error Breakdown (Top 5)", fontsize=9, weight="bold", pad=10)
 
             charts.append(_image_from_figure(fig))
 
