@@ -4,12 +4,14 @@ URL validation module for privacy statement analysis.
 Provides HTTP accessibility validation of privacy statement URLs.
 """
 
+import os
 import sys
 import threading
 import time
 from datetime import datetime
 from urllib.parse import urlparse
 
+import certifi
 import requests
 
 from ..config import (
@@ -22,6 +24,43 @@ GET_FALLBACK_STATUS_CODES = {301, 302, 303, 307, 308, 403, 405}
 
 # Global rate limiting semaphore
 _url_validation_semaphore = None
+
+# Global CA bundle path (cached)
+_ca_bundle_path = None
+
+
+def _get_ca_bundle_path() -> str:
+    """
+    Get the best CA bundle path for SSL verification.
+
+    Tries system certificate stores first (which may have more up-to-date
+    certificates), then falls back to certifi bundle.
+
+    Returns:
+        Path to CA bundle file to use for SSL verification
+    """
+    global _ca_bundle_path
+
+    if _ca_bundle_path is not None:
+        return _ca_bundle_path
+
+    # Try system certificate stores (often more up-to-date)
+    system_cert_paths = [
+        "/etc/ssl/cert.pem",  # macOS
+        "/etc/ssl/certs/ca-certificates.crt",  # Debian/Ubuntu/Gentoo
+        "/etc/pki/tls/certs/ca-bundle.crt",  # Fedora/RHEL
+        "/etc/ssl/certs/ca-bundle.crt",  # OpenSUSE
+        "/usr/local/etc/openssl/cert.pem",  # Homebrew OpenSSL
+    ]
+
+    for cert_path in system_cert_paths:
+        if os.path.exists(cert_path):
+            _ca_bundle_path = cert_path
+            return _ca_bundle_path
+
+    # Fall back to certifi bundle
+    _ca_bundle_path = certifi.where()
+    return _ca_bundle_path
 
 
 def _get_url_validation_semaphore(
@@ -106,12 +145,16 @@ def validate_privacy_url(
             "User-Agent": "eduGAIN-Quality-Analysis/2.0 (URL validation bot)",
         }
 
+        # Get the best CA bundle path for SSL verification
+        ca_bundle = _get_ca_bundle_path()
+
         # Simple HTTP HEAD request to check accessibility
         response = requests.head(
             url,
             timeout=URL_VALIDATION_TIMEOUT,
             headers=headers,
             allow_redirects=True,
+            verify=ca_bundle,
         )
 
         # Some sites block HEAD; fallback to lightweight GET in those cases
@@ -123,6 +166,7 @@ def validate_privacy_url(
                 headers=headers,
                 allow_redirects=True,
                 stream=True,
+                verify=ca_bundle,
             )
 
         status_code = response.status_code
