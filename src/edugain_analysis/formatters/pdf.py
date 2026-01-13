@@ -285,51 +285,56 @@ def _build_charts(stats: dict, include_validation: bool) -> list[ChartImage]:
             )
         )
 
-        # Add error breakdown chart if there are broken URLs
+        # Add error breakdown table if there are broken URLs
         error_breakdown = stats.get("error_breakdown", {})
         if error_breakdown and urls_broken > 0:
-            # Sort by count (descending) and take top 8 error types
+            # Sort by count (descending) and take top 10 error types
             sorted_errors = sorted(
                 error_breakdown.items(), key=lambda x: x[1], reverse=True
-            )[:8]
+            )[:10]
 
-            error_labels = []
-            error_values = []
-            error_colors = []
-
-            # Color mapping for different error types
-            color_map = {
-                "Cloudflare": PALETTE["purple"],
-                "AWS WAF": PALETTE["orange"],
-                "Akamai": PALETTE["teal"],
-                "Not Found": PALETTE["red"],
-                "SSL Certificate": PALETTE["yellow"],
-                "Connection": PALETTE["gray"],
-                "Timeout": PALETTE["purple"],
-            }
-
+            # Create table data
+            table_data = [["Error Type", "Count", "% of Errors"]]
             for error_type, count in sorted_errors:
-                error_labels.append(f"{error_type}\n({count:,})")
                 error_pct = _pct(count, urls_broken)
-                error_values.append(error_pct)
+                table_data.append([error_type, f"{count:,}", f"{error_pct:.1f}%"])
 
-                # Choose color based on error type keywords
-                color = PALETTE["gray"]  # default
-                for keyword, col in color_map.items():
-                    if keyword.lower() in error_type.lower():
-                        color = col
-                        break
-                error_colors.append(color)
+            # Create matplotlib table
+            fig, ax = plt.subplots(figsize=(3.4, 2.8), dpi=150)
+            ax.axis("tight")
+            ax.axis("off")
 
-            if error_labels:
-                charts.append(
-                    _bar_chart(
-                        error_labels,
-                        error_values,
-                        error_colors,
-                        "Error Breakdown (Top 8)",
-                    )
-                )
+            # Create table
+            table = ax.table(
+                cellText=table_data,
+                cellLoc="left",
+                loc="center",
+                colWidths=[0.55, 0.25, 0.20],
+            )
+
+            # Style table
+            table.auto_set_font_size(False)
+            table.set_fontsize(7)
+            table.scale(1, 1.4)
+
+            # Header row styling
+            for i in range(3):
+                cell = table[(0, i)]
+                cell.set_facecolor("#1E5AA8")
+                cell.set_text_props(weight="bold", color="white")
+
+            # Alternate row colors
+            for i in range(1, len(table_data)):
+                for j in range(3):
+                    cell = table[(i, j)]
+                    if i % 2 == 0:
+                        cell.set_facecolor("#F4F5F6")
+                    else:
+                        cell.set_facecolor("white")
+
+            ax.set_title("Error Breakdown (Top 10)", fontsize=9, weight="bold", pad=10)
+
+            charts.append(_image_from_figure(fig))
 
     return charts
 
