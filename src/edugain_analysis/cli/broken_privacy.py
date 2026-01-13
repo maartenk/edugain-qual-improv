@@ -71,8 +71,24 @@ def validate_url(url: str) -> dict:
     return result
 
 
-def categorize_error(status_code: int, error_msg: str) -> str:
+def categorize_error(
+    status_code: int, error_msg: str, validation_result: dict = None
+) -> str:
     """Categorize error into actionable types."""
+    # Check for bot protection first (only if still blocked - status >= 400)
+    if (
+        validation_result
+        and validation_result.get("protection_detected")
+        and status_code >= 400
+    ):
+        provider = validation_result["protection_detected"]
+        retry_method = validation_result.get("retry_method")
+        if retry_method:
+            # Retry attempted but still blocked
+            return f"{provider} (bypassed failed)"
+        return f"{provider} Protection"
+
+    # Check error messages
     if error_msg:
         error_lower = error_msg.lower()
         if "ssl" in error_lower or "certificate" in error_lower:
@@ -85,6 +101,7 @@ def categorize_error(status_code: int, error_msg: str) -> str:
             return "Too Many Redirects"
         return f"Error: {error_msg}"
 
+    # Check status codes
     if status_code == 0:
         return "Unknown Error"
     elif status_code == 404:
@@ -160,9 +177,17 @@ def analyze_broken_links(
     sp_data: list[tuple[str, str, str, str]],
     validation_results: dict[str, dict],
     federation_mapping: dict[str, str],
-) -> list[list[str]]:
-    """Identify SPs with broken privacy links."""
+) -> tuple[list[list[str]], dict[str, int]]:
+    """
+    Identify SPs with broken privacy links.
+
+    Returns:
+        Tuple of (broken_links, error_breakdown)
+        - broken_links: List of broken link records
+        - error_breakdown: Dictionary mapping error types to counts
+    """
     broken_links = []
+    error_breakdown = {}
 
     for reg_authority, org_name, entity_id, privacy_url in sp_data:
         # Get validation result
@@ -186,7 +211,10 @@ def analyze_broken_links(
         error_code = str(status_code) if status_code else (error_msg or "Unknown error")
 
         # Categorize error
-        error_type = categorize_error(status_code, error_msg)
+        error_type = categorize_error(status_code, error_msg, result)
+
+        # Count error types
+        error_breakdown[error_type] = error_breakdown.get(error_type, 0) + 1
 
         # Get timestamp
         checked_at = result.get("checked_at", "Unknown")
@@ -203,7 +231,7 @@ def analyze_broken_links(
             ]
         )
 
-    return broken_links
+    return broken_links, error_breakdown
 
 
 def main() -> None:
@@ -248,13 +276,24 @@ def main() -> None:
         validation_results = validate_privacy_urls(sp_data, VALIDATION_WORKERS)
 
         print("Analyzing results for broken links...", file=sys.stderr)
-        broken_links = analyze_broken_links(
+        broken_links, error_breakdown = analyze_broken_links(
             sp_data, validation_results, federation_mapping
         )
         print(
             f"Found {len(broken_links)} SPs with broken privacy links",
             file=sys.stderr,
         )
+
+        # Print error breakdown summary
+        if error_breakdown:
+            print("\nError Breakdown:", file=sys.stderr)
+            for error_type in sorted(
+                error_breakdown.keys(), key=lambda x: error_breakdown[x], reverse=True
+            ):
+                count = error_breakdown[error_type]
+                percentage = (count / len(broken_links) * 100) if broken_links else 0
+                print(f"  {error_type}: {count} ({percentage:.1f}%)", file=sys.stderr)
+            print(file=sys.stderr)
 
         return broken_links
 
