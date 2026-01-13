@@ -12,9 +12,12 @@ from datetime import datetime
 from urllib.parse import urlparse
 
 import certifi
+import cloudscraper
 import requests
 
 from ..config import (
+    CLOUDSCRAPER_TIMEOUT,
+    ENABLE_CLOUDSCRAPER_RETRY,
     URL_VALIDATION_DELAY,
     URL_VALIDATION_THREADS,
     URL_VALIDATION_TIMEOUT,
@@ -73,6 +76,150 @@ def _get_url_validation_semaphore(
     return _url_validation_semaphore
 
 
+def _detect_bot_protection(response) -> tuple[str | None, dict]:
+    """
+    Detect bot protection services from response headers.
+
+    Args:
+        response: requests.Response object
+
+    Returns:
+        Tuple of (provider_name, protection_headers)
+        provider_name is None if no protection detected
+    """
+    headers = {k.lower(): v for k, v in response.headers.items()}
+    protection_headers = {}
+
+    # Cloudflare detection
+    if "cf-ray" in headers or "cf-mitigated" in headers:
+        if "cf-ray" in headers:
+            protection_headers["cf-ray"] = headers["cf-ray"]
+        if "cf-mitigated" in headers:
+            protection_headers["cf-mitigated"] = headers["cf-mitigated"]
+        if headers.get("server", "").lower() == "cloudflare":
+            protection_headers["server"] = "cloudflare"
+
+        # Only return Cloudflare if we have a 403 or challenge indicator
+        if response.status_code == 403 or "cf-mitigated" in headers:
+            return "Cloudflare", protection_headers
+
+    # AWS Shield/WAF detection
+    if any(k.startswith("x-amzn") for k in headers):
+        for key in headers:
+            if key.startswith("x-amzn"):
+                protection_headers[key] = headers[key]
+        if response.status_code == 403:
+            return "AWS WAF", protection_headers
+
+    # Akamai Bot Manager detection
+    if any(k.startswith(("akamai", "x-akamai")) for k in headers):
+        for key in headers:
+            if "akamai" in key:
+                protection_headers[key] = headers[key]
+        if response.status_code == 403:
+            return "Akamai", protection_headers
+
+    # Imperva/Incapsula detection
+    if "x-cdn" in headers and "incapsula" in headers["x-cdn"].lower():
+        protection_headers["x-cdn"] = headers["x-cdn"]
+        if response.status_code == 403:
+            return "Imperva", protection_headers
+
+    if any(k.startswith("incap") for k in headers):
+        for key in headers:
+            if key.startswith("incap"):
+                protection_headers[key] = headers[key]
+        if response.status_code == 403:
+            return "Imperva", protection_headers
+
+    # DataDome detection
+    if any(k.startswith("x-datadome") for k in headers):
+        for key in headers:
+            if "datadome" in key:
+                protection_headers[key] = headers[key]
+        if response.status_code == 403:
+            return "DataDome", protection_headers
+
+    # PerimeterX detection
+    if any(k.startswith("x-px") for k in headers):
+        for key in headers:
+            if key.startswith("x-px"):
+                protection_headers[key] = headers[key]
+        if response.status_code == 403:
+            return "PerimeterX", protection_headers
+
+    # Fastly detection
+    if "x-served-by" in headers and "cache-" in headers["x-served-by"]:
+        protection_headers["x-served-by"] = headers["x-served-by"]
+        if response.status_code == 403:
+            return "Fastly", protection_headers
+
+    # Sucuri detection
+    if any(k.startswith("x-sucuri") for k in headers):
+        for key in headers:
+            if "sucuri" in key:
+                protection_headers[key] = headers[key]
+        if response.status_code == 403:
+            return "Sucuri", protection_headers
+
+    # Generic WAF/CDN detection (403 with certain server headers)
+    if response.status_code == 403:
+        server = headers.get("server", "").lower()
+        if any(
+            keyword in server
+            for keyword in ["waf", "firewall", "protection", "security"]
+        ):
+            protection_headers["server"] = server
+            return "WAF/CDN", protection_headers
+
+    return None, protection_headers
+
+
+def _retry_with_cloudscraper(
+    url: str, ca_bundle: str
+) -> tuple[int, str, int, str | None, dict]:
+    """
+    Retry URL validation using cloudscraper to bypass bot protection.
+
+    Args:
+        url: URL to validate
+        ca_bundle: CA bundle path for SSL verification
+
+    Returns:
+        Tuple of (status_code, final_url, redirect_count, protection_detected, protection_headers)
+    """
+    try:
+        # Create cloudscraper session
+        scraper = cloudscraper.create_scraper(
+            browser={"browser": "chrome", "platform": "windows", "mobile": False}
+        )
+
+        # Try GET request with cloudscraper
+        response = scraper.get(
+            url, timeout=CLOUDSCRAPER_TIMEOUT, allow_redirects=True, verify=ca_bundle
+        )
+
+        status_code = response.status_code
+        final_url = response.url
+        redirect_count = len(response.history)
+
+        # Check if protection is still detected after cloudscraper
+        protection_detected, protection_headers = _detect_bot_protection(response)
+
+        response.close()
+        return (
+            status_code,
+            final_url,
+            redirect_count,
+            protection_detected,
+            protection_headers,
+        )
+
+    except Exception as e:
+        # If cloudscraper fails, return error indicators
+        return 0, url, 0, None, {}
+
+
 def validate_privacy_url(
     url: str, validation_cache: dict[str, dict] = None, use_semaphore: bool = True
 ) -> dict:
@@ -95,6 +242,9 @@ def validate_privacy_url(
             "redirect_count": 0,
             "error": "Empty URL",
             "checked_at": datetime.now().isoformat(),
+            "protection_detected": None,
+            "protection_headers": {},
+            "retry_method": None,
         }
 
     url = url.strip()
@@ -124,6 +274,9 @@ def validate_privacy_url(
                 "redirect_count": 0,
                 "error": "Invalid URL format",
                 "checked_at": datetime.now().isoformat(),
+                "protection_detected": None,
+                "protection_headers": {},
+                "retry_method": None,
             }
     except Exception as e:
         if semaphore is not None:
@@ -135,6 +288,9 @@ def validate_privacy_url(
             "redirect_count": 0,
             "error": f"URL parsing error: {str(e)}",
             "checked_at": datetime.now().isoformat(),
+            "protection_detected": None,
+            "protection_headers": {},
+            "retry_method": None,
         }
 
     # Rate limiting
@@ -173,6 +329,23 @@ def validate_privacy_url(
         final_url = response.url
         redirect_count = len(response.history)
 
+        # Detect bot protection services
+        protection_detected, protection_headers = _detect_bot_protection(response)
+
+        response.close()
+
+        # Retry with cloudscraper if bot protection detected
+        retry_method = None
+        if ENABLE_CLOUDSCRAPER_RETRY and protection_detected and status_code == 403:
+            retry_method = "cloudscraper"
+            (
+                status_code,
+                final_url,
+                redirect_count,
+                protection_detected,
+                protection_headers,
+            ) = _retry_with_cloudscraper(url, ca_bundle)
+
         # Simple status code validation:
         # 200-299: Success (accessible)
         # 300-399: Redirects (accessible)
@@ -187,8 +360,10 @@ def validate_privacy_url(
             "redirect_count": redirect_count,
             "error": None,
             "checked_at": datetime.now().isoformat(),
+            "protection_detected": protection_detected,
+            "protection_headers": protection_headers if protection_detected else {},
+            "retry_method": retry_method,
         }
-        response.close()
 
         # Add result to cache
         if validation_cache is not None:
@@ -227,6 +402,9 @@ def _create_error_result(url: str, error: str) -> dict:
         "redirect_count": 0,
         "error": error,
         "checked_at": datetime.now().isoformat(),
+        "protection_detected": None,
+        "protection_headers": {},
+        "retry_method": None,
     }
 
 
