@@ -37,6 +37,8 @@ PALETTE = {
     "teal": "#00897B",
     "gray": "#455A64",
     "light_gray": "#F4F5F6",
+    "purple": "#7B1FA2",
+    "yellow": "#F9A825",
 }
 
 
