@@ -283,6 +283,52 @@ def _build_charts(stats: dict, include_validation: bool) -> list[ChartImage]:
             )
         )
 
+        # Add error breakdown chart if there are broken URLs
+        error_breakdown = stats.get("error_breakdown", {})
+        if error_breakdown and urls_broken > 0:
+            # Sort by count (descending) and take top 8 error types
+            sorted_errors = sorted(
+                error_breakdown.items(), key=lambda x: x[1], reverse=True
+            )[:8]
+
+            error_labels = []
+            error_values = []
+            error_colors = []
+
+            # Color mapping for different error types
+            color_map = {
+                "Cloudflare": PALETTE["purple"],
+                "AWS WAF": PALETTE["orange"],
+                "Akamai": PALETTE["teal"],
+                "Not Found": PALETTE["red"],
+                "SSL Certificate": PALETTE["yellow"],
+                "Connection": PALETTE["gray"],
+                "Timeout": PALETTE["purple"],
+            }
+
+            for error_type, count in sorted_errors:
+                error_labels.append(f"{error_type}\n({count:,})")
+                error_pct = _pct(count, urls_broken)
+                error_values.append(error_pct)
+
+                # Choose color based on error type keywords
+                color = PALETTE["gray"]  # default
+                for keyword, col in color_map.items():
+                    if keyword.lower() in error_type.lower():
+                        color = col
+                        break
+                error_colors.append(color)
+
+            if error_labels:
+                charts.append(
+                    _bar_chart(
+                        error_labels,
+                        error_values,
+                        error_colors,
+                        "Error Breakdown (Top 8)",
+                    )
+                )
+
     return charts
 
 

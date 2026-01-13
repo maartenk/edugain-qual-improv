@@ -13,6 +13,51 @@ from .entities import iter_entity_records
 from .validation import validate_urls_parallel
 
 
+def _categorize_validation_error(validation_result: dict) -> str:
+    """Categorize validation error for statistics."""
+    status_code = validation_result.get("status_code", 0)
+    error_msg = validation_result.get("error", "")
+    protection_detected = validation_result.get("protection_detected")
+    retry_method = validation_result.get("retry_method")
+
+    # Check for bot protection first (only if still blocked - status >= 400)
+    if protection_detected and status_code >= 400:
+        if retry_method:
+            return f"{protection_detected} (bypassed failed)"
+        return f"{protection_detected} Protection"
+
+    # Check error messages
+    if error_msg:
+        error_lower = error_msg.lower()
+        if "ssl" in error_lower or "certificate" in error_lower:
+            return "SSL Certificate Error"
+        if "connection" in error_lower or "dns" in error_lower:
+            return "Connection Error"
+        if "timeout" in error_lower:
+            return "Timeout"
+        if "redirect" in error_lower:
+            return "Too Many Redirects"
+        return f"Error: {error_msg}"
+
+    # Check status codes
+    if status_code == 0:
+        return "Unknown Error"
+    elif status_code == 404:
+        return "Not Found (4xx)"
+    elif status_code == 403:
+        return "Forbidden (4xx)"
+    elif status_code == 401:
+        return "Unauthorized (4xx)"
+    elif status_code == 410:
+        return "Gone Permanently (4xx)"
+    elif 400 <= status_code < 500:
+        return f"Client Error {status_code} (4xx)"
+    elif status_code >= 500:
+        return f"Server Error {status_code} (5xx)"
+    else:
+        return f"Unexpected Status {status_code}"
+
+
 def analyze_privacy_security(
     root: ET.Element,
     federation_mapping: dict[str, str] = None,
@@ -62,6 +107,7 @@ def analyze_privacy_security(
         "urls_accessible": 0,
         "urls_broken": 0,
         "validation_enabled": validate_urls,
+        "error_breakdown": {},  # Dict mapping error types to counts
     }
 
     # Federation-level statistics by registration authority
@@ -163,6 +209,11 @@ def analyze_privacy_security(
                 stats["urls_accessible"] += 1
             else:
                 stats["urls_broken"] += 1
+                # Categorize and count error types
+                error_type = _categorize_validation_error(url_validation_result)
+                stats["error_breakdown"][error_type] = (
+                    stats["error_breakdown"].get(error_type, 0) + 1
+                )
 
         # Update federation-level statistics (use federation name as key)
         if record.registration_authority:
@@ -192,6 +243,7 @@ def analyze_privacy_security(
                     "urls_checked": 0,
                     "urls_accessible": 0,
                     "urls_broken": 0,
+                    "error_breakdown": {},  # Dict mapping error types to counts
                 }
 
             fed_stats = federation_stats[record.federation_name]
@@ -209,6 +261,13 @@ def analyze_privacy_security(
                             fed_stats["urls_accessible"] += 1
                         else:
                             fed_stats["urls_broken"] += 1
+                            # Categorize and count error types
+                            error_type = _categorize_validation_error(
+                                url_validation_result
+                            )
+                            fed_stats["error_breakdown"][error_type] = (
+                                fed_stats["error_breakdown"].get(error_type, 0) + 1
+                            )
 
                 else:
                     fed_stats["sps_missing_privacy"] += 1
