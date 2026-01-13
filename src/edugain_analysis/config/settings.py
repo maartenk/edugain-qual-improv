@@ -26,6 +26,10 @@ URL_VALIDATION_DELAY = 0.1  # seconds between requests
 URL_VALIDATION_THREADS = 10  # concurrent threads for URL validation
 MAX_CONTENT_SIZE = 1024 * 1024  # 1MB max content size for analysis
 
+# Bot protection mitigation settings
+ENABLE_CLOUDSCRAPER_RETRY = True  # Retry with cloudscraper if bot protection detected
+CLOUDSCRAPER_TIMEOUT = 20  # seconds (longer timeout for JS challenge solving)
+
 # XML Namespaces for SAML metadata processing
 NAMESPACES = {
     "md": "urn:oasis:names:tc:SAML:2.0:metadata",

@@ -514,16 +514,19 @@ class TestAnalyzeBrokenLinks:
 
         federation_mapping = {"https://example.org": "Example Federation"}
 
-        result = analyze_broken_links(sp_data, validation_results, federation_mapping)
+        broken_links, error_breakdown = analyze_broken_links(
+            sp_data, validation_results, federation_mapping
+        )
 
-        assert len(result) == 1
-        assert result[0][0] == "Example Federation"
-        assert result[0][1] == "SP1"
-        assert result[0][2] == "https://example.org/sp1"
-        assert result[0][3] == "https://privacy1.org"
-        assert result[0][4] == "404"
-        assert result[0][5] == "Not Found (4xx)"
-        assert result[0][6] == "2025-01-01T00:00:00Z"
+        assert len(broken_links) == 1
+        assert broken_links[0][0] == "Example Federation"
+        assert broken_links[0][1] == "SP1"
+        assert broken_links[0][2] == "https://example.org/sp1"
+        assert broken_links[0][3] == "https://privacy1.org"
+        assert broken_links[0][4] == "404"
+        assert broken_links[0][5] == "Not Found (4xx)"
+        assert broken_links[0][6] == "2025-01-01T00:00:00Z"
+        assert error_breakdown == {"Not Found (4xx)": 1}
 
     def test_analyze_broken_links_with_ssl_error(self):
         """Test analyzing broken links with SSL error."""
@@ -547,12 +550,15 @@ class TestAnalyzeBrokenLinks:
 
         federation_mapping = {}
 
-        result = analyze_broken_links(sp_data, validation_results, federation_mapping)
+        broken_links, error_breakdown = analyze_broken_links(
+            sp_data, validation_results, federation_mapping
+        )
 
-        assert len(result) == 1
-        assert result[0][0] == "https://example.org"  # No federation mapping
-        assert result[0][4] == "SSL certificate error"
-        assert result[0][5] == "SSL Certificate Error"
+        assert len(broken_links) == 1
+        assert broken_links[0][0] == "https://example.org"  # No federation mapping
+        assert broken_links[0][4] == "SSL certificate error"
+        assert broken_links[0][5] == "SSL Certificate Error"
+        assert error_breakdown == {"SSL Certificate Error": 1}
 
     def test_analyze_broken_links_accessible_urls_excluded(self):
         """Test that accessible URLs are not included in results."""
@@ -576,9 +582,12 @@ class TestAnalyzeBrokenLinks:
 
         federation_mapping = {}
 
-        result = analyze_broken_links(sp_data, validation_results, federation_mapping)
+        broken_links, error_breakdown = analyze_broken_links(
+            sp_data, validation_results, federation_mapping
+        )
 
-        assert len(result) == 0
+        assert len(broken_links) == 0
+        assert error_breakdown == {}
 
     def test_analyze_broken_links_missing_validation_result(self):
         """Test that SPs without validation results are skipped."""
@@ -609,11 +618,14 @@ class TestAnalyzeBrokenLinks:
 
         federation_mapping = {}
 
-        result = analyze_broken_links(sp_data, validation_results, federation_mapping)
+        broken_links, error_breakdown = analyze_broken_links(
+            sp_data, validation_results, federation_mapping
+        )
 
         # Should only have SP2
-        assert len(result) == 1
-        assert result[0][1] == "SP2"
+        assert len(broken_links) == 1
+        assert broken_links[0][1] == "SP2"
+        assert error_breakdown == {"Not Found (4xx)": 1}
 
 
 class TestMain:
