@@ -116,6 +116,13 @@ def analyze_privacy_security(
         "urls_broken": 0,
         "validation_enabled": validate_urls,
         "error_breakdown": {},  # Dict mapping error types to counts
+        "provider_stats": {  # Bot protection provider statistics
+            "total_detected": 0,
+            "by_provider": {},  # Provider -> count
+            "retry_attempted": 0,
+            "retry_success": 0,
+            "retry_failed": 0,
+        },
     }
 
     # Federation-level statistics by registration authority
@@ -223,6 +230,25 @@ def analyze_privacy_security(
                     stats["error_breakdown"].get(error_type, 0) + 1
                 )
 
+            # Track bot protection provider statistics
+            protection_detected = url_validation_result.get("protection_detected")
+            retry_method = url_validation_result.get("retry_method")
+            status_code = url_validation_result.get("status_code", 0)
+
+            if protection_detected:
+                stats["provider_stats"]["total_detected"] += 1
+                stats["provider_stats"]["by_provider"][protection_detected] = (
+                    stats["provider_stats"]["by_provider"].get(protection_detected, 0)
+                    + 1
+                )
+
+            if retry_method:
+                stats["provider_stats"]["retry_attempted"] += 1
+                if 200 <= status_code < 400:
+                    stats["provider_stats"]["retry_success"] += 1
+                else:
+                    stats["provider_stats"]["retry_failed"] += 1
+
         # Update federation-level statistics (use federation name as key)
         if record.registration_authority:
             if record.federation_name not in federation_stats:
@@ -252,6 +278,13 @@ def analyze_privacy_security(
                     "urls_accessible": 0,
                     "urls_broken": 0,
                     "error_breakdown": {},  # Dict mapping error types to counts
+                    "provider_stats": {  # Bot protection provider statistics
+                        "total_detected": 0,
+                        "by_provider": {},
+                        "retry_attempted": 0,
+                        "retry_success": 0,
+                        "retry_failed": 0,
+                    },
                 }
 
             fed_stats = federation_stats[record.federation_name]
@@ -276,6 +309,31 @@ def analyze_privacy_security(
                             fed_stats["error_breakdown"][error_type] = (
                                 fed_stats["error_breakdown"].get(error_type, 0) + 1
                             )
+
+                        # Track federation provider statistics
+                        protection_detected = url_validation_result.get(
+                            "protection_detected"
+                        )
+                        retry_method = url_validation_result.get("retry_method")
+                        status_code = url_validation_result.get("status_code", 0)
+
+                        if protection_detected:
+                            fed_stats["provider_stats"]["total_detected"] += 1
+                            fed_stats["provider_stats"]["by_provider"][
+                                protection_detected
+                            ] = (
+                                fed_stats["provider_stats"]["by_provider"].get(
+                                    protection_detected, 0
+                                )
+                                + 1
+                            )
+
+                        if retry_method:
+                            fed_stats["provider_stats"]["retry_attempted"] += 1
+                            if 200 <= status_code < 400:
+                                fed_stats["provider_stats"]["retry_success"] += 1
+                            else:
+                                fed_stats["provider_stats"]["retry_failed"] += 1
 
                 else:
                     fed_stats["sps_missing_privacy"] += 1
