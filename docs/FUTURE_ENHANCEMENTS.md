@@ -3,7 +3,7 @@
 This document tracks potential improvements and features for future versions of the eduGAIN quality improvement analysis tool.
 
 **Status:** Planning / Discussion
-**Last Updated:** 2025-10-12
+**Last Updated:** 2026-01-14
 
 ---
 
@@ -127,6 +127,25 @@ If implemented:
 - Compare snapshots over time to detect improvements/regressions
 - Automated reports on federation quality changes
 - Alerts for entities that drop compliance metrics
+
+### 5. Reporting and Validation Enhancements
+**Priority:** TBD
+**Status:** Idea
+
+**Checks**
+- Security contact quality: missing email values, invalid formats, or non-mailto entries
+- Privacy URL validation: enforce https, flag soft-200 pages, track content type and body size
+- Metadata completeness: missing OrganizationDisplayName, RegistrationInfo, or roles
+- Mismatch checks in main report: "SIRTFI but no security contact" and "security contact but no SIRTFI"
+
+**Reporting**
+- Surface validation error breakdowns and bot protection stats in summary/markdown/PDF outputs
+- Federation ranking tables: top/bottom by compliance rate and by absolute gaps
+- Richer exports: include registration authority, security contact email, URL validation categories
+- Action lists: top N SPs missing both, top N IdPs missing security
+
+**Workflow**
+- Compare runs (baseline/diff mode) with deltas by federation and overall metrics
 
 ---
 
