@@ -76,17 +76,21 @@ def categorize_error(
 ) -> str:
     """Categorize error into actionable types."""
     # Check for bot protection first (only if still blocked - status >= 400)
-    if (
-        validation_result
-        and validation_result.get("protection_detected")
-        and status_code >= 400
-    ):
-        provider = validation_result["protection_detected"]
+    if validation_result and status_code >= 400:
+        protection_detected = validation_result.get("protection_detected")
         retry_method = validation_result.get("retry_method")
+
         if retry_method:
-            # Retry attempted but still blocked
-            return f"{provider} (bypassed failed)"
-        return f"{provider} Protection"
+            # Retry was attempted
+            if protection_detected:
+                # Known protection provider, but bypass failed
+                return f"{protection_detected} (bypass failed)"
+            else:
+                # Unidentified protection, retry attempted but failed
+                return "Bot Protection (unidentified)"
+        elif protection_detected:
+            # Protection detected but no retry attempted (shouldn't happen with new code)
+            return f"{protection_detected} Protection"
 
     # Check error messages
     if error_msg:

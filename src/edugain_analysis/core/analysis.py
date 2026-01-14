@@ -21,10 +21,18 @@ def _categorize_validation_error(validation_result: dict) -> str:
     retry_method = validation_result.get("retry_method")
 
     # Check for bot protection first (only if still blocked - status >= 400)
-    if protection_detected and status_code >= 400:
+    if status_code >= 400:
         if retry_method:
-            return f"{protection_detected} (bypassed failed)"
-        return f"{protection_detected} Protection"
+            # Retry was attempted
+            if protection_detected:
+                # Known protection provider, but bypass failed
+                return f"{protection_detected} (bypass failed)"
+            else:
+                # Unidentified protection, retry attempted but failed
+                return "Bot Protection (unidentified)"
+        elif protection_detected:
+            # Protection detected but no retry attempted (shouldn't happen with new code)
+            return f"{protection_detected} Protection"
 
     # Check error messages
     if error_msg:
