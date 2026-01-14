@@ -349,6 +349,79 @@ def _build_charts(stats: dict, include_validation: bool) -> list[ChartImage]:
 
             charts.append(_image_from_figure(fig))
 
+        # Add bot protection provider breakdown table
+        provider_stats = stats.get("provider_stats", {})
+        if provider_stats and provider_stats.get("total_detected", 0) > 0:
+            by_provider = provider_stats.get("by_provider", {})
+            retry_attempted = provider_stats.get("retry_attempted", 0)
+            retry_success = provider_stats.get("retry_success", 0)
+
+            # Sort by count (descending)
+            sorted_providers = sorted(
+                by_provider.items(), key=lambda x: x[1], reverse=True
+            )
+
+            # Create table data
+            table_data = [["Provider", "Count", "Bypass Rate"]]
+            for provider, count in sorted_providers:
+                # Calculate bypass rate for this provider (if applicable)
+                # For simplicity, show overall bypass rate
+                if retry_attempted > 0:
+                    bypass_rate = (retry_success / retry_attempted) * 100
+                    table_data.append([provider, f"{count:,}", f"{bypass_rate:.1f}%"])
+                else:
+                    table_data.append([provider, f"{count:,}", "N/A"])
+
+            # Create matplotlib table
+            fig, ax = plt.subplots(figsize=(3.4, 2.3), dpi=150)
+            ax.axis("tight")
+            ax.axis("off")
+
+            # Create table
+            table = ax.table(
+                cellText=table_data,
+                cellLoc="left",
+                loc="center",
+                colWidths=[0.50, 0.25, 0.25],
+            )
+
+            # Style table
+            table.auto_set_font_size(False)
+            table.set_fontsize(6)
+            table.scale(1, 1.4)
+
+            # Header row styling
+            for i in range(3):
+                cell = table[(0, i)]
+                cell.set_facecolor("#1E5AA8")
+                cell.set_text_props(weight="bold", color="white")
+
+            # Data rows: alternate colors, right-align numeric columns, add borders
+            for i in range(1, len(table_data)):
+                for j in range(3):
+                    cell = table[(i, j)]
+                    # Alternate row colors
+                    if i % 2 == 0:
+                        cell.set_facecolor("#F4F5F6")
+                    else:
+                        cell.set_facecolor("white")
+                    # Right-align numeric columns (Count and Bypass Rate)
+                    if j > 0:
+                        cell.set_text_props(ha="right")
+                    # Add subtle borders
+                    cell.set_linewidth(0.5)
+                    cell.set_edgecolor("#D0D0D0")
+
+            # Add borders to header cells too
+            for i in range(3):
+                cell = table[(0, i)]
+                cell.set_linewidth(0.5)
+                cell.set_edgecolor("#1E5AA8")
+
+            ax.set_title("Bot Protection Detected", fontsize=9, weight="bold", pad=10)
+
+            charts.append(_image_from_figure(fig))
+
     return charts
 
 
