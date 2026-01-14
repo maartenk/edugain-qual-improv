@@ -514,7 +514,7 @@ class TestAnalyzeBrokenLinks:
 
         federation_mapping = {"https://example.org": "Example Federation"}
 
-        broken_links, error_breakdown = analyze_broken_links(
+        broken_links, error_breakdown, provider_stats = analyze_broken_links(
             sp_data, validation_results, federation_mapping
         )
 
@@ -550,7 +550,7 @@ class TestAnalyzeBrokenLinks:
 
         federation_mapping = {}
 
-        broken_links, error_breakdown = analyze_broken_links(
+        broken_links, error_breakdown, provider_stats = analyze_broken_links(
             sp_data, validation_results, federation_mapping
         )
 
@@ -582,7 +582,7 @@ class TestAnalyzeBrokenLinks:
 
         federation_mapping = {}
 
-        broken_links, error_breakdown = analyze_broken_links(
+        broken_links, error_breakdown, provider_stats = analyze_broken_links(
             sp_data, validation_results, federation_mapping
         )
 
@@ -618,7 +618,7 @@ class TestAnalyzeBrokenLinks:
 
         federation_mapping = {}
 
-        broken_links, error_breakdown = analyze_broken_links(
+        broken_links, error_breakdown, provider_stats = analyze_broken_links(
             sp_data, validation_results, federation_mapping
         )
 

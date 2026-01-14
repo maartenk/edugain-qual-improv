@@ -181,17 +181,25 @@ def analyze_broken_links(
     sp_data: list[tuple[str, str, str, str]],
     validation_results: dict[str, dict],
     federation_mapping: dict[str, str],
-) -> tuple[list[list[str]], dict[str, int]]:
+) -> tuple[list[list[str]], dict[str, int], dict[str, dict]]:
     """
     Identify SPs with broken privacy links.
 
     Returns:
-        Tuple of (broken_links, error_breakdown)
+        Tuple of (broken_links, error_breakdown, provider_stats)
         - broken_links: List of broken link records
         - error_breakdown: Dictionary mapping error types to counts
+        - provider_stats: Dictionary with provider detection statistics
     """
     broken_links = []
     error_breakdown = {}
+    provider_stats = {
+        "total_detected": 0,
+        "by_provider": {},  # Provider -> count
+        "retry_attempted": 0,
+        "retry_success": 0,
+        "retry_failed": 0,
+    }
 
     for reg_authority, org_name, entity_id, privacy_url in sp_data:
         # Get validation result
@@ -199,6 +207,25 @@ def analyze_broken_links(
             continue
 
         result = validation_results[privacy_url]
+
+        # Track provider statistics for ALL URLs (not just broken ones)
+        protection_detected = result.get("protection_detected")
+        retry_method = result.get("retry_method")
+        status_code = result.get("status_code", 0)
+
+        if protection_detected:
+            provider_stats["total_detected"] += 1
+            provider_stats["by_provider"][protection_detected] = (
+                provider_stats["by_provider"].get(protection_detected, 0) + 1
+            )
+
+        if retry_method:
+            provider_stats["retry_attempted"] += 1
+            # Retry succeeded if status_code is 2xx or 3xx
+            if 200 <= status_code < 400:
+                provider_stats["retry_success"] += 1
+            else:
+                provider_stats["retry_failed"] += 1
 
         # Check if broken
         is_broken = not result.get("accessible", False)
@@ -235,7 +262,7 @@ def analyze_broken_links(
             ]
         )
 
-    return broken_links, error_breakdown
+    return broken_links, error_breakdown, provider_stats
 
 
 def main() -> None:
@@ -280,7 +307,7 @@ def main() -> None:
         validation_results = validate_privacy_urls(sp_data, VALIDATION_WORKERS)
 
         print("Analyzing results for broken links...", file=sys.stderr)
-        broken_links, error_breakdown = analyze_broken_links(
+        broken_links, error_breakdown, provider_stats = analyze_broken_links(
             sp_data, validation_results, federation_mapping
         )
         print(
@@ -297,6 +324,34 @@ def main() -> None:
                 count = error_breakdown[error_type]
                 percentage = (count / len(broken_links) * 100) if broken_links else 0
                 print(f"  {error_type}: {count} ({percentage:.1f}%)", file=sys.stderr)
+            print(file=sys.stderr)
+
+        # Print bot protection provider statistics
+        if provider_stats["total_detected"] > 0:
+            print("Bot Protection Detected:", file=sys.stderr)
+            for provider in sorted(
+                provider_stats["by_provider"].keys(),
+                key=lambda x: provider_stats["by_provider"][x],
+                reverse=True,
+            ):
+                count = provider_stats["by_provider"][provider]
+                print(f"  {provider}: {count}", file=sys.stderr)
+
+            if provider_stats["retry_attempted"] > 0:
+                success_rate = (
+                    provider_stats["retry_success"]
+                    / provider_stats["retry_attempted"]
+                    * 100
+                )
+                print(
+                    f"\nBypass Attempts: {provider_stats['retry_attempted']}",
+                    file=sys.stderr,
+                )
+                print(
+                    f"  Success: {provider_stats['retry_success']} ({success_rate:.1f}%)",
+                    file=sys.stderr,
+                )
+                print(f"  Failed: {provider_stats['retry_failed']}", file=sys.stderr)
             print(file=sys.stderr)
 
         return broken_links
