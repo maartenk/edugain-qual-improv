@@ -334,9 +334,9 @@ def validate_privacy_url(
 
         response.close()
 
-        # Retry with cloudscraper if bot protection detected
+        # Retry with cloudscraper if bot protection detected or forbidden/rate-limited
         retry_method = None
-        if ENABLE_CLOUDSCRAPER_RETRY and protection_detected and status_code == 403:
+        if ENABLE_CLOUDSCRAPER_RETRY and status_code in [403, 429]:
             retry_method = "cloudscraper"
             (
                 status_code,
