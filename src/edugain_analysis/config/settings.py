@@ -29,6 +29,17 @@ MAX_CONTENT_SIZE = 1024 * 1024  # 1MB max content size for analysis
 # Bot protection mitigation settings
 ENABLE_CLOUDSCRAPER_RETRY = True  # Retry with cloudscraper if bot protection detected
 CLOUDSCRAPER_TIMEOUT = 20  # seconds (longer timeout for JS challenge solving)
+CLOUDSCRAPER_RETRY_DELAY = 1.5  # seconds to wait before retry (looks less bot-like)
+
+# Provider-specific retry delays (seconds)
+PROVIDER_RETRY_DELAYS = {
+    "Cloudflare": 2.0,
+    "Akamai": 3.0,
+    "DataDome": 2.5,
+    "CloudFront": 1.5,
+    "AWS WAF": 1.5,
+    "AWS ELB": 1.5,
+}
 
 # XML Namespaces for SAML metadata processing
 NAMESPACES = {
