@@ -13,6 +13,57 @@ from .entities import iter_entity_records
 from .validation import validate_urls_parallel
 
 
+def _categorize_validation_error(validation_result: dict) -> str:
+    """Categorize validation error for statistics."""
+    status_code = validation_result.get("status_code", 0)
+    error_msg = validation_result.get("error", "")
+    protection_detected = validation_result.get("protection_detected")
+    retry_method = validation_result.get("retry_method")
+
+    # Check for bot protection first (only if still blocked - status >= 400)
+    if status_code >= 400:
+        if retry_method:
+            # Retry was attempted
+            if protection_detected:
+                # Known protection provider, but bypass failed
+                return f"{protection_detected} (bypass failed)"
+            # Unidentified protection, retry attempted but failed
+            return "Bot Protection (unidentified)"
+        if protection_detected:
+            # Protection detected but no retry attempted (shouldn't happen with new code)
+            return f"{protection_detected} Protection"
+
+    # Check error messages
+    if error_msg:
+        error_lower = error_msg.lower()
+        if "ssl" in error_lower or "certificate" in error_lower:
+            return "SSL Certificate Error"
+        if "connection" in error_lower or "dns" in error_lower:
+            return "Connection Error"
+        if "timeout" in error_lower:
+            return "Timeout"
+        if "redirect" in error_lower:
+            return "Too Many Redirects"
+        return f"Error: {error_msg}"
+
+    # Check status codes
+    if status_code == 0:
+        return "Unknown Error"
+    if status_code == 404:
+        return "Not Found (4xx)"
+    if status_code == 403:
+        return "Forbidden (4xx)"
+    if status_code == 401:
+        return "Unauthorized (4xx)"
+    if status_code == 410:
+        return "Gone Permanently (4xx)"
+    if 400 <= status_code < 500:
+        return f"Client Error {status_code} (4xx)"
+    if status_code >= 500:
+        return f"Server Error {status_code} (5xx)"
+    return f"Unexpected Status {status_code}"
+
+
 def analyze_privacy_security(
     root: ET.Element,
     federation_mapping: dict[str, str] = None,
@@ -62,6 +113,7 @@ def analyze_privacy_security(
         "urls_accessible": 0,
         "urls_broken": 0,
         "validation_enabled": validate_urls,
+        "error_breakdown": {},  # Dict mapping error types to counts
         "provider_stats": {  # Bot protection provider statistics
             "total_detected": 0,
             "by_provider": {},  # Provider -> count
@@ -170,6 +222,11 @@ def analyze_privacy_security(
                 stats["urls_accessible"] += 1
             else:
                 stats["urls_broken"] += 1
+                # Categorize and count error types
+                error_type = _categorize_validation_error(url_validation_result)
+                stats["error_breakdown"][error_type] = (
+                    stats["error_breakdown"].get(error_type, 0) + 1
+                )
 
             # Track bot protection provider statistics
             protection_detected = url_validation_result.get("protection_detected")
@@ -218,6 +275,7 @@ def analyze_privacy_security(
                     "urls_checked": 0,
                     "urls_accessible": 0,
                     "urls_broken": 0,
+                    "error_breakdown": {},  # Dict mapping error types to counts
                     "provider_stats": {  # Bot protection provider statistics
                         "total_detected": 0,
                         "by_provider": {},
@@ -242,6 +300,13 @@ def analyze_privacy_security(
                             fed_stats["urls_accessible"] += 1
                         else:
                             fed_stats["urls_broken"] += 1
+                            # Categorize and count error types
+                            error_type = _categorize_validation_error(
+                                url_validation_result
+                            )
+                            fed_stats["error_breakdown"][error_type] = (
+                                fed_stats["error_breakdown"].get(error_type, 0) + 1
+                            )
 
                         # Track federation provider statistics
                         protection_detected = url_validation_result.get(
