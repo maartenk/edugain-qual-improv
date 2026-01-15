@@ -27,9 +27,10 @@ def _categorize_validation_error(validation_result: dict) -> str:
             if protection_detected:
                 # Known protection provider, but bypass failed
                 return f"{protection_detected} (bypass failed)"
-            # Unidentified protection, retry attempted but failed
-            return "Bot Protection (unidentified)"
-        if protection_detected:
+            else:
+                # Unidentified protection, retry attempted but failed
+                return "Bot Protection (unidentified)"
+        elif protection_detected:
             # Protection detected but no retry attempted (shouldn't happen with new code)
             return f"{protection_detected} Protection"
 
@@ -49,19 +50,20 @@ def _categorize_validation_error(validation_result: dict) -> str:
     # Check status codes
     if status_code == 0:
         return "Unknown Error"
-    if status_code == 404:
+    elif status_code == 404:
         return "Not Found (4xx)"
-    if status_code == 403:
+    elif status_code == 403:
         return "Forbidden (4xx)"
-    if status_code == 401:
+    elif status_code == 401:
         return "Unauthorized (4xx)"
-    if status_code == 410:
+    elif status_code == 410:
         return "Gone Permanently (4xx)"
-    if 400 <= status_code < 500:
+    elif 400 <= status_code < 500:
         return f"Client Error {status_code} (4xx)"
-    if status_code >= 500:
+    elif status_code >= 500:
         return f"Server Error {status_code} (5xx)"
-    return f"Unexpected Status {status_code}"
+    else:
+        return f"Unexpected Status {status_code}"
 
 
 def analyze_privacy_security(
