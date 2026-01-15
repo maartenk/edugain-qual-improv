@@ -482,4 +482,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Docs Index**: Browse [docs/README.md](docs/README.md) for additional references
 - **Documentation**: See [README.md](README.md) for full documentation
 - **Development**: See [docs/CLAUDE.md](docs/CLAUDE.md) for development guidelines
-- **Roadmap**: See [docs/FUTURE_ENHANCEMENTS.md](docs/FUTURE_ENHANCEMENTS.md) for upcoming ideas
+- **Roadmap**: See [docs/ROADMAP.md](docs/ROADMAP.md) for upcoming ideas and merged legacy notes
