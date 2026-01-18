@@ -229,9 +229,21 @@ Prefer scripts? `scripts/dev/dev-env.sh` remains available if you prefer driving
 - Test coverage outputs land in `artifacts/coverage/` (HTML + XML). The `reports/` directory is reserved for CLI exports or cached metadata snapshots and is only pruned when you run `scripts/maintenance/clean-artifacts.sh --reports`.
 - Script layout: `scripts/app/` (CLI wrappers), `scripts/dev/` (developer tooling), `scripts/maintenance/` (cache & environment cleanup).
 
-## 📘 Need developer details?
+## 📘 Documentation
 
-Developer tooling, architecture notes, and testing guidance now live in `docs/CLAUDE.md`. The docs index at `docs/README.md` links to all supporting material.
+**Developer Resources:**
+- `CLAUDE.md` - Architecture, testing, and development workflows for contributors and AI assistants
+- `docs/ROADMAP.md` - Comprehensive feature roadmap with prioritization and timelines (12-month plan)
+- `Dockerfile` & `docker-compose.yml` - Containerized workflow for CLI and tests
+
+**Scripts & Utilities:**
+- `scripts/app/` - CLI wrapper scripts for running without installation
+- `scripts/dev/` - Developer tooling (env bootstrap, linting, local CI, Docker helpers)
+- `scripts/maintenance/` - Cache and environment cleanup utilities
+
+**Artifacts:**
+- `artifacts/coverage/` - Test coverage reports (HTML + XML)
+- `reports/` - CLI exports and downloaded metadata snapshots
 
 ## 🏗️ Package Architecture
 
@@ -479,7 +491,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 - **Issues**: [GitHub Issues](https://github.com/maartenk/edugain-qual-improv/issues)
-- **Docs Index**: Browse [docs/README.md](docs/README.md) for additional references
-- **Documentation**: See [README.md](README.md) for full documentation
-- **Development**: See [docs/CLAUDE.md](docs/CLAUDE.md) for development guidelines
-- **Roadmap**: See [docs/ROADMAP.md](docs/ROADMAP.md) for upcoming ideas and merged legacy notes
+- **Documentation**: See [README.md](README.md) for full user documentation
+- **Development**: See [CLAUDE.md](CLAUDE.md) for development guidelines and architecture
+- **Roadmap**: See [docs/ROADMAP.md](docs/ROADMAP.md) for feature roadmap and planning
