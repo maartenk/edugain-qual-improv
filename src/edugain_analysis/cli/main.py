@@ -11,13 +11,16 @@ import sys
 
 from ..config import EDUGAIN_METADATA_URL, URL_VALIDATION_THREADS
 from ..core import (
+    SSRFError,
     analyze_privacy_security,
     filter_entities,
     get_federation_mapping,
     get_metadata,
     load_url_validation_cache,
     parse_metadata,
+    sanitize_csv_value,
     save_url_validation_cache,
+    validate_url_for_ssrf,
 )
 from ..formatters import (
     export_federation_csv,
@@ -172,7 +175,12 @@ def handle_csv_export(args, entities_list, stats, federation_stats):
             )
 
         writer.writerow(headers)
-    writer.writerows(entities_list)
+
+    # Sanitize all CSV values to prevent CSV injection attacks
+    sanitized_entities = [
+        [sanitize_csv_value(str(cell)) for cell in row] for row in entities_list
+    ]
+    writer.writerows(sanitized_entities)
 
 
 def main() -> None:
@@ -197,6 +205,13 @@ def main() -> None:
         if args.source:
             # Check if source is a URL (starts with http) or a file path
             if args.source.startswith(("http://", "https://")):
+                # Validate URL for SSRF attacks before fetching
+                try:
+                    validate_url_for_ssrf(args.source)
+                except SSRFError as e:
+                    print(f"Security Error: {e}", file=sys.stderr)
+                    sys.exit(1)
+
                 xml_content = get_metadata(args.source)
                 root = parse_metadata(xml_content)
             else:
