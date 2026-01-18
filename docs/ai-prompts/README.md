@@ -47,6 +47,15 @@ This directory contains comprehensive, AI-ready prompts for implementing feature
 | 17 | **Enhanced PDF Reports with Executive Summary** | MEDIUM | 3 weeks | [17-enhanced-pdf-reports-executive-summary.md](17-enhanced-pdf-reports-executive-summary.md) |
 | 18 | **Differential Comparison & Baseline Mode** | MEDIUM | 4 weeks | [18-differential-comparison-baseline-mode.md](18-differential-comparison-baseline-mode.md) |
 
+### 🚀 Tier 3: Phase 3 Strategic Platform Features
+
+| # | Feature | Priority | Effort | File |
+|---|---------|----------|--------|------|
+| 19 | **Entity Freshness & Activity Tracking** | LOW | 2-3 weeks | [19-entity-freshness-activity-tracking.md](19-entity-freshness-activity-tracking.md) |
+| 20 | **Multi-Lingual Support Quality Assessment** | LOW | 4-5 weeks | [20-multilingual-support-quality.md](20-multilingual-support-quality.md) |
+| 21 | **Certificate & Encryption Quality Analysis** | LOW-MEDIUM | 6-8 weeks | [21-certificate-encryption-quality.md](21-certificate-encryption-quality.md) |
+| 22 | **Public-Facing Quality Dashboard** | MEDIUM | 2-3 months | [22-public-quality-dashboard.md](22-public-quality-dashboard.md) |
+
 ## 🎯 Recommended Implementation Order
 
 ### Path 1: Quick Automation Wins
@@ -114,6 +123,20 @@ Best for: Comprehensive quality improvement platform
    [Requires Historical Snapshot Storage + Baseline Mode]
 ```
 **Total**: 15-18 weeks, **Value**: Complete strategic quality improvement platform for federation leadership
+
+### Path 6: Phase 3 Strategic Platform (Tier 3)
+Best for: Public transparency and community engagement
+```
+1. Entity Freshness & Activity Tracking (2-3 weeks) [Quick win, cleanup focus]
+   ↓
+2. Multi-Lingual Support Quality Assessment (4-5 weeks) [Accessibility]
+   ↓
+3. Certificate & Encryption Quality Analysis (6-8 weeks) [Security deep-dive]
+   ↓
+4. Public-Facing Quality Dashboard (2-3 months) [Flagship web platform]
+   [Requires all previous features for complete dashboard]
+```
+**Total**: 15-20 weeks, **Value**: Full public platform with transparency, API access, and community engagement
 
 ## 🤖 How to Use These Prompts
 
@@ -279,5 +302,7 @@ These prompts are part of the eduGAIN Analysis project and follow the same MIT l
 ---
 
 **Last Updated**: 2026-01-18
-**Total Prompts**: 18
-**Estimated Total Effort**: 29-39 weeks (depending on path)
+**Total Prompts**: 22
+**Estimated Total Effort**: 44-59 weeks (depending on path)
+
+**Coverage**: All 3 phases of the ROADMAP completed! 🎉
