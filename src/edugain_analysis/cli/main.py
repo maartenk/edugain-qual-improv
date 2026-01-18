@@ -11,13 +11,16 @@ import sys
 
 from ..config import EDUGAIN_METADATA_URL, URL_VALIDATION_THREADS
 from ..core import (
+    SSRFError,
     analyze_privacy_security,
     filter_entities,
     get_federation_mapping,
     get_metadata,
     load_url_validation_cache,
     parse_metadata,
+    sanitize_csv_value,
     save_url_validation_cache,
+    validate_url_for_ssrf,
 )
 from ..formatters import (
     export_federation_csv,
@@ -25,6 +28,7 @@ from ..formatters import (
     print_summary,
     print_summary_markdown,
 )
+from .pdf import handle_pdf_output
 
 
 def setup_argument_parser() -> argparse.ArgumentParser:
@@ -36,6 +40,8 @@ Examples:
   %(prog)s                              # Show summary statistics (includes SIRTFI)
   %(prog)s --report                     # Generate detailed markdown report
   %(prog)s --report-with-validation     # Generate detailed report with URL validation
+  %(prog)s --report --pdf               # Generate graphical PDF report
+  %(prog)s --report --pdf --output reports/edugain-report.pdf
   %(prog)s --csv entities               # Export all entities to CSV (includes SIRTFI column)
   %(prog)s --csv federations            # Export federation statistics (includes SIRTFI stats)
   %(prog)s --csv missing-privacy        # Export only SPs missing privacy statements
@@ -99,6 +105,19 @@ CSV Columns (entities):
         help="Enable URL validation (checks privacy statement accessibility) and show summary statistics",
     )
 
+    parser.add_argument(
+        "--pdf",
+        action="store_true",
+        help="Generate a graphical PDF report (summary + federation pages)",
+    )
+    parser.add_argument(
+        "--output",
+        help=(
+            "Output file path for --pdf "
+            "(default: reports/edugain-report-YYYYMMDD-HHMMSS.pdf)"
+        ),
+    )
+
     # CSV output options
     parser.add_argument(
         "--no-headers", action="store_true", help="Omit CSV headers from output"
@@ -156,13 +175,23 @@ def handle_csv_export(args, entities_list, stats, federation_stats):
             )
 
         writer.writerow(headers)
-    writer.writerows(entities_list)
+
+    # Sanitize all CSV values to prevent CSV injection attacks
+    sanitized_entities = [
+        [sanitize_csv_value(str(cell)) for cell in row] for row in entities_list
+    ]
+    writer.writerows(sanitized_entities)
 
 
 def main() -> None:
     """Main function to orchestrate the analysis."""
     parser = setup_argument_parser()
     args = parser.parse_args()
+
+    if args.output and not args.pdf:
+        parser.error("--output is only supported with --pdf")
+    if args.pdf and args.csv:
+        parser.error("--pdf cannot be used with --csv")
 
     try:
         # Determine if URL validation should be enabled
@@ -176,6 +205,13 @@ def main() -> None:
         if args.source:
             # Check if source is a URL (starts with http) or a file path
             if args.source.startswith(("http://", "https://")):
+                # Validate URL for SSRF attacks before fetching
+                try:
+                    validate_url_for_ssrf(args.source)
+                except SSRFError as e:
+                    print(f"Security Error: {e}", file=sys.stderr)
+                    sys.exit(1)
+
                 xml_content = get_metadata(args.source)
                 root = parse_metadata(xml_content)
             else:
@@ -218,7 +254,9 @@ def main() -> None:
                 save_url_validation_cache(validation_cache)
 
         # Handle different output formats
-        if args.csv:
+        if args.pdf:
+            handle_pdf_output(args, stats, federation_stats, enable_validation)
+        elif args.csv:
             handle_csv_export(args, entities_list, stats, federation_stats)
         elif args.report or args.report_with_validation:
             print_summary_markdown(stats, output_file=sys.stdout)

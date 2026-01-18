@@ -9,6 +9,12 @@ from .metadata import (
     parse_metadata,
     save_url_validation_cache,
 )
+from .security import (
+    SSRFError,
+    sanitize_csv_value,
+    sanitize_url_for_display,
+    validate_url_for_ssrf,
+)
 from .validation import validate_privacy_url
 
 __all__ = [
@@ -22,4 +28,8 @@ __all__ = [
     "validate_privacy_url",
     "EntityRecord",
     "iter_entity_records",
+    "SSRFError",
+    "validate_url_for_ssrf",
+    "sanitize_csv_value",
+    "sanitize_url_for_display",
 ]

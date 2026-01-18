@@ -796,5 +796,10 @@ def export_federation_csv(federation_stats: dict, include_headers: bool = True) 
                 ]
             )
 
-        # Write row
-        writer.writerow(row_data)
+        # Write row (sanitize federation name to prevent CSV injection)
+        from ..core.security import sanitize_csv_value
+
+        sanitized_row = [sanitize_csv_value(str(row_data[0]))] + row_data[
+            1:
+        ]  # Only first field (federation name) needs sanitization
+        writer.writerow(sanitized_row)
