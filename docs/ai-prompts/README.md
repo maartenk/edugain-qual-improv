@@ -37,6 +37,16 @@ This directory contains comprehensive, AI-ready prompts for implementing feature
 | 12 | **Time-Series Trend Analysis** | HIGH | 3-4 weeks | [12-time-series-trend-analysis.md](12-time-series-trend-analysis.md) |
 | 13 | **Federation Benchmarking & Peer Comparison** | HIGH | 2 weeks | [13-federation-benchmarking.md](13-federation-benchmarking.md) |
 
+### 🔧 Tier 2: Advanced Features & Phase 2 Completion
+
+| # | Feature | Priority | Effort | File |
+|---|---------|----------|--------|------|
+| 14 | **Metadata Completeness Scoring** | MEDIUM-HIGH | 3-4 weeks | [14-metadata-completeness-scoring.md](14-metadata-completeness-scoring.md) |
+| 15 | **Additional Entity Category Tracking** | MEDIUM | 2-3 weeks | [15-additional-entity-category-tracking.md](15-additional-entity-category-tracking.md) |
+| 16 | **Automated Alerting System** | MEDIUM | 3-4 weeks | [16-automated-alerting-system.md](16-automated-alerting-system.md) |
+| 17 | **Enhanced PDF Reports with Executive Summary** | MEDIUM | 3 weeks | [17-enhanced-pdf-reports-executive-summary.md](17-enhanced-pdf-reports-executive-summary.md) |
+| 18 | **Differential Comparison & Baseline Mode** | MEDIUM | 4 weeks | [18-differential-comparison-baseline-mode.md](18-differential-comparison-baseline-mode.md) |
+
 ## 🎯 Recommended Implementation Order
 
 ### Path 1: Quick Automation Wins
@@ -87,6 +97,23 @@ Best for: Improving data accuracy and competitive analysis
    [Requires Historical Snapshot Storage from Path 2]
 ```
 **Total**: 6-8 weeks, **Value**: Accurate metrics, competitive insights, trend tracking
+
+### Path 5: Phase 2 Advanced Features (Tier 2)
+Best for: Comprehensive quality improvement platform
+```
+1. Additional Entity Category Tracking (2-3 weeks) [Quick win]
+   ↓
+2. Metadata Completeness Scoring (3-4 weeks)
+   ↓
+3. Differential Comparison & Baseline Mode (4 weeks)
+   [Requires Historical Snapshot Storage from Path 2]
+   ↓
+4. Enhanced PDF Reports with Executive Summary (3 weeks)
+   ↓
+5. Automated Alerting System (3-4 weeks)
+   [Requires Historical Snapshot Storage + Baseline Mode]
+```
+**Total**: 15-18 weeks, **Value**: Complete strategic quality improvement platform for federation leadership
 
 ## 🤖 How to Use These Prompts
 
@@ -252,5 +279,5 @@ These prompts are part of the eduGAIN Analysis project and follow the same MIT l
 ---
 
 **Last Updated**: 2026-01-18
-**Total Prompts**: 13
-**Estimated Total Effort**: 14-21 weeks (depending on path)
+**Total Prompts**: 18
+**Estimated Total Effort**: 29-39 weeks (depending on path)
