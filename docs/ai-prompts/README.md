@@ -27,6 +27,16 @@ This directory contains comprehensive, AI-ready prompts for implementing feature
 | 7 | **Security Contact Quality Validation** | HIGH | 1-2 weeks | [07-security-contact-quality-validation.md](07-security-contact-quality-validation.md) |
 | 8 | **Privacy URL Content Quality Analysis** | MEDIUM-HIGH | 2-3 weeks | [08-privacy-url-content-quality.md](08-privacy-url-content-quality.md) |
 
+### 🎯 Tier 1: Data Quality & Analysis (Additional Features)
+
+| # | Feature | Priority | Effort | File |
+|---|---------|----------|--------|------|
+| 9 | **Duplicate Entity ID Detection** | HIGH (CRITICAL) | 2 days | [09-duplicate-entity-detection.md](09-duplicate-entity-detection.md) |
+| 10 | **Progress Indicators for Long Operations** | MEDIUM | 2 days | [10-progress-indicators.md](10-progress-indicators.md) |
+| 11 | **Placeholder/Template URL Detection** | MEDIUM-HIGH | 2 days | [11-placeholder-url-detection.md](11-placeholder-url-detection.md) |
+| 12 | **Time-Series Trend Analysis** | HIGH | 3-4 weeks | [12-time-series-trend-analysis.md](12-time-series-trend-analysis.md) |
+| 13 | **Federation Benchmarking & Peer Comparison** | HIGH | 2 weeks | [13-federation-benchmarking.md](13-federation-benchmarking.md) |
+
 ## 🎯 Recommended Implementation Order
 
 ### Path 1: Quick Automation Wins
@@ -61,6 +71,22 @@ Best for: Immediate operator value
 3. Security Contact Quality Validation (1-2 weeks)
 ```
 **Total**: 2-4 weeks, **Value**: Improved usability and guidance
+
+### Path 4: Data Quality & Benchmarking
+Best for: Improving data accuracy and competitive analysis
+```
+1. Duplicate Entity ID Detection (2 days) [CRITICAL]
+   ↓
+2. Placeholder URL Detection (2 days)
+   ↓
+3. Progress Indicators (2 days) [UX improvement]
+   ↓
+4. Federation Benchmarking (2 weeks)
+   ↓
+5. Time-Series Trend Analysis (3-4 weeks)
+   [Requires Historical Snapshot Storage from Path 2]
+```
+**Total**: 6-8 weeks, **Value**: Accurate metrics, competitive insights, trend tracking
 
 ## 🤖 How to Use These Prompts
 
@@ -226,5 +252,5 @@ These prompts are part of the eduGAIN Analysis project and follow the same MIT l
 ---
 
 **Last Updated**: 2026-01-18
-**Total Prompts**: 8
-**Estimated Total Effort**: 8-13 weeks (depending on path)
+**Total Prompts**: 13
+**Estimated Total Effort**: 14-21 weeks (depending on path)
