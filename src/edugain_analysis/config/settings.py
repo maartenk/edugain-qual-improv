@@ -41,6 +41,14 @@ PROVIDER_RETRY_DELAYS = {
     "AWS ELB": 1.5,
 }
 
+# Content quality analysis thresholds
+CONTENT_QUALITY_THREADS = 10  # concurrent threads for content quality validation
+CONTENT_QUALITY_MIN_LENGTH = 500
+CONTENT_QUALITY_EMPTY_THRESHOLD = 100
+CONTENT_QUALITY_MAX_DOWNLOAD = 102_400  # 100 KB — smaller cap than MAX_CONTENT_SIZE
+CONTENT_QUALITY_SLOW_MS = 5_000
+CONTENT_QUALITY_VERY_SLOW_MS = 10_000
+
 # XML Namespaces for SAML metadata processing
 NAMESPACES = {
     "md": "urn:oasis:names:tc:SAML:2.0:metadata",

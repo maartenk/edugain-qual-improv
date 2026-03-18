@@ -136,7 +136,9 @@ def _bar_chart(labels, values, colors_list, title):
     return _image_from_figure(fig)
 
 
-def _build_kpis(stats: dict) -> list[tuple[str, str]]:
+def _build_kpis(
+    stats: dict, include_content_validation: bool = False
+) -> list[tuple[str, str]]:
     total = stats.get("total_entities", 0)
     total_sps = stats.get("total_sps", 0)
     total_idps = stats.get("total_idps", 0)
@@ -145,7 +147,7 @@ def _build_kpis(stats: dict) -> list[tuple[str, str]]:
     security_pct = _pct(stats.get("total_has_security", 0), total)
     sirtfi_pct = _pct(stats.get("total_has_sirtfi", 0), total)
 
-    return [
+    kpis = [
         ("Total Entities", f"{total:,}"),
         ("Service Providers", f"{total_sps:,}"),
         ("Identity Providers", f"{total_idps:,}"),
@@ -169,8 +171,18 @@ def _build_kpis(stats: dict) -> list[tuple[str, str]]:
         ),
     ]
 
+    if include_content_validation:
+        scores = stats.get("content_quality_scores", [])
+        if scores:
+            avg_score = sum(scores) / len(scores)
+            kpis.append(("Avg Privacy Quality Score", f"{avg_score:.0f}/100"))
 
-def _build_charts(stats: dict, include_validation: bool) -> list[ChartImage]:
+    return kpis
+
+
+def _build_charts(
+    stats: dict, include_validation: bool, include_content_validation: bool = False
+) -> list[ChartImage]:
     charts: list[ChartImage] = []
     total = stats.get("total_entities", 0)
     total_sps = stats.get("total_sps", 0)
@@ -422,6 +434,113 @@ def _build_charts(stats: dict, include_validation: bool) -> list[ChartImage]:
 
             charts.append(_image_from_figure(fig))
 
+    # Content quality charts
+    if include_content_validation and stats.get("content_urls_checked", 0) > 0:
+        scores = stats.get("content_quality_scores", [])
+        if scores:
+            bands = [
+                (
+                    "Excellent\n90-100",
+                    sum(1 for s in scores if s >= 90),
+                    PALETTE["green"],
+                ),
+                (
+                    "Good\n70-89",
+                    sum(1 for s in scores if 70 <= s < 90),
+                    PALETTE["teal"],
+                ),
+                (
+                    "Fair\n50-69",
+                    sum(1 for s in scores if 50 <= s < 70),
+                    PALETTE["yellow"],
+                ),
+                (
+                    "Poor\n30-49",
+                    sum(1 for s in scores if 30 <= s < 50),
+                    PALETTE["orange"],
+                ),
+                ("Broken\n<30", sum(1 for s in scores if s < 30), PALETTE["red"]),
+            ]
+            band_labels = [b[0] for b in bands]
+            band_counts = [b[1] for b in bands]
+            band_colors = [b[2] for b in bands]
+
+            fig, ax = plt.subplots(figsize=(3.4, 2.5), dpi=150)
+            bars = ax.bar(band_labels, band_counts, color=band_colors)
+            ax.set_ylabel("Pages", fontsize=8)
+            ax.set_title("Privacy Page Quality Distribution", fontsize=10, pad=8)
+            ax.tick_params(axis="x", labelsize=7)
+            ax.tick_params(axis="y", labelsize=8)
+            for bar, count in zip(bars, band_counts, strict=False):
+                if count > 0:
+                    ax.text(
+                        bar.get_x() + bar.get_width() / 2,
+                        count + 0.3,
+                        str(count),
+                        ha="center",
+                        va="bottom",
+                        fontsize=8,
+                    )
+            fig.tight_layout()
+            charts.append(_image_from_figure(fig))
+
+        issues = stats.get("content_quality_issues_breakdown", {})
+        if issues:
+            content_checked = max(stats.get("content_urls_checked", 1), 1)
+            sorted_issues = sorted(issues.items(), key=lambda x: x[1], reverse=True)[:8]
+
+            issue_labels = {
+                "soft-404": "Soft 404 (returns 200 but shows error)",
+                "no-gdpr-keywords": "No GDPR compliance keywords",
+                "few-gdpr-keywords": "Too few GDPR keywords (< 3)",
+                "thin-content": "Thin content (< 500 bytes)",
+                "empty-content": "Empty content (< 100 bytes)",
+                "non-https": "Non-HTTPS URL",
+                "slow-response": "Slow response (> 5 s)",
+                "very-slow-response": "Very slow response (> 10 s)",
+            }
+
+            table_data = [["Issue", "Count", "% of Pages"]]
+            for issue_key, count in sorted_issues:
+                label = issue_labels.get(issue_key, issue_key)
+                pct = _pct(count, content_checked)
+                table_data.append([label, f"{count:,}", f"{pct:.1f}%"])
+
+            fig, ax = plt.subplots(figsize=(3.4, 2.3), dpi=150)
+            ax.axis("tight")
+            ax.axis("off")
+
+            table = ax.table(
+                cellText=table_data,
+                cellLoc="left",
+                loc="center",
+                colWidths=[0.55, 0.20, 0.25],
+            )
+            table.auto_set_font_size(False)
+            table.set_fontsize(6)
+            table.scale(1, 1.4)
+
+            for i in range(3):
+                cell = table[(0, i)]
+                cell.set_facecolor(PALETTE["green"])
+                cell.set_text_props(weight="bold", color="white")
+                cell.set_linewidth(0.5)
+                cell.set_edgecolor(PALETTE["green"])
+
+            for i in range(1, len(table_data)):
+                for j in range(3):
+                    cell = table[(i, j)]
+                    cell.set_facecolor("#F4F5F6" if i % 2 == 0 else "white")
+                    if j > 0:
+                        cell.set_text_props(ha="right")
+                    cell.set_linewidth(0.5)
+                    cell.set_edgecolor("#D0D0D0")
+
+            ax.set_title(
+                "Content Quality Issues (Top 8)", fontsize=9, weight="bold", pad=10
+            )
+            charts.append(_image_from_figure(fig))
+
     return charts
 
 
@@ -535,11 +654,12 @@ def _render_page(
     page_number: int,
     total_pages: int,
     generated_at: str,
+    include_content_validation: bool = False,
 ) -> None:
     page_width, page_height = A4
 
-    kpis = _build_kpis(stats)
-    charts = _build_charts(stats, include_validation)
+    kpis = _build_kpis(stats, include_content_validation)
+    charts = _build_charts(stats, include_validation, include_content_validation)
 
     content_top = _draw_header(
         c, title, subtitle, page_number, total_pages, page_width, page_height
@@ -561,6 +681,7 @@ def generate_pdf_report(
     output_path: str,
     report_context: str,
     include_validation: bool,
+    include_content_validation: bool = False,
 ) -> str:
     """Generate a multi-page graphical PDF report."""
     output = Path(output_path)
@@ -584,6 +705,7 @@ def generate_pdf_report(
         1,
         total_pages,
         generated_at,
+        include_content_validation=include_content_validation,
     )
     if sorted_federations:
         c.showPage()

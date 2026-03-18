@@ -558,3 +558,140 @@ class TestCLIMain:
                 main()
             # argparse exits with code 0 for help
             assert exc_info.value.code == 0
+
+    @patch("edugain_analysis.cli.main.get_federation_mapping")
+    @patch("edugain_analysis.cli.main.get_metadata")
+    @patch("edugain_analysis.cli.main.parse_metadata")
+    @patch("edugain_analysis.cli.main.analyze_privacy_security")
+    @patch("edugain_analysis.cli.main.print_summary")
+    def test_validate_content_flag_parsed(
+        self,
+        mock_print_summary,
+        mock_analyze,
+        mock_parse,
+        mock_get_metadata,
+        mock_get_federation,
+    ):
+        """sys.argv with --validate-content gives args.validate_content == True."""
+        mock_get_federation.return_value = {}
+        mock_get_metadata.return_value = b"<xml>metadata</xml>"
+        mock_parse.return_value = MagicMock()
+        mock_analyze.return_value = (
+            [],
+            {"total_entities": 0, "content_validation_enabled": True},
+            {},
+        )
+
+        from edugain_analysis.cli.main import setup_argument_parser
+
+        with patch("sys.argv", ["analyze.py", "--validate-content"]):
+            parser = setup_argument_parser()
+            args = parser.parse_args()
+
+        assert args.validate_content is True
+
+    @patch("edugain_analysis.cli.main.get_federation_mapping")
+    @patch("edugain_analysis.cli.main.load_url_validation_cache")
+    @patch("edugain_analysis.cli.main.save_url_validation_cache")
+    @patch("edugain_analysis.cli.main.get_metadata")
+    @patch("edugain_analysis.cli.main.parse_metadata")
+    @patch("edugain_analysis.cli.main.analyze_privacy_security")
+    @patch("edugain_analysis.cli.main.print_summary")
+    def test_validate_content_implies_validate(
+        self,
+        mock_print_summary,
+        mock_analyze,
+        mock_parse,
+        mock_get_metadata,
+        mock_save_cache,
+        mock_load_cache,
+        mock_get_federation,
+    ):
+        """--validate-content alone causes enable_validation=True passed to analyze_privacy_security."""
+        mock_get_federation.return_value = {}
+        mock_load_cache.return_value = {}
+        mock_get_metadata.return_value = b"<xml>metadata</xml>"
+        mock_parse.return_value = MagicMock()
+        mock_analyze.return_value = (
+            [],
+            {
+                "total_entities": 0,
+                "urls_checked": 0,
+                "content_validation_enabled": True,
+            },
+            {},
+        )
+
+        with patch("sys.argv", ["analyze.py", "--validate-content"]):
+            main()
+
+        args_call, kwargs_call = mock_analyze.call_args
+        # Third positional arg is enable_validation
+        assert args_call[2] is True
+        # validate_content keyword arg must also be True
+        assert kwargs_call.get("validate_content") is True
+
+    @patch("edugain_analysis.cli.main.get_federation_mapping")
+    @patch("edugain_analysis.cli.main.load_url_validation_cache")
+    @patch("edugain_analysis.cli.main.save_url_validation_cache")
+    @patch("edugain_analysis.cli.main.get_metadata")
+    @patch("edugain_analysis.cli.main.parse_metadata")
+    @patch("edugain_analysis.cli.main.analyze_privacy_security")
+    @patch("sys.stdout", new_callable=StringIO)
+    def test_csv_urls_content_analysis(
+        self,
+        mock_stdout,
+        mock_analyze,
+        mock_parse,
+        mock_get_metadata,
+        mock_save_cache,
+        mock_load_cache,
+        mock_get_federation,
+    ):
+        """--csv urls-content-analysis outputs expected content-quality CSV headers."""
+        mock_get_federation.return_value = {}
+        mock_load_cache.return_value = {}
+        mock_get_metadata.return_value = b"<xml>metadata</xml>"
+        mock_parse.return_value = MagicMock()
+
+        entities_list = [
+            [
+                "InCommon",
+                "SP",
+                "Test Org",
+                "https://test.org",
+                "Yes",
+                "https://test.org/privacy",
+                "No",
+                "No",
+            ]
+        ]
+        stats = {
+            "total_entities": 1,
+            "urls_checked": 0,
+            "content_validation_enabled": True,
+            "content_results": {
+                "https://test.org/privacy": {
+                    "status_code": 200,
+                    "content_quality_score": 88,
+                    "https_enabled": True,
+                    "content_length": 4000,
+                    "has_gdpr_keywords": True,
+                    "keyword_count": 5,
+                    "is_soft_404": False,
+                    "detected_language": "en",
+                    "response_time_ms": 300,
+                    "quality_issues": [],
+                }
+            },
+        }
+        mock_analyze.return_value = (entities_list, stats, {})
+
+        with patch("sys.argv", ["analyze.py", "--csv", "urls-content-analysis"]):
+            main()
+
+        output = mock_stdout.getvalue()
+        # Headers row must contain content-quality specific columns
+        assert "ContentQualityScore" in output
+        assert "IsSoft404" in output
+        assert "HasGDPRKeywords" in output
