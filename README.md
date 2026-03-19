@@ -173,6 +173,69 @@ Enabling `--validate`, `--report-with-validation`, or `--csv urls-validated` tri
 
 - `URLStatusCode`, `FinalURL`, `URLAccessible`, `RedirectCount`, `ValidationError`
 
+## 📄 Privacy Page Content Quality Analysis (optional)
+
+`--validate-content` goes beyond HTTP status checks and inspects the actual HTML of each privacy statement page. It detects soft-404s, thin content, and missing GDPR-related language — problems that a plain HTTP 200 would never surface.
+
+This flag implies `--validate`, so you do not need to pass both.
+
+```bash
+# Content quality analysis with terminal summary
+edugain-analyze --validate-content
+
+# Export per-URL content analysis to CSV
+edugain-analyze --csv urls-content-analysis
+```
+
+### Quality score
+
+Each privacy page receives a score from 0 to 100:
+
+| Tier | Score range | Meaning |
+| --- | --- | --- |
+| Excellent | 90–100 | Page passes all quality checks |
+| Good | 70–89 | Minor issues (e.g. few GDPR keywords, slightly slow) |
+| Fair | 50–69 | Notable issues needing attention |
+| Poor | 30–49 | Significant problems affecting compliance |
+| Broken | 0–29 | Soft-404, empty page, or severe combined issues |
+
+### Quality issues detected
+
+| Issue string | What it means |
+| --- | --- |
+| `soft-404` | Page returns HTTP 200 but displays error content (e.g. "Page not found") |
+| `thin-content` | HTML content under 500 bytes — almost certainly not a real privacy page |
+| `empty-content` | HTML under 100 bytes — effectively blank |
+| `non-https` | Privacy URL uses plain HTTP instead of HTTPS |
+| `no-gdpr-keywords` | Page contains fewer than 2 recognised GDPR-related terms |
+| `few-gdpr-keywords` | Page contains only 2 keywords (3 or more expected) |
+| `slow-response` | Page took longer than 5 seconds to respond |
+| `very-slow-response` | Page took longer than 10 seconds to respond |
+
+GDPR keyword detection covers five languages: English, German, French, Spanish, and Swedish. Language is auto-detected from the page's `<html lang>` attribute or by keyword frequency.
+
+### `--csv urls-content-analysis`
+
+Exports one row per SP privacy URL with the following columns:
+
+| Column | Description |
+| --- | --- |
+| `Federation` | Friendly federation name |
+| `EntityID` | SAML entity identifier |
+| `PrivacyURL` | Privacy statement URL |
+| `StatusCode` | HTTP response code |
+| `ContentQualityScore` | Score 0–100 |
+| `HTTPS` | `True`/`False` |
+| `ContentLength` | Raw HTML size in bytes |
+| `HasGDPRKeywords` | `True` if 2+ keywords found |
+| `KeywordCount` | Number of GDPR keywords matched |
+| `IsSoft404` | `True` if a soft-404 was detected |
+| `DetectedLanguage` | ISO 639-1 code (e.g. `en`, `de`) or blank |
+| `ResponseTimeMs` | Fetch time in milliseconds |
+| `QualityIssues` | Pipe-separated list of issue strings (e.g. `thin-content\|non-https`) |
+
+See [docs/content-quality-analysis.md](docs/content-quality-analysis.md) for a full reference including the scoring algorithm and remediation guidance.
+
 ## ⚙️ Advanced Configuration
 
 Runtime defaults live in `src/edugain_analysis/config/settings.py`. Tweak them if you need to point at alternative metadata sources or adjust validation behaviour.

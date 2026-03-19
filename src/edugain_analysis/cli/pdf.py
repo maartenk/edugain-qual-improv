@@ -24,6 +24,7 @@ def handle_pdf_output(
     stats: dict,
     federation_stats: dict,
     include_validation: bool,
+    include_content_validation: bool = False,
 ) -> None:
     from ..formatters.pdf import generate_pdf_report
 
@@ -37,5 +38,6 @@ def handle_pdf_output(
         output_path,
         _report_context(args),
         include_validation=include_validation,
+        include_content_validation=include_content_validation,
     )
     print(f"PDF report written to {pdf_path}", file=sys.stderr)

@@ -351,3 +351,183 @@ class TestExportFederationCSV:
         # Should at least have headers for empty data
         lines = result.strip().split("\n") if result.strip() else []
         assert len(lines) >= 1 or result == ""  # Either headers or empty
+
+
+class TestPrintSummaryContentQuality:
+    """Test content quality section inside print_summary."""
+
+    def _base_stats(self) -> dict:
+        """Return minimal stats dict needed by print_summary."""
+        return {
+            "total_entities": 100,
+            "total_sps": 60,
+            "total_idps": 40,
+            "sps_has_privacy": 45,
+            "sps_missing_privacy": 15,
+            "sps_has_security": 30,
+            "sps_missing_security": 30,
+            "idps_has_security": 35,
+            "idps_missing_security": 5,
+            "total_has_security": 65,
+            "total_missing_security": 35,
+            "sps_has_both": 25,
+            "sps_missing_both": 10,
+            "total_has_sirtfi": 50,
+            "sps_has_sirtfi": 27,
+            "idps_has_sirtfi": 23,
+            "total_missing_sirtfi": 50,
+            "sps_missing_sirtfi": 33,
+            "idps_missing_sirtfi": 17,
+            "validation_enabled": False,
+        }
+
+    def test_content_quality_summary_displayed(self):
+        """Stats with content_validation_enabled=True and scores prints 'Content Quality' to stderr."""
+        stats = self._base_stats()
+        stats.update(
+            {
+                "content_validation_enabled": True,
+                "content_urls_checked": 10,
+                "content_quality_scores": [95, 75, 55, 40, 20, 88, 62, 71, 33, 90],
+            }
+        )
+
+        with patch("sys.stderr", new_callable=StringIO) as mock_stderr:
+            print_summary(stats)
+            result = mock_stderr.getvalue()
+
+        assert "Content Quality" in result
+
+    def test_content_quality_hidden_when_disabled(self):
+        """Stats with content_validation_enabled=False produces no 'Content Quality' section."""
+        stats = self._base_stats()
+        stats["content_validation_enabled"] = False
+
+        with patch("sys.stderr", new_callable=StringIO) as mock_stderr:
+            print_summary(stats)
+            result = mock_stderr.getvalue()
+
+        assert "Content Quality" not in result
+
+    def test_content_quality_issues_displayed(self):
+        """Stats with content_quality_issues_breakdown prints individual issue names."""
+        stats = self._base_stats()
+        stats.update(
+            {
+                "content_validation_enabled": True,
+                "content_urls_checked": 10,
+                "content_quality_scores": [50, 60, 70, 80, 90, 40, 30, 20, 85, 75],
+                "content_quality_issues_breakdown": {
+                    "non-https": 3,
+                    "soft-404": 1,
+                    "thin-content": 2,
+                },
+            }
+        )
+
+        with patch("sys.stderr", new_callable=StringIO) as mock_stderr:
+            print_summary(stats)
+            result = mock_stderr.getvalue()
+
+        assert "non-https" in result
+
+
+# ---------------------------------------------------------------------------
+# TestGeneratePdfReportContentQuality
+# ---------------------------------------------------------------------------
+
+
+class TestGeneratePdfReportContentQuality:
+    """Test PDF report generation with content quality data."""
+
+    def _base_stats(self) -> dict:
+        return {
+            "total_entities": 50,
+            "total_sps": 30,
+            "total_idps": 20,
+            "sps_has_privacy": 20,
+            "sps_missing_privacy": 10,
+            "sps_has_security": 15,
+            "sps_missing_security": 15,
+            "idps_has_security": 18,
+            "idps_missing_security": 2,
+            "total_has_security": 33,
+            "total_missing_security": 17,
+            "sps_has_both": 12,
+            "sps_missing_both": 8,
+            "total_has_sirtfi": 25,
+            "sps_has_sirtfi": 14,
+            "idps_has_sirtfi": 11,
+            "total_missing_sirtfi": 25,
+            "sps_missing_sirtfi": 16,
+            "idps_missing_sirtfi": 9,
+            "validation_enabled": False,
+            "content_validation_enabled": False,
+            "content_urls_checked": 0,
+            "content_quality_scores": [],
+            "content_quality_issues_breakdown": {},
+        }
+
+    def test_pdf_generates_without_content_flag(self, tmp_path):
+        """generate_pdf_report without content flag produces a PDF file."""
+        from edugain_analysis.formatters.pdf import generate_pdf_report
+
+        out = str(tmp_path / "report.pdf")
+        result = generate_pdf_report(
+            self._base_stats(), {}, out, "Test", include_validation=False
+        )
+        assert result == out
+        import os
+
+        assert os.path.getsize(out) > 0
+
+    def test_pdf_content_section_included_when_flag_and_data(self, tmp_path):
+        """With include_content_validation=True and data, PDF is generated without error."""
+        from edugain_analysis.formatters.pdf import generate_pdf_report
+
+        stats = self._base_stats()
+        stats.update(
+            {
+                "content_validation_enabled": True,
+                "content_urls_checked": 10,
+                "content_quality_scores": [95, 75, 55, 40, 20, 88, 62, 71, 33, 90],
+                "content_quality_issues_breakdown": {
+                    "non-https": 3,
+                    "soft-404": 1,
+                    "thin-content": 2,
+                    "no-gdpr-keywords": 4,
+                },
+            }
+        )
+        out = str(tmp_path / "report_content.pdf")
+        result = generate_pdf_report(
+            stats,
+            {},
+            out,
+            "Test with content",
+            include_validation=False,
+            include_content_validation=True,
+        )
+        assert result == out
+        import os
+
+        assert os.path.getsize(out) > 0
+
+    def test_pdf_content_section_skipped_when_no_data(self, tmp_path):
+        """With include_content_validation=True but content_urls_checked=0, PDF still generates."""
+        from edugain_analysis.formatters.pdf import generate_pdf_report
+
+        stats = self._base_stats()
+        out = str(tmp_path / "report_empty.pdf")
+        result = generate_pdf_report(
+            stats,
+            {},
+            out,
+            "Test empty content",
+            include_validation=False,
+            include_content_validation=True,
+        )
+        assert result == out
+        import os
+
+        assert os.path.getsize(out) > 0
