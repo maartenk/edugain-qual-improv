@@ -50,11 +50,13 @@ parallel = [
 tests = [
     "pytest-cov>=4.1.0",
     "pytest-xdist>=3.3.0",
-]
-pdf = [
     "matplotlib>=3.8.0",
     "reportlab>=4.0.0",
     "pillow>=10.0.0",
+]
+pdf = [
+    # Deprecated: PDF dependencies moved to [tests] extra since PDF tests require them
+    # This group kept for backwards compatibility
 ]
 
 [project.urls]
