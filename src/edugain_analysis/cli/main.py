@@ -81,6 +81,7 @@ CSV Columns (entities):
             "missing-both",
             "urls",
             "urls-validated",
+            "urls-content-analysis",
         ],
         help=(
             "Export CSV data (includes SIRTFI column). "
@@ -103,6 +104,15 @@ CSV Columns (entities):
         "--validate",
         action="store_true",
         help="Enable URL validation (checks privacy statement accessibility) and show summary statistics",
+    )
+    output_group.add_argument(
+        "--validate-content",
+        action="store_true",
+        help=(
+            "Analyse privacy page HTML content for quality issues "
+            "(soft-404, thin content, missing GDPR keywords). "
+            "Implies --validate."
+        ),
     )
 
     parser.add_argument(
@@ -147,6 +157,51 @@ def handle_csv_export(args, entities_list, stats, federation_stats):
     elif args.csv == "urls-validated":
         # Validated URLs CSV should only include entities with privacy statements (SPs with URLs)
         entities_list = [e for e in entities_list if e[4] == "Yes"]
+    elif args.csv == "urls-content-analysis":
+        headers = [
+            "Federation",
+            "EntityID",
+            "PrivacyURL",
+            "StatusCode",
+            "ContentQualityScore",
+            "HTTPS",
+            "ContentLength",
+            "HasGDPRKeywords",
+            "KeywordCount",
+            "IsSoft404",
+            "DetectedLanguage",
+            "ResponseTimeMs",
+            "QualityIssues",
+        ]
+
+        def _cv(d: dict, key: str) -> str:
+            v = d.get(key)
+            return "" if v is None else str(v)
+
+        writer = csv.writer(sys.stdout)
+        if not args.no_headers:
+            writer.writerow(headers)
+        for e in entities_list:
+            if e[4] != "Yes":
+                continue
+            cresult = stats.get("content_results", {}).get(e[5], {})
+            row = [
+                sanitize_csv_value(str(e[0])),
+                sanitize_csv_value(str(e[3])),
+                sanitize_csv_value(str(e[5])),
+                sanitize_csv_value(_cv(cresult, "status_code")),
+                sanitize_csv_value(_cv(cresult, "content_quality_score")),
+                sanitize_csv_value(_cv(cresult, "https_enabled")),
+                sanitize_csv_value(_cv(cresult, "content_length")),
+                sanitize_csv_value(_cv(cresult, "has_gdpr_keywords")),
+                sanitize_csv_value(_cv(cresult, "keyword_count")),
+                sanitize_csv_value(_cv(cresult, "is_soft_404")),
+                sanitize_csv_value(_cv(cresult, "detected_language")),
+                sanitize_csv_value(_cv(cresult, "response_time_ms")),
+                sanitize_csv_value("|".join(cresult.get("quality_issues") or [])),
+            ]
+            writer.writerow(row)
+        return
 
     # Output entity CSV
     writer = csv.writer(sys.stdout)
@@ -201,6 +256,12 @@ def main() -> None:
             or (args.csv == "urls-validated")
         )
 
+        enable_content_validation = bool(
+            args.validate_content or (args.csv == "urls-content-analysis")
+        )
+        if enable_content_validation:
+            enable_validation = True  # content validation implies URL validation
+
         # Determine data source (unified source handling)
         if args.source:
             # Check if source is a URL (starts with http) or a file path
@@ -234,6 +295,15 @@ def main() -> None:
                     file=sys.stderr,
                 )
 
+        # Load content validation cache
+        content_validation_cache = {}
+        if enable_content_validation:
+            try:
+                # Reuse the same validation cache file — content fields are merged in
+                content_validation_cache = validation_cache.copy()
+            except Exception:
+                content_validation_cache = {}
+
         # Analyze entities
         entities_list, stats, federation_stats = analyze_privacy_security(
             root,
@@ -241,6 +311,8 @@ def main() -> None:
             enable_validation,
             validation_cache,
             URL_VALIDATION_THREADS,
+            validate_content=enable_content_validation,
+            content_validation_cache=content_validation_cache,
         )
 
         # Save updated URL validation cache if validation was performed
@@ -255,7 +327,13 @@ def main() -> None:
 
         # Handle different output formats
         if args.pdf:
-            handle_pdf_output(args, stats, federation_stats, enable_validation)
+            handle_pdf_output(
+                args,
+                stats,
+                federation_stats,
+                include_validation=enable_validation,
+                include_content_validation=enable_content_validation,
+            )
         elif args.csv:
             handle_csv_export(args, entities_list, stats, federation_stats)
         elif args.report or args.report_with_validation:

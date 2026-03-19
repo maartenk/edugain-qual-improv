@@ -1,6 +1,7 @@
 """Core analysis functionality for eduGAIN metadata."""
 
 from .analysis import analyze_privacy_security, filter_entities
+from .content_analysis import analyze_content_quality
 from .entities import EntityRecord, iter_entity_records
 from .metadata import (
     get_federation_mapping,
@@ -15,7 +16,11 @@ from .security import (
     sanitize_url_for_display,
     validate_url_for_ssrf,
 )
-from .validation import validate_privacy_url
+from .validation import (
+    validate_privacy_url,
+    validate_url_with_content,
+    validate_urls_content_parallel,
+)
 
 __all__ = [
     "analyze_privacy_security",
@@ -26,6 +31,9 @@ __all__ = [
     "load_url_validation_cache",
     "save_url_validation_cache",
     "validate_privacy_url",
+    "validate_url_with_content",
+    "validate_urls_content_parallel",
+    "analyze_content_quality",
     "EntityRecord",
     "iter_entity_records",
     "SSRFError",

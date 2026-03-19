@@ -16,19 +16,23 @@ class SSRFError(ValueError):
     """Raised when a URL fails SSRF validation checks."""
 
 
-def validate_url_for_ssrf(url: str) -> None:
+def validate_url_for_ssrf(url: str, allow_http: bool = False) -> None:
     """
     Validate URL to prevent SSRF (Server-Side Request Forgery) attacks.
 
     Args:
         url: URL to validate
+        allow_http: If True, HTTP scheme is permitted in addition to HTTPS.
+            Use this only when the caller deliberately handles HTTP URLs
+            (e.g. accessibility validation that reports non-HTTPS as an issue).
+            Default is False (HTTPS-only).
 
     Raises:
         SSRFError: If URL is potentially malicious or targets private networks
         ValueError: If URL is malformed
 
     Security checks:
-    - Only HTTPS scheme allowed (prevents file://, ftp://, etc.)
+    - Only HTTPS scheme allowed by default (prevents file://, ftp://, etc.)
     - Blocks private IP ranges (RFC 1918, loopback, link-local)
     - Blocks cloud metadata endpoints
     - Prevents DNS rebinding attacks
@@ -42,8 +46,9 @@ def validate_url_for_ssrf(url: str) -> None:
     except Exception as e:
         raise ValueError(f"Malformed URL: {e}") from e
 
-    # Check scheme - only HTTPS allowed for remote URLs
-    if parsed.scheme not in ("https",):
+    # Check scheme
+    allowed_schemes = ("https", "http") if allow_http else ("https",)
+    if parsed.scheme not in allowed_schemes:
         raise SSRFError(
             f"Invalid URL scheme '{parsed.scheme}'. Only HTTPS is allowed for security. "
             f"Use --local-file for local files."

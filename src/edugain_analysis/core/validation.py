@@ -4,6 +4,7 @@ URL validation module for privacy statement analysis.
 Provides HTTP accessibility validation of privacy statement URLs.
 """
 
+import concurrent.futures
 import os
 import sys
 import threading
@@ -18,12 +19,15 @@ import requests
 from ..config import (
     CLOUDSCRAPER_RETRY_DELAY,
     CLOUDSCRAPER_TIMEOUT,
+    CONTENT_QUALITY_MAX_DOWNLOAD,
+    CONTENT_QUALITY_THREADS,
     ENABLE_CLOUDSCRAPER_RETRY,
     PROVIDER_RETRY_DELAYS,
     URL_VALIDATION_DELAY,
     URL_VALIDATION_THREADS,
     URL_VALIDATION_TIMEOUT,
 )
+from .security import SSRFError, validate_url_for_ssrf
 
 GET_FALLBACK_STATUS_CODES = {301, 302, 303, 307, 308, 403, 405}
 
@@ -291,7 +295,9 @@ def _retry_with_cloudscraper(
 
 
 def validate_privacy_url(
-    url: str, validation_cache: dict[str, dict] = None, use_semaphore: bool = True
+    url: str,
+    validation_cache: dict[str, dict] | None = None,
+    use_semaphore: bool = True,
 ) -> dict:
     """
     Simple validation of privacy statement URL for basic accessibility.
@@ -357,6 +363,26 @@ def validate_privacy_url(
             "accessible": False,
             "redirect_count": 0,
             "error": f"URL parsing error: {str(e)}",
+            "checked_at": datetime.now().isoformat(),
+            "protection_detected": None,
+            "protection_headers": {},
+            "retry_method": None,
+        }
+
+    # SSRF protection: block private IPs, cloud metadata, and non-http(s) schemes.
+    # allow_http=True because we deliberately validate HTTP URLs and report them as
+    # accessibility issues — we just must not reach private network targets.
+    try:
+        validate_url_for_ssrf(url, allow_http=True)
+    except (SSRFError, ValueError) as ssrf_exc:
+        if semaphore is not None:
+            semaphore.release()
+        return {
+            "status_code": 0,
+            "final_url": url,
+            "accessible": False,
+            "redirect_count": 0,
+            "error": f"SSRF protection: {ssrf_exc}",
             "checked_at": datetime.now().isoformat(),
             "protection_detected": None,
             "protection_headers": {},
@@ -489,6 +515,247 @@ def validate_privacy_url(
     return result
 
 
+# Second semaphore for content validation
+_content_validation_semaphore: threading.Semaphore | None = None
+
+
+def _get_content_validation_semaphore(
+    max_concurrent: int = CONTENT_QUALITY_THREADS,
+) -> threading.Semaphore:
+    """Get or create the global content validation semaphore."""
+    global _content_validation_semaphore
+    if _content_validation_semaphore is None:
+        _content_validation_semaphore = threading.Semaphore(max_concurrent)
+    return _content_validation_semaphore
+
+
+def validate_url_with_content(
+    url: str,
+    validation_cache: dict[str, dict] | None,
+    use_semaphore: bool = True,
+    expected_language: str | None = None,
+) -> dict:
+    """Validate a URL and analyse its HTML content quality.
+
+    Performs a standard accessibility check first, then fetches the HTML
+    body and runs content quality analysis (soft-404 detection, GDPR keyword
+    check, length validation, response time tracking).
+
+    Args:
+        url: The privacy statement URL to analyse.
+        validation_cache: Shared cache dict (url -> result dict).
+        use_semaphore: Set False in tests to skip global semaphore.
+        expected_language: Optional ISO 639-1 hint for the page language.
+
+    Returns:
+        Result dict with all base validation fields plus content analysis fields.
+    """
+    from .content_analysis import analyze_content_quality
+
+    if not url or not url.strip():
+        result = _create_error_result(url or "", "Empty URL")
+        result["content_analyzed"] = False
+        return result
+
+    url = url.strip()
+
+    # Cache hit — only reuse if content was previously analysed
+    if validation_cache is not None and url in validation_cache:
+        cached = validation_cache[url]
+        if cached.get("content_analyzed", False):
+            return {**cached, "from_cache": True}
+
+    # Step 1: base accessibility check
+    base_result = validate_privacy_url(url, validation_cache, use_semaphore)
+
+    if not base_result.get("accessible", False):
+        base_result["content_analyzed"] = False
+        base_result["content_quality_score"] = None
+        base_result["https_enabled"] = url.lower().startswith("https://")
+        base_result["content_length"] = None
+        base_result["text_length"] = None
+        base_result["has_gdpr_keywords"] = None
+        base_result["keyword_count"] = None
+        base_result["is_soft_404"] = None
+        base_result["detected_language"] = None
+        base_result["response_time_ms"] = None
+        base_result["quality_issues"] = []
+        if validation_cache is not None:
+            validation_cache[url] = base_result
+        return base_result
+
+    # Step 2: fetch HTML body
+    fetch_url = base_result.get("final_url", url)
+
+    # SSRF guard: only fetch HTTPS URLs to prevent server-side request forgery.
+    # Privacy URLs embedded in third-party metadata could point to internal addresses.
+    try:
+        validate_url_for_ssrf(fetch_url)
+    except SSRFError as ssrf_exc:
+        base_result["content_analyzed"] = False
+        base_result["content_quality_score"] = None
+        base_result["https_enabled"] = fetch_url.lower().startswith("https://")
+        base_result["content_length"] = None
+        base_result["text_length"] = None
+        base_result["has_gdpr_keywords"] = None
+        base_result["keyword_count"] = None
+        base_result["is_soft_404"] = None
+        base_result["detected_language"] = None
+        base_result["response_time_ms"] = None
+        base_result["quality_issues"] = (
+            ["non-https"] if not fetch_url.lower().startswith("https://") else []
+        )
+        base_result["content_fetch_error"] = f"SSRF protection: {ssrf_exc}"
+        if validation_cache is not None:
+            validation_cache[url] = base_result
+        return base_result
+
+    ca_bundle = _get_ca_bundle_path()
+    semaphore = _get_content_validation_semaphore() if use_semaphore else None
+
+    if semaphore:
+        semaphore.acquire()
+
+    try:
+        import time as _time
+
+        start_ms = int(_time.monotonic() * 1000)
+        try:
+            response = requests.get(
+                fetch_url,
+                timeout=URL_VALIDATION_TIMEOUT,
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (compatible; eduGAIN-Analysis/1.0; "
+                        "+https://edugain.org)"
+                    )
+                },
+                verify=ca_bundle,
+                stream=True,
+                allow_redirects=True,
+            )
+            # Read up to CONTENT_QUALITY_MAX_DOWNLOAD bytes
+            raw_bytes = b""
+            for chunk in response.iter_content(chunk_size=8192):
+                raw_bytes += chunk
+                if len(raw_bytes) >= CONTENT_QUALITY_MAX_DOWNLOAD:
+                    break
+            response_time_ms = int(_time.monotonic() * 1000) - start_ms
+        except Exception as exc:
+            base_result["content_analyzed"] = False
+            base_result["content_quality_score"] = None
+            base_result["https_enabled"] = url.lower().startswith("https://")
+            base_result["content_length"] = None
+            base_result["text_length"] = None
+            base_result["has_gdpr_keywords"] = None
+            base_result["keyword_count"] = None
+            base_result["is_soft_404"] = None
+            base_result["detected_language"] = None
+            base_result["response_time_ms"] = None
+            base_result["quality_issues"] = []
+            base_result["content_fetch_error"] = str(exc)
+            if validation_cache is not None:
+                validation_cache[url] = base_result
+            return base_result
+
+        # Decode with charset detection
+        encoding = response.encoding or "utf-8"
+        try:
+            html = raw_bytes.decode(encoding, errors="replace")
+        except (LookupError, ValueError):
+            html = raw_bytes.decode("utf-8", errors="replace")
+
+        content_result = analyze_content_quality(
+            fetch_url, html, response_time_ms, expected_language
+        )
+
+    finally:
+        if semaphore:
+            semaphore.release()
+
+    merged = {**base_result, **content_result, "content_analyzed": True}
+    merged.pop("from_cache", None)
+
+    if validation_cache is not None:
+        validation_cache[url] = merged
+
+    return merged
+
+
+def validate_urls_content_parallel(
+    urls: list[str],
+    validation_cache: dict[str, dict] | None,
+    max_workers: int = CONTENT_QUALITY_THREADS,
+    expected_language: str | None = None,
+) -> dict[str, dict]:
+    """Validate a list of URLs with content analysis in parallel.
+
+    Args:
+        urls: List of privacy statement URLs.
+        validation_cache: Shared cache dict (modified in place).
+        max_workers: Thread pool size (default CONTENT_QUALITY_THREADS).
+        expected_language: Optional language hint applied to all URLs.
+
+    Returns:
+        Dict mapping url -> result dict.
+    """
+    if validation_cache is None:
+        validation_cache = {}
+
+    # Pre-filter cached (content_analyzed) entries
+    uncached = [
+        u
+        for u in urls
+        if not (validation_cache.get(u, {}).get("content_analyzed", False))
+    ]
+    results: dict[str, dict] = {
+        u: {**validation_cache[u], "from_cache": True}
+        for u in urls
+        if u not in uncached
+    }
+
+    if not uncached:
+        return results
+
+    completed = 0
+    total = len(uncached)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_url = {
+            executor.submit(
+                validate_url_with_content,
+                url,
+                None,  # pass None; cache writes happen in this thread
+                True,
+                expected_language,
+            ): url
+            for url in uncached
+        }
+
+        for future in concurrent.futures.as_completed(future_to_url):
+            url = future_to_url[future]
+            completed += 1
+            try:
+                result = future.result()
+            except Exception as exc:
+                result = _create_error_result(url, str(exc))
+                result["content_analyzed"] = False
+
+            results[url] = result
+            validation_cache[url] = result
+
+            pct = (completed / total) * 100
+            print(
+                f"\r  Content analysis: {completed}/{total} ({pct:.0f}%) \u2713",
+                end="",
+                file=sys.stderr,
+                flush=True,
+            )
+
+    print("", file=sys.stderr)
+    return results
+
+
 def _create_error_result(url: str, error: str) -> dict:
     """Create a standardized error result dictionary."""
     return {
@@ -506,7 +773,7 @@ def _create_error_result(url: str, error: str) -> dict:
 
 def validate_urls_parallel(
     urls: list[str],
-    validation_cache: dict[str, dict] = None,
+    validation_cache: dict[str, dict] | None = None,
     max_workers: int = URL_VALIDATION_THREADS,
 ) -> dict[str, dict]:
     """

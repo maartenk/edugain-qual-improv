@@ -28,6 +28,7 @@ KPI_ROW_GAP = 8
 KPI_COLS = 3
 CHART_GAP = 14
 FOOTER_HEIGHT = 18
+MAX_CHART_SLOT_H = 240  # pt — cap chart slot height to prevent huge empty spaces
 
 PALETTE = {
     "blue": "#1E5AA8",
@@ -61,7 +62,17 @@ def _image_from_figure(fig) -> ChartImage:
 
 
 def _pie_chart(values, labels, colors_list, title, donut=False, center_label=None):
-    fig, ax = plt.subplots(figsize=(3.4, 2.5), dpi=150)
+    # Filter out zero-value segments to keep legend and chart clean
+    non_zero = [
+        (v, lb, c)
+        for v, lb, c in zip(values, labels, colors_list, strict=False)
+        if v > 0
+    ]
+    if not non_zero:
+        return None
+    values, labels, colors_list = zip(*non_zero, strict=False)
+
+    fig, ax = plt.subplots(figsize=(3.6, 3.0), dpi=150)
     autopct = None
 
     if not donut:
@@ -92,7 +103,7 @@ def _pie_chart(values, labels, colors_list, title, donut=False, center_label=Non
                 center_label,
                 ha="center",
                 va="center",
-                fontsize=9,
+                fontsize=11,
                 fontweight="bold",
             )
 
@@ -101,7 +112,7 @@ def _pie_chart(values, labels, colors_list, title, donut=False, center_label=Non
             wedges,
             labels,
             loc="lower center",
-            bbox_to_anchor=(0.5, -0.15),
+            bbox_to_anchor=(0.5, -0.08),
             ncol=2,
             frameon=False,
             fontsize=7,
@@ -115,17 +126,28 @@ def _pie_chart(values, labels, colors_list, title, donut=False, center_label=Non
 
 def _bar_chart(labels, values, colors_list, title):
     fig, ax = plt.subplots(figsize=(3.4, 2.5), dpi=150)
-    bars = ax.bar(labels, values, color=colors_list)
-    ax.set_ylim(0, 100)
+    bar_width = 0.4 if len(values) == 1 else 0.6
+    bars = ax.bar(labels, values, color=colors_list, width=bar_width)
+
+    max_val = max(values) if values else 0
+    # Allow ylim to exceed 100 to give headroom for data labels above bars
+    ylim_top = min(118, max_val * 1.18 + 2) if max_val > 0 else 100
+    ax.set_ylim(0, ylim_top)
+
     ax.set_ylabel("Percent", fontsize=8)
     ax.set_title(title, fontsize=10, pad=8)
     ax.tick_params(axis="x", labelsize=8)
     ax.tick_params(axis="y", labelsize=8)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.yaxis.grid(True, alpha=0.3, linestyle="--", linewidth=0.5)
+    ax.set_axisbelow(True)
 
     for bar, value in zip(bars, values, strict=False):
+        label_y = value + ylim_top * 0.02
         ax.text(
             bar.get_x() + bar.get_width() / 2,
-            value + 1,
+            label_y,
             f"{value:.1f}%",
             ha="center",
             va="bottom",
@@ -136,7 +158,76 @@ def _bar_chart(labels, values, colors_list, title):
     return _image_from_figure(fig)
 
 
-def _build_kpis(stats: dict) -> list[tuple[str, str]]:
+def _make_styled_table(
+    title: str,
+    table_data: list[list[str]],
+    col_widths: list[float],
+    header_color: str,
+    fig_size: tuple[float, float] = (3.4, 2.3),
+) -> ChartImage:
+    """Create a styled matplotlib table as a ChartImage."""
+    fig, ax = plt.subplots(figsize=fig_size, dpi=150)
+    ax.axis("tight")
+    ax.axis("off")
+
+    table = ax.table(
+        cellText=table_data,
+        cellLoc="left",
+        loc="center",
+        colWidths=col_widths,
+    )
+    table.auto_set_font_size(False)
+    table.set_fontsize(7.5)
+    table.scale(1, 1.5)
+
+    num_cols = len(table_data[0])
+    for j in range(num_cols):
+        cell = table[(0, j)]
+        cell.set_facecolor(header_color)
+        cell.set_text_props(weight="bold", color="white")
+        cell.set_linewidth(0.5)
+        cell.set_edgecolor(header_color)
+
+    for i in range(1, len(table_data)):
+        for j in range(num_cols):
+            cell = table[(i, j)]
+            cell.set_facecolor("#F4F5F6" if i % 2 == 0 else "white")
+            if j > 0:
+                cell.set_text_props(ha="right")
+            cell.set_linewidth(0.5)
+            cell.set_edgecolor("#E0E0E0")
+
+    ax.set_title(title, fontsize=9, weight="bold", pad=10)
+    return _image_from_figure(fig)
+
+
+def _kpi_accent(label: str, value: str) -> str:
+    """Return a PALETTE hex color as the KPI left-border accent based on metric value."""
+    import re
+
+    if "N/A" in value:
+        return PALETTE["gray"]
+    m = re.search(r"(\d+\.?\d*)%", value)
+    if m:
+        pct = float(m.group(1))
+        if "Score" in label:
+            return (
+                PALETTE["green"]
+                if pct >= 70
+                else (PALETTE["orange"] if pct >= 50 else PALETTE["red"])
+            )
+        return (
+            PALETTE["green"]
+            if pct >= 80
+            else (PALETTE["orange"] if pct >= 50 else PALETTE["red"])
+        )
+    return PALETTE["blue"]
+
+
+def _build_kpis(
+    stats: dict, include_content_validation: bool = False
+) -> list[tuple[str, str, str]]:
+    """Return list of (label, value, accent_color) triples for KPI blocks."""
     total = stats.get("total_entities", 0)
     total_sps = stats.get("total_sps", 0)
     total_idps = stats.get("total_idps", 0)
@@ -145,7 +236,7 @@ def _build_kpis(stats: dict) -> list[tuple[str, str]]:
     security_pct = _pct(stats.get("total_has_security", 0), total)
     sirtfi_pct = _pct(stats.get("total_has_sirtfi", 0), total)
 
-    return [
+    raw: list[tuple[str, str]] = [
         ("Total Entities", f"{total:,}"),
         ("Service Providers", f"{total_sps:,}"),
         ("Identity Providers", f"{total_idps:,}"),
@@ -169,8 +260,18 @@ def _build_kpis(stats: dict) -> list[tuple[str, str]]:
         ),
     ]
 
+    if include_content_validation:
+        scores = stats.get("content_quality_scores", [])
+        if scores:
+            avg_score = sum(scores) / len(scores)
+            raw.append(("Avg Privacy Quality Score", f"{avg_score:.0f}/100"))
 
-def _build_charts(stats: dict, include_validation: bool) -> list[ChartImage]:
+    return [(label, value, _kpi_accent(label, value)) for label, value in raw]
+
+
+def _build_charts(
+    stats: dict, include_validation: bool, include_content_validation: bool = False
+) -> list[ChartImage]:
     charts: list[ChartImage] = []
     total = stats.get("total_entities", 0)
     total_sps = stats.get("total_sps", 0)
@@ -180,70 +281,61 @@ def _build_charts(stats: dict, include_validation: bool) -> list[ChartImage]:
         with_privacy = stats.get("sps_has_privacy", 0)
         missing_privacy = stats.get("sps_missing_privacy", 0)
         privacy_pct = _pct(with_privacy, total_sps)
-        charts.append(
-            _pie_chart(
-                [with_privacy, missing_privacy],
-                [
-                    f"With ({with_privacy:,})",
-                    f"Missing ({missing_privacy:,})",
-                ],
-                [PALETTE["green"], PALETTE["red"]],
-                "Privacy Statements (SPs)",
-                donut=True,
-                center_label=f"{privacy_pct:.1f}%",
-            )
+        chart = _pie_chart(
+            [with_privacy, missing_privacy],
+            [f"With ({with_privacy:,})", f"Missing ({missing_privacy:,})"],
+            [PALETTE["green"], PALETTE["red"]],
+            "Privacy Statements (SPs)",
+            donut=True,
+            center_label=f"{privacy_pct:.1f}%",
         )
+        if chart is not None:
+            charts.append(chart)
 
     if total > 0:
-        labels = []
-        values = []
-        colors_list = []
-
+        sec_labels, sec_values, sec_colors = [], [], []
         if total_sps > 0:
-            sp_security_pct = _pct(stats.get("sps_has_security", 0), total_sps)
-            labels.append(f"SPs\n{stats.get('sps_has_security', 0):,}/{total_sps:,}")
-            values.append(sp_security_pct)
-            colors_list.append(PALETTE["blue"])
-
+            sec_labels.append(
+                f"SPs\n{stats.get('sps_has_security', 0):,}/{total_sps:,}"
+            )
+            sec_values.append(_pct(stats.get("sps_has_security", 0), total_sps))
+            sec_colors.append(PALETTE["blue"])
         if total_idps > 0:
-            idp_security_pct = _pct(stats.get("idps_has_security", 0), total_idps)
-            labels.append(f"IdPs\n{stats.get('idps_has_security', 0):,}/{total_idps:,}")
-            values.append(idp_security_pct)
-            colors_list.append(PALETTE["teal"])
-
-        if labels:
+            sec_labels.append(
+                f"IdPs\n{stats.get('idps_has_security', 0):,}/{total_idps:,}"
+            )
+            sec_values.append(_pct(stats.get("idps_has_security", 0), total_idps))
+            sec_colors.append(PALETTE["teal"])
+        if sec_labels and any(v > 0 for v in sec_values):
             charts.append(
                 _bar_chart(
-                    labels,
-                    values,
-                    colors_list,
+                    sec_labels,
+                    sec_values,
+                    sec_colors,
                     "Security Contacts (by Entity Type)",
                 )
             )
 
     if total > 0:
-        labels = []
-        values = []
-        colors_list = []
-
+        sirtfi_labels, sirtfi_values, sirtfi_colors = [], [], []
         if total_sps > 0:
-            sp_sirtfi_pct = _pct(stats.get("sps_has_sirtfi", 0), total_sps)
-            labels.append(f"SPs\n{stats.get('sps_has_sirtfi', 0):,}/{total_sps:,}")
-            values.append(sp_sirtfi_pct)
-            colors_list.append(PALETTE["green"])
-
+            sirtfi_labels.append(
+                f"SPs\n{stats.get('sps_has_sirtfi', 0):,}/{total_sps:,}"
+            )
+            sirtfi_values.append(_pct(stats.get("sps_has_sirtfi", 0), total_sps))
+            sirtfi_colors.append(PALETTE["green"])
         if total_idps > 0:
-            idp_sirtfi_pct = _pct(stats.get("idps_has_sirtfi", 0), total_idps)
-            labels.append(f"IdPs\n{stats.get('idps_has_sirtfi', 0):,}/{total_idps:,}")
-            values.append(idp_sirtfi_pct)
-            colors_list.append(PALETTE["orange"])
-
-        if labels:
+            sirtfi_labels.append(
+                f"IdPs\n{stats.get('idps_has_sirtfi', 0):,}/{total_idps:,}"
+            )
+            sirtfi_values.append(_pct(stats.get("idps_has_sirtfi", 0), total_idps))
+            sirtfi_colors.append(PALETTE["orange"])
+        if sirtfi_labels and any(v > 0 for v in sirtfi_values):
             charts.append(
                 _bar_chart(
-                    labels,
-                    values,
-                    colors_list,
+                    sirtfi_labels,
+                    sirtfi_values,
+                    sirtfi_colors,
                     "SIRTFI Coverage (by Entity Type)",
                 )
             )
@@ -251,176 +343,165 @@ def _build_charts(stats: dict, include_validation: bool) -> list[ChartImage]:
     if total_sps > 0:
         sp_missing_both = stats.get("sps_missing_both", 0)
         sp_has_both = stats.get("sps_has_both", 0)
-        sp_has_at_least_one = total_sps - sp_missing_both
-        sp_partial = sp_has_at_least_one - sp_has_both
-        charts.append(
-            _pie_chart(
-                [sp_has_both, sp_partial, sp_missing_both],
-                [
-                    f"Both ({sp_has_both:,})",
-                    f"Partial ({sp_partial:,})",
-                    f"None ({sp_missing_both:,})",
-                ],
-                [PALETTE["green"], PALETTE["orange"], PALETTE["red"]],
-                "SP Compliance (Privacy + Security)",
-            )
+        sp_partial = (total_sps - sp_missing_both) - sp_has_both
+        chart = _pie_chart(
+            [sp_has_both, sp_partial, sp_missing_both],
+            [
+                f"Both ({sp_has_both:,})",
+                f"Partial ({sp_partial:,})",
+                f"None ({sp_missing_both:,})",
+            ],
+            [PALETTE["green"], PALETTE["orange"], PALETTE["red"]],
+            "SP Compliance (Privacy + Security)",
         )
+        if chart is not None:
+            charts.append(chart)
 
     if include_validation and stats.get("urls_checked", 0) > 0:
         urls_checked = stats.get("urls_checked", 0)
         urls_accessible = stats.get("urls_accessible", 0)
         urls_broken = stats.get("urls_broken", 0)
         validation_pct = _pct(urls_accessible, urls_checked)
-        charts.append(
-            _pie_chart(
-                [urls_accessible, urls_broken],
-                [
-                    f"Accessible ({urls_accessible:,})",
-                    f"Broken ({urls_broken:,})",
-                ],
-                [PALETTE["blue"], PALETTE["red"]],
-                "Privacy URL Accessibility",
-                donut=True,
-                center_label=f"{validation_pct:.1f}%",
-            )
+        chart = _pie_chart(
+            [urls_accessible, urls_broken],
+            [f"Accessible ({urls_accessible:,})", f"Broken ({urls_broken:,})"],
+            [PALETTE["blue"], PALETTE["red"]],
+            "Privacy URL Accessibility",
+            donut=True,
+            center_label=f"{validation_pct:.1f}%",
         )
+        if chart is not None:
+            charts.append(chart)
 
-        # Add error breakdown table if there are broken URLs
+        # Error breakdown table (top 5)
         error_breakdown = stats.get("error_breakdown", {})
         if error_breakdown and urls_broken > 0:
-            # Sort by count (descending) and take top 5 error types
             sorted_errors = sorted(
                 error_breakdown.items(), key=lambda x: x[1], reverse=True
             )[:5]
-
-            # Create table data
             table_data = [["Error Type", "Count", "% of Errors"]]
             for error_type, count in sorted_errors:
-                error_pct = _pct(count, urls_broken)
-                table_data.append([error_type, f"{count:,}", f"{error_pct:.1f}%"])
-
-            # Create matplotlib table
-            fig, ax = plt.subplots(figsize=(3.4, 2.3), dpi=150)
-            ax.axis("tight")
-            ax.axis("off")
-
-            # Create table
-            table = ax.table(
-                cellText=table_data,
-                cellLoc="left",
-                loc="center",
-                colWidths=[0.50, 0.25, 0.25],
+                table_data.append(
+                    [error_type, f"{count:,}", f"{_pct(count, urls_broken):.1f}%"]
+                )
+            charts.append(
+                _make_styled_table(
+                    "Error Breakdown (Top 5)",
+                    table_data,
+                    [0.50, 0.25, 0.25],
+                    PALETTE["blue"],
+                )
             )
 
-            # Style table
-            table.auto_set_font_size(False)
-            table.set_fontsize(6)
-            table.scale(1, 1.4)
-
-            # Header row styling
-            for i in range(3):
-                cell = table[(0, i)]
-                cell.set_facecolor("#1E5AA8")
-                cell.set_text_props(weight="bold", color="white")
-
-            # Data rows: alternate colors, right-align numeric columns, add borders
-            for i in range(1, len(table_data)):
-                for j in range(3):
-                    cell = table[(i, j)]
-                    # Alternate row colors
-                    if i % 2 == 0:
-                        cell.set_facecolor("#F4F5F6")
-                    else:
-                        cell.set_facecolor("white")
-                    # Right-align numeric columns (Count and %)
-                    if j > 0:
-                        cell.set_text_props(ha="right")
-                    # Add subtle borders
-                    cell.set_linewidth(0.5)
-                    cell.set_edgecolor("#D0D0D0")
-
-            # Add borders to header cells too
-            for i in range(3):
-                cell = table[(0, i)]
-                cell.set_linewidth(0.5)
-                cell.set_edgecolor("#1E5AA8")
-
-            ax.set_title("Error Breakdown (Top 5)", fontsize=9, weight="bold", pad=10)
-
-            charts.append(_image_from_figure(fig))
-
-        # Add bot protection provider breakdown table
+        # Bot protection provider table
         provider_stats = stats.get("provider_stats", {})
         if provider_stats and provider_stats.get("total_detected", 0) > 0:
             by_provider = provider_stats.get("by_provider", {})
             retry_attempted = provider_stats.get("retry_attempted", 0)
             retry_success = provider_stats.get("retry_success", 0)
-
-            # Sort by count (descending)
             sorted_providers = sorted(
                 by_provider.items(), key=lambda x: x[1], reverse=True
             )
-
-            # Create table data
             table_data = [["Provider", "Count", "Bypass Rate"]]
             for provider, count in sorted_providers:
-                # Calculate bypass rate for this provider (if applicable)
-                # For simplicity, show overall bypass rate
                 if retry_attempted > 0:
                     bypass_rate = (retry_success / retry_attempted) * 100
                     table_data.append([provider, f"{count:,}", f"{bypass_rate:.1f}%"])
                 else:
                     table_data.append([provider, f"{count:,}", "N/A"])
-
-            # Create matplotlib table
-            fig, ax = plt.subplots(figsize=(3.4, 2.3), dpi=150)
-            ax.axis("tight")
-            ax.axis("off")
-
-            # Create table
-            table = ax.table(
-                cellText=table_data,
-                cellLoc="left",
-                loc="center",
-                colWidths=[0.50, 0.25, 0.25],
+            charts.append(
+                _make_styled_table(
+                    "Bot Protection Detected",
+                    table_data,
+                    [0.50, 0.25, 0.25],
+                    PALETTE["blue"],
+                )
             )
 
-            # Style table
-            table.auto_set_font_size(False)
-            table.set_fontsize(6)
-            table.scale(1, 1.4)
+    # Content quality charts
+    if include_content_validation and stats.get("content_urls_checked", 0) > 0:
+        scores = stats.get("content_quality_scores", [])
+        if scores:
+            bands = [
+                (
+                    "Excellent\n90-100",
+                    sum(1 for s in scores if s >= 90),
+                    PALETTE["green"],
+                ),
+                (
+                    "Good\n70-89",
+                    sum(1 for s in scores if 70 <= s < 90),
+                    PALETTE["teal"],
+                ),
+                (
+                    "Fair\n50-69",
+                    sum(1 for s in scores if 50 <= s < 70),
+                    PALETTE["yellow"],
+                ),
+                (
+                    "Poor\n30-49",
+                    sum(1 for s in scores if 30 <= s < 50),
+                    PALETTE["orange"],
+                ),
+                ("Broken\n<30", sum(1 for s in scores if s < 30), PALETTE["red"]),
+            ]
+            band_labels = [b[0] for b in bands]
+            band_counts = [b[1] for b in bands]
+            band_colors = [b[2] for b in bands]
 
-            # Header row styling
-            for i in range(3):
-                cell = table[(0, i)]
-                cell.set_facecolor("#1E5AA8")
-                cell.set_text_props(weight="bold", color="white")
-
-            # Data rows: alternate colors, right-align numeric columns, add borders
-            for i in range(1, len(table_data)):
-                for j in range(3):
-                    cell = table[(i, j)]
-                    # Alternate row colors
-                    if i % 2 == 0:
-                        cell.set_facecolor("#F4F5F6")
-                    else:
-                        cell.set_facecolor("white")
-                    # Right-align numeric columns (Count and Bypass Rate)
-                    if j > 0:
-                        cell.set_text_props(ha="right")
-                    # Add subtle borders
-                    cell.set_linewidth(0.5)
-                    cell.set_edgecolor("#D0D0D0")
-
-            # Add borders to header cells too
-            for i in range(3):
-                cell = table[(0, i)]
-                cell.set_linewidth(0.5)
-                cell.set_edgecolor("#1E5AA8")
-
-            ax.set_title("Bot Protection Detected", fontsize=9, weight="bold", pad=10)
-
+            fig, ax = plt.subplots(figsize=(3.4, 2.5), dpi=150)
+            bars = ax.bar(band_labels, band_counts, color=band_colors, width=0.6)
+            ax.set_ylabel("Pages", fontsize=8)
+            ax.set_title("Privacy Page Quality Distribution", fontsize=10, pad=8)
+            ax.tick_params(axis="x", labelsize=7)
+            ax.tick_params(axis="y", labelsize=8)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            ax.yaxis.grid(True, alpha=0.3, linestyle="--", linewidth=0.5)
+            ax.set_axisbelow(True)
+            max_count = max(band_counts) if band_counts else 1
+            ax.set_ylim(0, max_count * 1.18 + 0.5)
+            for bar, count in zip(bars, band_counts, strict=False):
+                if count > 0:
+                    ax.text(
+                        bar.get_x() + bar.get_width() / 2,
+                        count + max_count * 0.02,
+                        str(count),
+                        ha="center",
+                        va="bottom",
+                        fontsize=8,
+                    )
+            fig.tight_layout()
             charts.append(_image_from_figure(fig))
+
+        issues = stats.get("content_quality_issues_breakdown", {})
+        if issues:
+            content_checked = max(stats.get("content_urls_checked", 1), 1)
+            sorted_issues = sorted(issues.items(), key=lambda x: x[1], reverse=True)[:8]
+            issue_labels = {
+                "soft-404": "Soft 404 (returns 200 but shows error)",
+                "no-gdpr-keywords": "No GDPR compliance keywords",
+                "few-gdpr-keywords": "Too few GDPR keywords (< 3)",
+                "thin-content": "Thin content (< 500 bytes)",
+                "empty-content": "Empty content (< 100 bytes)",
+                "non-https": "Non-HTTPS URL",
+                "slow-response": "Slow response (> 5 s)",
+                "very-slow-response": "Very slow response (> 10 s)",
+            }
+            table_data = [["Issue", "Count", "% of Pages"]]
+            for issue_key, count in sorted_issues:
+                label = issue_labels.get(issue_key, issue_key)
+                table_data.append(
+                    [label, f"{count:,}", f"{_pct(count, content_checked):.1f}%"]
+                )
+            charts.append(
+                _make_styled_table(
+                    "Content Quality Issues (Top 8)",
+                    table_data,
+                    [0.55, 0.20, 0.25],
+                    PALETTE["green"],
+                )
+            )
 
     return charts
 
@@ -445,33 +526,45 @@ def _draw_header(
     c.drawRightString(
         page_width - PAGE_MARGIN, top, f"Page {page_number} of {total_pages}"
     )
+    # Separator line below header
+    line_y = top - HEADER_HEIGHT + 6
+    c.setStrokeColor(colors.HexColor(PALETTE["blue"]))
+    c.setLineWidth(0.5)
+    c.line(PAGE_MARGIN, line_y, page_width - PAGE_MARGIN, line_y)
     return top - HEADER_HEIGHT
 
 
 def _draw_kpi_blocks(
-    c: canvas.Canvas, kpis: list[tuple[str, str]], top: float, page_width: float
+    c: canvas.Canvas, kpis: list[tuple[str, str, str]], top: float, page_width: float
 ) -> float:
     rows = max(1, math.ceil(len(kpis) / KPI_COLS))
     block_w = (page_width - (2 * PAGE_MARGIN) - (KPI_COLS - 1) * KPI_ROW_GAP) / KPI_COLS
     block_h = KPI_ROW_HEIGHT
 
-    for idx, (label, value) in enumerate(kpis):
+    for idx, (label, value, accent) in enumerate(kpis):
         row = idx // KPI_COLS
         col = idx % KPI_COLS
         x = PAGE_MARGIN + col * (block_w + KPI_ROW_GAP)
         y_top = top - row * (block_h + KPI_ROW_GAP)
         y = y_top - block_h
 
+        # Background card
         c.setFillColor(colors.HexColor(PALETTE["light_gray"]))
         c.roundRect(x, y, block_w, block_h, 6, fill=1, stroke=0)
 
+        # Left accent stripe (4pt wide colored bar)
+        c.setFillColor(colors.HexColor(accent))
+        c.rect(x, y, 4, block_h, fill=1, stroke=0)
+
+        # Label
         c.setFillColor(colors.HexColor(PALETTE["gray"]))
         c.setFont("Helvetica", 8)
-        c.drawString(x + 8, y + block_h - 12, label)
+        c.drawString(x + 10, y + block_h - 12, label)
 
-        c.setFont("Helvetica-Bold", 10)
+        # Value
+        c.setFont("Helvetica-Bold", 11)
         c.setFillColor(colors.HexColor(PALETTE["blue"]))
-        c.drawString(x + 8, y + 10, value)
+        c.drawString(x + 10, y + 8, value)
 
     total_height = rows * block_h + (rows - 1) * KPI_ROW_GAP
     return top - total_height
@@ -494,12 +587,20 @@ def _draw_chart_grid(
     rows = math.ceil(len(charts) / cols)
     available_height = max(1, top - bottom)
     chart_w = (page_width - (2 * PAGE_MARGIN) - (cols - 1) * CHART_GAP) / cols
-    chart_h = (available_height - (rows - 1) * CHART_GAP) / rows
+    # Cap slot height to prevent huge empty areas when there are few charts
+    chart_h = min(MAX_CHART_SLOT_H, (available_height - (rows - 1) * CHART_GAP) / rows)
 
     for idx, chart in enumerate(charts):
         row = idx // cols
         col = idx % cols
-        left = PAGE_MARGIN + col * (chart_w + CHART_GAP)
+        # Last chart on an odd total: center it across the full content width
+        is_last_odd = (len(charts) % 2 == 1) and (idx == len(charts) - 1)
+        content_w = page_width - 2 * PAGE_MARGIN
+        if is_last_odd:
+            # Draw at chart_w wide, centered on the full content area
+            left = PAGE_MARGIN + (content_w - chart_w) / 2
+        else:
+            left = PAGE_MARGIN + col * (chart_w + CHART_GAP)
         top_y = top - row * (chart_h + CHART_GAP)
         bottom_y = top_y - chart_h
         c.drawImage(
@@ -509,7 +610,7 @@ def _draw_chart_grid(
             width=chart_w,
             height=chart_h,
             preserveAspectRatio=True,
-            anchor="c",
+            anchor="n",  # top-align within slot to avoid floating charts
         )
 
 
@@ -518,12 +619,15 @@ def _draw_footer(
     generated_at: str,
     page_width: float,
 ) -> None:
+    y = PAGE_MARGIN + 2
+    # Separator line above footer text
+    c.setStrokeColor(colors.HexColor(PALETTE["light_gray"]))
+    c.setLineWidth(0.5)
+    c.line(PAGE_MARGIN, y + 12, page_width - PAGE_MARGIN, y + 12)
     c.setFont("Helvetica", 8)
     c.setFillColor(colors.HexColor(PALETTE["gray"]))
-    c.drawString(PAGE_MARGIN, PAGE_MARGIN - 6, f"Generated: {generated_at}")
-    c.drawRightString(
-        page_width - PAGE_MARGIN, PAGE_MARGIN - 6, "eduGAIN Quality Analysis"
-    )
+    c.drawString(PAGE_MARGIN, y, f"Generated: {generated_at}")
+    c.drawRightString(page_width - PAGE_MARGIN, y, "eduGAIN Quality Analysis")
 
 
 def _render_page(
@@ -535,11 +639,12 @@ def _render_page(
     page_number: int,
     total_pages: int,
     generated_at: str,
+    include_content_validation: bool = False,
 ) -> None:
     page_width, page_height = A4
 
-    kpis = _build_kpis(stats)
-    charts = _build_charts(stats, include_validation)
+    kpis = _build_kpis(stats, include_content_validation)
+    charts = _build_charts(stats, include_validation, include_content_validation)
 
     content_top = _draw_header(
         c, title, subtitle, page_number, total_pages, page_width, page_height
@@ -561,6 +666,7 @@ def generate_pdf_report(
     output_path: str,
     report_context: str,
     include_validation: bool,
+    include_content_validation: bool = False,
 ) -> str:
     """Generate a multi-page graphical PDF report."""
     output = Path(output_path)
@@ -584,6 +690,7 @@ def generate_pdf_report(
         1,
         total_pages,
         generated_at,
+        include_content_validation=include_content_validation,
     )
     if sorted_federations:
         c.showPage()

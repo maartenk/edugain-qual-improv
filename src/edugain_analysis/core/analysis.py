@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 
 from ..config import NAMESPACES, URL_VALIDATION_THREADS
 from .entities import iter_entity_records
-from .validation import validate_urls_parallel
+from .validation import validate_urls_content_parallel, validate_urls_parallel
 
 
 def _categorize_validation_error(validation_result: dict) -> str:
@@ -68,10 +68,12 @@ def _categorize_validation_error(validation_result: dict) -> str:
 
 def analyze_privacy_security(
     root: ET.Element,
-    federation_mapping: dict[str, str] = None,
+    federation_mapping: dict[str, str] | None = None,
     validate_urls: bool = False,
-    validation_cache: dict[str, dict] = None,
+    validation_cache: dict[str, dict] | None = None,
     max_workers: int = URL_VALIDATION_THREADS,
+    validate_content: bool = False,
+    content_validation_cache: dict[str, dict] | None = None,
 ) -> tuple[list[list[str]], dict, dict]:
     """
     Analyze entities for privacy statement URLs and security contacts.
@@ -123,6 +125,12 @@ def analyze_privacy_security(
             "retry_success": 0,
             "retry_failed": 0,
         },
+        # Content quality validation statistics
+        "content_validation_enabled": validate_content,
+        "content_urls_checked": 0,
+        "content_quality_scores": [],  # list of int scores for distribution
+        "content_quality_issues_breakdown": {},  # issue_type -> count
+        "content_results": {},  # url -> content analysis dict
     }
 
     # Federation-level statistics by registration authority
@@ -155,6 +163,35 @@ def analyze_privacy_security(
             url_validation_results = {}
     else:
         url_validation_results = {}
+
+    # Collect and run content validation
+    if validate_content:
+        print("Analysing privacy page content quality...", file=sys.stderr)
+        content_urls = []
+        seen_content_urls: set[str] = set()
+        for record in records:
+            if record.is_sp and record.has_privacy and record.privacy_url:
+                if record.privacy_url not in seen_content_urls:
+                    content_urls.append(record.privacy_url)
+                    seen_content_urls.add(record.privacy_url)
+
+        if content_urls:
+            print(
+                f"Found {len(content_urls)} unique privacy URLs for content analysis",
+                file=sys.stderr,
+            )
+            content_validation_results = validate_urls_content_parallel(
+                content_urls,
+                content_validation_cache
+                if content_validation_cache is not None
+                else {},
+                max_workers=max_workers,
+            )
+            stats["content_results"] = content_validation_results
+        else:
+            content_validation_results = {}
+    else:
+        content_validation_results = {}
 
     for record in records:
         is_sp = record.is_sp
@@ -248,6 +285,25 @@ def analyze_privacy_security(
                     stats["provider_stats"]["retry_success"] += 1
                 else:
                     stats["provider_stats"]["retry_failed"] += 1
+
+        # Content quality stats
+        content_result = None
+        if (
+            validate_content
+            and is_sp
+            and record.has_privacy
+            and record.privacy_url in content_validation_results
+        ):
+            content_result = content_validation_results[record.privacy_url]
+            if content_result.get("content_analyzed", False):
+                stats["content_urls_checked"] += 1
+                score = content_result.get("content_quality_score")
+                if score is not None:
+                    stats["content_quality_scores"].append(score)
+                for issue in content_result.get("quality_issues", []):
+                    stats["content_quality_issues_breakdown"][issue] = (
+                        stats["content_quality_issues_breakdown"].get(issue, 0) + 1
+                    )
 
         # Update federation-level statistics (use federation name as key)
         if record.registration_authority:

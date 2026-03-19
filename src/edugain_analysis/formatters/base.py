@@ -236,6 +236,57 @@ def print_summary(stats: dict) -> None:
             )
             print("", file=sys.stderr)
 
+    # Content quality section
+    if stats.get("content_validation_enabled", False):
+        content_checked = stats.get("content_urls_checked", 0)
+        if content_checked > 0:
+            scores = stats.get("content_quality_scores", [])
+            print("\n📊 Privacy Page Content Quality Analysis:", file=sys.stderr)
+            print(f"  Analysed: {content_checked:,} pages", file=sys.stderr)
+
+            if scores:
+                avg_score = sum(scores) / len(scores)
+                excellent = sum(1 for s in scores if s >= 90)
+                good = sum(1 for s in scores if 70 <= s < 90)
+                fair = sum(1 for s in scores if 50 <= s < 70)
+                poor = sum(1 for s in scores if 30 <= s < 50)
+                broken = sum(1 for s in scores if s < 30)
+
+                print(f"  Average score: {avg_score:.0f}/100", file=sys.stderr)
+                print(
+                    f"  🟢 Excellent (90-100): {excellent:,} "
+                    f"({excellent / content_checked * 100:.0f}%)",
+                    file=sys.stderr,
+                )
+                print(
+                    f"  🟡 Good (70-89): {good:,} "
+                    f"({good / content_checked * 100:.0f}%)",
+                    file=sys.stderr,
+                )
+                print(
+                    f"  🟠 Fair (50-69): {fair:,} "
+                    f"({fair / content_checked * 100:.0f}%)",
+                    file=sys.stderr,
+                )
+                print(
+                    f"  🔴 Poor (30-49): {poor:,} "
+                    f"({poor / content_checked * 100:.0f}%)",
+                    file=sys.stderr,
+                )
+                print(
+                    f"  💀 Broken (0-29): {broken:,} "
+                    f"({broken / content_checked * 100:.0f}%)",
+                    file=sys.stderr,
+                )
+
+            issues = stats.get("content_quality_issues_breakdown", {})
+            if issues:
+                sorted_issues = sorted(issues.items(), key=lambda x: x[1], reverse=True)
+                print("  Top quality issues:", file=sys.stderr)
+                for issue, count in sorted_issues[:5]:
+                    pct = count / content_checked * 100
+                    print(f"    • {issue}: {count:,} ({pct:.0f}%)", file=sys.stderr)
+
     print(
         "💡 For detailed entity lists, federation reports, or CSV exports, use --help to see all options.",
         file=sys.stderr,

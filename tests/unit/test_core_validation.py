@@ -13,6 +13,7 @@ from edugain_analysis.core.validation import (
     _create_error_result,
     _get_url_validation_semaphore,
     validate_privacy_url,
+    validate_url_with_content,
     validate_urls_parallel,
 )
 
@@ -434,3 +435,224 @@ class TestSemaphore:
         # Should return same semaphore on subsequent calls
         semaphore2 = _get_url_validation_semaphore(10)
         assert semaphore is semaphore2
+
+
+class TestValidateURLWithContent:
+    """Test the validate_url_with_content function."""
+
+    def test_cache_hit_content_analyzed(self):
+        """Cache entry with content_analyzed=True is returned immediately; no requests.get called."""
+        cached_entry = {
+            "status_code": 200,
+            "accessible": True,
+            "final_url": "https://example.org/privacy",
+            "redirect_count": 0,
+            "error": None,
+            "checked_at": "2024-01-01T00:00:00",
+            "content_analyzed": True,
+            "content_quality_score": 85,
+            "https_enabled": True,
+            "content_length": 3000,
+            "text_length": 1500,
+            "has_gdpr_keywords": True,
+            "keyword_count": 4,
+            "is_soft_404": False,
+            "detected_language": "en",
+            "response_time_ms": 250,
+            "quality_issues": [],
+            "protection_detected": None,
+            "protection_headers": {},
+            "retry_method": None,
+        }
+        cache = {"https://example.org/privacy": cached_entry}
+
+        with patch("requests.get") as mock_get:
+            result = validate_url_with_content(
+                "https://example.org/privacy",
+                validation_cache=cache,
+                use_semaphore=False,
+            )
+
+        mock_get.assert_not_called()
+        assert result["content_analyzed"] is True
+        assert result["from_cache"] is True
+
+    def test_inaccessible_url_skips_content(self):
+        """Base validate returning accessible=False means content_analyzed=False; no GET request."""
+        with patch(
+            "edugain_analysis.core.validation.validate_privacy_url"
+        ) as mock_base:
+            mock_base.return_value = {
+                "status_code": 404,
+                "accessible": False,
+                "final_url": "https://example.org/privacy",
+                "redirect_count": 0,
+                "error": None,
+                "checked_at": "2024-01-01T00:00:00",
+                "protection_detected": None,
+                "protection_headers": {},
+                "retry_method": None,
+            }
+
+            with patch("requests.get") as mock_get:
+                result = validate_url_with_content(
+                    "https://example.org/privacy",
+                    validation_cache={},
+                    use_semaphore=False,
+                )
+
+        mock_get.assert_not_called()
+        assert result["content_analyzed"] is False
+        assert result["content_quality_score"] is None
+
+    def test_successful_content_analysis(self):
+        """Mock requests.get returning 200 with privacy HTML yields content_analyzed=True and a score."""
+        good_html = (
+            b"<html lang='en'><head><title>Privacy</title></head>"
+            b"<body>privacy gdpr personal data cookie consent data controller "
+            b"right to erasure data subject data protection</body></html>"
+        )
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.url = "https://example.org/privacy"
+        mock_response.encoding = "utf-8"
+        # iter_content yields the full body then stops
+        mock_response.iter_content.return_value = [good_html]
+
+        with patch(
+            "edugain_analysis.core.validation.validate_privacy_url"
+        ) as mock_base:
+            mock_base.return_value = {
+                "status_code": 200,
+                "accessible": True,
+                "final_url": "https://example.org/privacy",
+                "redirect_count": 0,
+                "error": None,
+                "checked_at": "2024-01-01T00:00:00",
+                "protection_detected": None,
+                "protection_headers": {},
+                "retry_method": None,
+            }
+
+            with patch("requests.get", return_value=mock_response):
+                result = validate_url_with_content(
+                    "https://example.org/privacy",
+                    validation_cache={},
+                    use_semaphore=False,
+                )
+
+        assert result["content_analyzed"] is True
+        assert result["content_quality_score"] is not None
+        assert isinstance(result["content_quality_score"], int)
+
+    def test_empty_url(self):
+        """Empty string returns content_analyzed=False without crashing."""
+        result = validate_url_with_content(
+            "",
+            validation_cache={},
+            use_semaphore=False,
+        )
+        assert result["content_analyzed"] is False
+        assert result["accessible"] is False
+
+    def test_fetch_exception_handled(self):
+        """requests.get raising an exception sets content_analyzed=False and content_fetch_error."""
+        import requests
+
+        with patch(
+            "edugain_analysis.core.validation.validate_privacy_url"
+        ) as mock_base:
+            mock_base.return_value = {
+                "status_code": 200,
+                "accessible": True,
+                "final_url": "https://example.org/privacy",
+                "redirect_count": 0,
+                "error": None,
+                "checked_at": "2024-01-01T00:00:00",
+                "protection_detected": None,
+                "protection_headers": {},
+                "retry_method": None,
+            }
+
+            with patch(
+                "requests.get",
+                side_effect=requests.exceptions.ConnectionError("Network unreachable"),
+            ):
+                result = validate_url_with_content(
+                    "https://example.org/privacy",
+                    validation_cache={},
+                    use_semaphore=False,
+                )
+
+        assert result["content_analyzed"] is False
+        assert "content_fetch_error" in result
+        assert "Network unreachable" in result["content_fetch_error"]
+
+    def test_no_semaphore_in_tests(self):
+        """use_semaphore=False runs without error (no global semaphore acquired)."""
+        with patch(
+            "edugain_analysis.core.validation.validate_privacy_url"
+        ) as mock_base:
+            mock_base.return_value = {
+                "status_code": 404,
+                "accessible": False,
+                "final_url": "https://example.org/privacy",
+                "redirect_count": 0,
+                "error": None,
+                "checked_at": "2024-01-01T00:00:00",
+                "protection_detected": None,
+                "protection_headers": {},
+                "retry_method": None,
+            }
+
+            # Should not raise
+            result = validate_url_with_content(
+                "https://example.org/privacy",
+                validation_cache={},
+                use_semaphore=False,
+            )
+
+        assert result is not None
+        assert result["content_analyzed"] is False
+
+    def test_cache_miss_then_writes(self):
+        """Result is stored in validation_cache after a successful analysis."""
+        good_html = (
+            b"<html lang='en'><head><title>Privacy Policy</title></head>"
+            b"<body>privacy gdpr personal data cookie consent data controller "
+            b"right to erasure data subject</body></html>"
+        )
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.url = "https://example.org/privacy"
+        mock_response.encoding = "utf-8"
+        mock_response.iter_content.return_value = [good_html]
+
+        cache: dict = {}
+
+        with patch(
+            "edugain_analysis.core.validation.validate_privacy_url"
+        ) as mock_base:
+            mock_base.return_value = {
+                "status_code": 200,
+                "accessible": True,
+                "final_url": "https://example.org/privacy",
+                "redirect_count": 0,
+                "error": None,
+                "checked_at": "2024-01-01T00:00:00",
+                "protection_detected": None,
+                "protection_headers": {},
+                "retry_method": None,
+            }
+
+            with patch("requests.get", return_value=mock_response):
+                validate_url_with_content(
+                    "https://example.org/privacy",
+                    validation_cache=cache,
+                    use_semaphore=False,
+                )
+
+        assert "https://example.org/privacy" in cache
+        assert cache["https://example.org/privacy"]["content_analyzed"] is True
