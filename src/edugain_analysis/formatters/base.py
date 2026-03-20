@@ -31,20 +31,73 @@ def print_summary(stats: dict) -> None:
     )
     print("", file=sys.stderr)
 
-    # Privacy statement statistics - SP only
-    if total_sps > 0:
+    # Privacy statement statistics - tree format (both SPs and IdPs)
+    total_privacy = stats["sps_has_privacy"] + stats["idps_has_privacy"]
+    total_for_privacy = total_sps + total_idps
+    total_privacy_pct = (
+        (total_privacy / total_for_privacy * 100) if total_for_privacy > 0 else 0
+    )
+
+    if total_privacy_pct >= 80:
+        total_privacy_emoji = "🟢"
+    elif total_privacy_pct >= 50:
+        total_privacy_emoji = "🟡"
+    else:
+        total_privacy_emoji = "🔴"
+
+    print(
+        f"📊 Privacy Statement URL Coverage: {total_privacy_emoji} {total_privacy:,}/{total_for_privacy:,} ({total_privacy_pct:.1f}%)",
+        file=sys.stderr,
+    )
+
+    # Split privacy stats by entity type with tree structure
+    if total_sps > 0 and total_idps > 0:
         sp_privacy_pct = (stats["sps_has_privacy"] / total_sps) * 100
-        sp_missing_privacy_pct = (stats["sps_missing_privacy"] / total_sps) * 100
-        print("📊 Privacy Statement URL Coverage (SPs only):", file=sys.stderr)
+        sp_privacy_emoji = (
+            "🟢" if sp_privacy_pct >= 80 else "🟡" if sp_privacy_pct >= 50 else "🔴"
+        )
+        idp_privacy_pct = (stats["idps_has_privacy"] / total_idps) * 100
+        idp_privacy_emoji = (
+            "🟢" if idp_privacy_pct >= 80 else "🟡" if idp_privacy_pct >= 50 else "🔴"
+        )
         print(
-            f"  ✅ SPs with privacy statements: {stats['sps_has_privacy']:,} out of {total_sps:,} ({sp_privacy_pct:.1f}%)",
+            f"  ├─ SPs: {sp_privacy_emoji} {stats['sps_has_privacy']:,}/{total_sps:,} ({sp_privacy_pct:.1f}%)",
             file=sys.stderr,
         )
         print(
-            f"  ❌ SPs missing privacy statements: {stats['sps_missing_privacy']:,} out of {total_sps:,} ({sp_missing_privacy_pct:.1f}%)",
+            f"  └─ IdPs: {idp_privacy_emoji} {stats['idps_has_privacy']:,}/{total_idps:,} ({idp_privacy_pct:.1f}%)",
             file=sys.stderr,
         )
-        print("", file=sys.stderr)
+    elif total_sps > 0:
+        sp_privacy_pct = (stats["sps_has_privacy"] / total_sps) * 100
+        sp_privacy_emoji = (
+            "🟢" if sp_privacy_pct >= 80 else "🟡" if sp_privacy_pct >= 50 else "🔴"
+        )
+        print(
+            f"  └─ SPs: {sp_privacy_emoji} {stats['sps_has_privacy']:,}/{total_sps:,} ({sp_privacy_pct:.1f}%)",
+            file=sys.stderr,
+        )
+    elif total_idps > 0:
+        idp_privacy_pct = (stats["idps_has_privacy"] / total_idps) * 100
+        idp_privacy_emoji = (
+            "🟢" if idp_privacy_pct >= 80 else "🟡" if idp_privacy_pct >= 50 else "🔴"
+        )
+        print(
+            f"  └─ IdPs: {idp_privacy_emoji} {stats['idps_has_privacy']:,}/{total_idps:,} ({idp_privacy_pct:.1f}%)",
+            file=sys.stderr,
+        )
+
+    total_missing_privacy = stats["sps_missing_privacy"] + stats["idps_missing_privacy"]
+    total_missing_privacy_pct = (
+        (total_missing_privacy / total_for_privacy * 100)
+        if total_for_privacy > 0
+        else 0
+    )
+    print(
+        f"❌ Missing: {total_missing_privacy:,}/{total_for_privacy:,} ({total_missing_privacy_pct:.1f}%)",
+        file=sys.stderr,
+    )
+    print("", file=sys.stderr)
 
     # Security contact statistics - tree format
     total_security_pct = (stats["total_has_security"] / total) * 100
@@ -204,8 +257,13 @@ def print_summary(stats: dict) -> None:
 
     # IdP insights
     if total_idps > 0:
+        idp_privacy_pct = (stats["idps_has_privacy"] / total_idps) * 100
         print(
-            f"  • {idp_security_pct:.1f}% of IdPs have security contacts (IdPs don't use privacy statements)",
+            f"  • {idp_privacy_pct:.1f}% of IdPs have privacy statements",
+            file=sys.stderr,
+        )
+        print(
+            f"  • {idp_security_pct:.1f}% of IdPs have security contacts",
             file=sys.stderr,
         )
 
@@ -313,30 +371,75 @@ def print_summary_markdown(stats: dict, output_file=sys.stderr) -> None:
     )
     print("", file=output_file)
 
-    # Privacy statistics - SP only
-    if total_sps > 0:
-        sp_privacy_pct = (stats["sps_has_privacy"] / total_sps) * 100
-        sp_missing_privacy_pct = (stats["sps_missing_privacy"] / total_sps) * 100
+    # Privacy statistics - both entity types
+    total_privacy = stats["sps_has_privacy"] + stats["idps_has_privacy"]
+    total_for_privacy = total_sps + total_idps
+    total_privacy_pct = (
+        (total_privacy / total_for_privacy * 100) if total_for_privacy > 0 else 0
+    )
+    total_missing_privacy = stats["sps_missing_privacy"] + stats["idps_missing_privacy"]
+    total_missing_privacy_pct = (
+        (total_missing_privacy / total_for_privacy * 100)
+        if total_for_privacy > 0
+        else 0
+    )
 
-        privacy_status = (
+    privacy_status = (
+        "🟢" if total_privacy_pct >= 80 else "🟡" if total_privacy_pct >= 50 else "🔴"
+    )
+
+    print("## 📊 Privacy Statement Coverage", file=output_file)
+    print("*Both Service Providers and Identity Providers*", file=output_file)
+    print("", file=output_file)
+    print(
+        f"**{privacy_status} Total:** {total_privacy:,}/{total_for_privacy:,} ({total_privacy_pct:.1f}%)",
+        file=output_file,
+    )
+
+    # Entity type breakdown with tree structure
+    if total_sps > 0 and total_idps > 0:
+        sp_privacy_pct = (stats["sps_has_privacy"] / total_sps) * 100
+        sp_privacy_status = (
             "🟢" if sp_privacy_pct >= 80 else "🟡" if sp_privacy_pct >= 50 else "🔴"
         )
+        idp_privacy_pct = (stats["idps_has_privacy"] / total_idps) * 100
+        idp_privacy_status = (
+            "🟢" if idp_privacy_pct >= 80 else "🟡" if idp_privacy_pct >= 50 else "🔴"
+        )
+        print(
+            f"- ├─ **SPs:** {sp_privacy_status} {stats['sps_has_privacy']:,}/{total_sps:,} ({sp_privacy_pct:.1f}%)",
+            file=output_file,
+        )
+        print(
+            f"- └─ **IdPs:** {idp_privacy_status} {stats['idps_has_privacy']:,}/{total_idps:,} ({idp_privacy_pct:.1f}%)",
+            file=output_file,
+        )
+    elif total_sps > 0:
+        sp_privacy_pct = (stats["sps_has_privacy"] / total_sps) * 100
+        sp_privacy_status = (
+            "🟢" if sp_privacy_pct >= 80 else "🟡" if sp_privacy_pct >= 50 else "🔴"
+        )
+        print(
+            f"- └─ **SPs:** {sp_privacy_status} {stats['sps_has_privacy']:,}/{total_sps:,} ({sp_privacy_pct:.1f}%)",
+            file=output_file,
+        )
+    elif total_idps > 0:
+        idp_privacy_pct = (stats["idps_has_privacy"] / total_idps) * 100
+        idp_privacy_status = (
+            "🟢" if idp_privacy_pct >= 80 else "🟡" if idp_privacy_pct >= 50 else "🔴"
+        )
+        print(
+            f"- └─ **IdPs:** {idp_privacy_status} {stats['idps_has_privacy']:,}/{total_idps:,} ({idp_privacy_pct:.1f}%)",
+            file=output_file,
+        )
 
-        print("## 📊 Privacy Statement Coverage", file=output_file)
-        print(
-            "*Service Providers only (IdPs typically don't publish privacy statements)*",
-            file=output_file,
-        )
-        print("", file=output_file)
-        print(
-            f"- **{privacy_status} SPs with Privacy Statements:** {stats['sps_has_privacy']:,}/{total_sps:,} ({sp_privacy_pct:.1f}%)",
-            file=output_file,
-        )
-        print(
-            f"- **❌ SPs Missing Privacy Statements:** {stats['sps_missing_privacy']:,}/{total_sps:,} ({sp_missing_privacy_pct:.1f}%)",
-            file=output_file,
-        )
-        print("", file=output_file)
+    print("", file=output_file)
+    print(
+        f"**❌ Missing:** {total_missing_privacy:,}/{total_for_privacy:,} ({total_missing_privacy_pct:.1f}%)",
+        file=output_file,
+    )
+
+    print("", file=output_file)
 
     # Security contact statistics - both entity types
     total_security_pct = (stats["total_has_security"] / total) * 100
@@ -511,8 +614,13 @@ def print_summary_markdown(stats: dict, output_file=sys.stderr) -> None:
 
     if total_idps > 0:
         idp_security_pct = (stats["idps_has_security"] / total_idps) * 100
+        idp_privacy_pct = (stats["idps_has_privacy"] / total_idps) * 100
         print(
-            f"- {idp_security_pct:.1f}% of IdPs have security contacts (IdPs don't require privacy statements)",
+            f"- {idp_privacy_pct:.1f}% of IdPs have privacy statements",
+            file=output_file,
+        )
+        print(
+            f"- {idp_security_pct:.1f}% of IdPs have security contacts",
             file=output_file,
         )
 
@@ -588,14 +696,71 @@ def print_federation_summary(federation_stats: dict, output_file=sys.stderr) -> 
         )
         print("", file=output_file)
 
-        # Privacy coverage for SPs
-        if total_sps > 0:
+        # Privacy coverage for both SPs and IdPs
+        fed_total_privacy = stats.get("sps_has_privacy", 0) + stats.get(
+            "idps_has_privacy", 0
+        )
+        fed_total_for_privacy = total_sps + total_idps
+        fed_total_privacy_pct = (
+            (fed_total_privacy / fed_total_for_privacy * 100)
+            if fed_total_for_privacy > 0
+            else 0
+        )
+        privacy_status = (
+            "🟢"
+            if fed_total_privacy_pct >= 80
+            else "🟡"
+            if fed_total_privacy_pct >= 50
+            else "🔴"
+        )
+        print(
+            f"**Privacy Statements:** {privacy_status} {fed_total_privacy:,}/{fed_total_for_privacy:,} total ({fed_total_privacy_pct:.1f}%)",
+            file=output_file,
+        )
+
+        # Detailed breakdown by entity type with tree structure
+        if total_sps > 0 and total_idps > 0:
             sp_privacy_pct = (stats["sps_has_privacy"] / total_sps) * 100
-            privacy_status = (
+            sp_privacy_status = (
                 "🟢" if sp_privacy_pct >= 80 else "🟡" if sp_privacy_pct >= 50 else "🔴"
             )
             print(
-                f"**Privacy Statements:** {privacy_status} {stats['sps_has_privacy']:,}/{total_sps:,} SPs ({sp_privacy_pct:.1f}%)",
+                f"  ├─ SPs: {sp_privacy_status} {stats['sps_has_privacy']:,}/{total_sps:,} ({sp_privacy_pct:.1f}%)",
+                file=output_file,
+            )
+
+            idp_privacy_pct = (stats["idps_has_privacy"] / total_idps) * 100
+            idp_privacy_status = (
+                "🟢"
+                if idp_privacy_pct >= 80
+                else "🟡"
+                if idp_privacy_pct >= 50
+                else "🔴"
+            )
+            print(
+                f"  └─ IdPs: {idp_privacy_status} {stats['idps_has_privacy']:,}/{total_idps:,} ({idp_privacy_pct:.1f}%)",
+                file=output_file,
+            )
+        elif total_sps > 0:
+            sp_privacy_pct = (stats["sps_has_privacy"] / total_sps) * 100
+            sp_privacy_status = (
+                "🟢" if sp_privacy_pct >= 80 else "🟡" if sp_privacy_pct >= 50 else "🔴"
+            )
+            print(
+                f"  └─ SPs: {sp_privacy_status} {stats['sps_has_privacy']:,}/{total_sps:,} ({sp_privacy_pct:.1f}%)",
+                file=output_file,
+            )
+        elif total_idps > 0:
+            idp_privacy_pct = (stats["idps_has_privacy"] / total_idps) * 100
+            idp_privacy_status = (
+                "🟢"
+                if idp_privacy_pct >= 80
+                else "🟡"
+                if idp_privacy_pct >= 50
+                else "🔴"
+            )
+            print(
+                f"  └─ IdPs: {idp_privacy_status} {stats['idps_has_privacy']:,}/{total_idps:,} ({idp_privacy_pct:.1f}%)",
                 file=output_file,
             )
 
@@ -764,6 +929,8 @@ def export_federation_csv(federation_stats: dict, include_headers: bool = True) 
             "TotalIdPs",
             "SPsWithPrivacy",
             "SPsMissingPrivacy",
+            "IdPsWithPrivacy",
+            "IdPsMissingPrivacy",
             "EntitiesWithSecurity",
             "EntitiesMissingSecurity",
             "SPsWithSecurity",
@@ -810,6 +977,8 @@ def export_federation_csv(federation_stats: dict, include_headers: bool = True) 
             stats["total_idps"],
             stats["sps_has_privacy"],
             stats["sps_missing_privacy"],
+            stats["idps_has_privacy"],
+            stats["idps_missing_privacy"],
             stats["total_has_security"],
             stats["total_missing_security"],
             stats["sps_has_security"],
@@ -847,10 +1016,8 @@ def export_federation_csv(federation_stats: dict, include_headers: bool = True) 
                 ]
             )
 
-        # Write row (sanitize federation name to prevent CSV injection)
+        # Write row (sanitize all fields to prevent CSV injection)
         from ..core.security import sanitize_csv_value
 
-        sanitized_row = [sanitize_csv_value(str(row_data[0]))] + row_data[
-            1:
-        ]  # Only first field (federation name) needs sanitization
+        sanitized_row = [sanitize_csv_value(str(field)) for field in row_data]
         writer.writerow(sanitized_row)
