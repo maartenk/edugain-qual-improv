@@ -15,7 +15,7 @@ from edugain_analysis.cli.broken_privacy import (
     EDUGAIN_METADATA_URL,
     analyze_broken_links,
     categorize_error,
-    collect_sp_privacy_urls,
+    collect_entity_privacy_urls,
     download_metadata,
     get_federation_mapping,
     main,
@@ -227,7 +227,7 @@ class TestCategorizeError:
 
 
 class TestCollectSPPrivacyURLs:
-    """Test the collect_sp_privacy_urls function."""
+    """Test the collect_entity_privacy_urls function (renamed from collect_sp_privacy_urls)."""
 
     def test_collect_sp_with_privacy_url(self):
         """Test collecting SPs with privacy URLs."""
@@ -253,7 +253,7 @@ class TestCollectSPPrivacyURLs:
         </md:EntitiesDescriptor>"""
 
         root = ET.fromstring(xml_content)
-        result = collect_sp_privacy_urls(root)
+        result = collect_entity_privacy_urls(root)
 
         assert len(result) == 1
         assert result[0] == (
@@ -280,37 +280,12 @@ class TestCollectSPPrivacyURLs:
         </md:EntitiesDescriptor>"""
 
         root = ET.fromstring(xml_content)
-        result = collect_sp_privacy_urls(root)
+        result = collect_entity_privacy_urls(root)
 
         assert len(result) == 0
 
-    def test_collect_idp_ignored(self):
-        """Test that IdPs are ignored."""
-        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
-        <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
-                              xmlns:mdui="urn:oasis:names:tc:SAML:metadata:ui"
-                              xmlns:mdrpi="urn:oasis:names:tc:SAML:metadata:rpi">
-            <md:EntityDescriptor entityID="https://example.org/idp">
-                <md:Extensions>
-                    <mdrpi:RegistrationInfo registrationAuthority="https://example.org"/>
-                </md:Extensions>
-                <md:IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
-                    <md:Extensions>
-                        <mdui:UIInfo>
-                            <mdui:PrivacyStatementURL>https://example.org/privacy</mdui:PrivacyStatementURL>
-                        </mdui:UIInfo>
-                    </md:Extensions>
-                </md:IDPSSODescriptor>
-            </md:EntityDescriptor>
-        </md:EntitiesDescriptor>"""
-
-        root = ET.fromstring(xml_content)
-        result = collect_sp_privacy_urls(root)
-
-        assert len(result) == 0
-
-    def test_collect_sp_missing_reg_authority(self):
-        """Test collecting SPs without registration authority."""
+    def test_collect_entity_missing_reg_authority(self):
+        """Test collecting entities without registration authority."""
         xml_content = """<?xml version="1.0" encoding="UTF-8"?>
         <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
                               xmlns:mdui="urn:oasis:names:tc:SAML:metadata:ui">
@@ -326,12 +301,12 @@ class TestCollectSPPrivacyURLs:
         </md:EntitiesDescriptor>"""
 
         root = ET.fromstring(xml_content)
-        result = collect_sp_privacy_urls(root)
+        result = collect_entity_privacy_urls(root)
 
         assert len(result) == 0
 
-    def test_collect_sp_empty_privacy_url(self):
-        """Test collecting SPs with empty privacy URL."""
+    def test_collect_entity_empty_privacy_url(self):
+        """Test collecting entities with empty privacy URL."""
         xml_content = """<?xml version="1.0" encoding="UTF-8"?>
         <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
                               xmlns:mdui="urn:oasis:names:tc:SAML:metadata:ui"
@@ -351,12 +326,12 @@ class TestCollectSPPrivacyURLs:
         </md:EntitiesDescriptor>"""
 
         root = ET.fromstring(xml_content)
-        result = collect_sp_privacy_urls(root)
+        result = collect_entity_privacy_urls(root)
 
         assert len(result) == 0
 
-    def test_collect_sp_missing_entity_id(self):
-        """Test collecting SPs without entityID."""
+    def test_collect_entity_missing_entity_id(self):
+        """Test collecting entities without entityID."""
         xml_content = """<?xml version="1.0" encoding="UTF-8"?>
         <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
                               xmlns:mdui="urn:oasis:names:tc:SAML:metadata:ui"
@@ -376,12 +351,12 @@ class TestCollectSPPrivacyURLs:
         </md:EntitiesDescriptor>"""
 
         root = ET.fromstring(xml_content)
-        result = collect_sp_privacy_urls(root)
+        result = collect_entity_privacy_urls(root)
 
         assert len(result) == 0
 
-    def test_collect_sp_empty_reg_authority(self):
-        """Test collecting SPs with empty registration authority."""
+    def test_collect_entity_empty_reg_authority(self):
+        """Test collecting entities with empty registration authority."""
         xml_content = """<?xml version="1.0" encoding="UTF-8"?>
         <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
                               xmlns:mdui="urn:oasis:names:tc:SAML:metadata:ui"
@@ -401,9 +376,111 @@ class TestCollectSPPrivacyURLs:
         </md:EntitiesDescriptor>"""
 
         root = ET.fromstring(xml_content)
-        result = collect_sp_privacy_urls(root)
+        result = collect_entity_privacy_urls(root)
 
         assert len(result) == 0
+
+
+class TestCollectEntityPrivacyURLs:
+    """Test the collect_entity_privacy_urls function (includes both SPs and IdPs)."""
+
+    def test_collect_entity_privacy_urls_includes_idps(self):
+        """Test collecting privacy URLs from both SPs and IdPs."""
+        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+        <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+                              xmlns:mdui="urn:oasis:names:tc:SAML:metadata:ui"
+                              xmlns:mdrpi="urn:oasis:names:tc:SAML:metadata:rpi">
+            <!-- SP with privacy -->
+            <md:EntityDescriptor entityID="https://example.org/sp">
+                <md:Extensions>
+                    <mdrpi:RegistrationInfo registrationAuthority="https://example.org"/>
+                </md:Extensions>
+                <md:SPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+                    <md:Extensions>
+                        <mdui:UIInfo>
+                            <mdui:PrivacyStatementURL>https://example.org/sp-privacy</mdui:PrivacyStatementURL>
+                        </mdui:UIInfo>
+                    </md:Extensions>
+                </md:SPSSODescriptor>
+                <md:Organization>
+                    <md:OrganizationDisplayName>Example SP</md:OrganizationDisplayName>
+                </md:Organization>
+            </md:EntityDescriptor>
+            <!-- IdP with privacy -->
+            <md:EntityDescriptor entityID="https://example.org/idp">
+                <md:Extensions>
+                    <mdrpi:RegistrationInfo registrationAuthority="https://example.org"/>
+                </md:Extensions>
+                <md:IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+                    <md:Extensions>
+                        <mdui:UIInfo>
+                            <mdui:PrivacyStatementURL>https://example.org/idp-privacy</mdui:PrivacyStatementURL>
+                        </mdui:UIInfo>
+                    </md:Extensions>
+                </md:IDPSSODescriptor>
+                <md:Organization>
+                    <md:OrganizationDisplayName>Example IdP</md:OrganizationDisplayName>
+                </md:Organization>
+            </md:EntityDescriptor>
+        </md:EntitiesDescriptor>"""
+
+        root = ET.fromstring(xml_content)
+        result = collect_entity_privacy_urls(root)
+
+        # Should have both SP and IdP
+        assert len(result) == 2
+
+        # Check SP entry
+        sp_entry = [e for e in result if e[2] == "https://example.org/sp"][0]
+        assert sp_entry == (
+            "https://example.org",
+            "Example SP",
+            "https://example.org/sp",
+            "https://example.org/sp-privacy",
+        )
+
+        # Check IdP entry
+        idp_entry = [e for e in result if e[2] == "https://example.org/idp"][0]
+        assert idp_entry == (
+            "https://example.org",
+            "Example IdP",
+            "https://example.org/idp",
+            "https://example.org/idp-privacy",
+        )
+
+    def test_collect_entity_privacy_urls_idp_only(self):
+        """Test collecting privacy URLs from IdP only."""
+        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+        <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+                              xmlns:mdui="urn:oasis:names:tc:SAML:metadata:ui"
+                              xmlns:mdrpi="urn:oasis:names:tc:SAML:metadata:rpi">
+            <md:EntityDescriptor entityID="https://example.org/idp">
+                <md:Extensions>
+                    <mdrpi:RegistrationInfo registrationAuthority="https://example.org"/>
+                </md:Extensions>
+                <md:IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+                    <md:Extensions>
+                        <mdui:UIInfo>
+                            <mdui:PrivacyStatementURL>https://example.org/privacy</mdui:PrivacyStatementURL>
+                        </mdui:UIInfo>
+                    </md:Extensions>
+                </md:IDPSSODescriptor>
+                <md:Organization>
+                    <md:OrganizationDisplayName>Example IdP</md:OrganizationDisplayName>
+                </md:Organization>
+            </md:EntityDescriptor>
+        </md:EntitiesDescriptor>"""
+
+        root = ET.fromstring(xml_content)
+        result = collect_entity_privacy_urls(root)
+
+        assert len(result) == 1
+        assert result[0] == (
+            "https://example.org",
+            "Example IdP",
+            "https://example.org/idp",
+            "https://example.org/privacy",
+        )
 
 
 class TestValidatePrivacyURLs:

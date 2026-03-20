@@ -77,7 +77,7 @@ def analyze_privacy_security(
 ) -> tuple[list[list[str]], dict, dict]:
     """
     Analyze entities for privacy statement URLs and security contacts.
-    Privacy statements are only analyzed for SPs (not IdPs).
+    Privacy statements are analyzed for both SPs and IdPs.
     Security contacts are analyzed for both IdPs and SPs.
 
     Args:
@@ -97,6 +97,8 @@ def analyze_privacy_security(
         "total_idps": 0,
         "sps_has_privacy": 0,
         "sps_missing_privacy": 0,
+        "idps_has_privacy": 0,
+        "idps_missing_privacy": 0,
         "idps_has_security": 0,
         "sps_has_security": 0,
         "idps_missing_security": 0,
@@ -139,13 +141,13 @@ def analyze_privacy_security(
     records = list(iter_entity_records(root, federation_mapping or {}))
     stats["total_entities"] = len(root.findall(".//md:EntityDescriptor", NAMESPACES))
 
-    # Collect all privacy URLs for parallel validation
+    # Collect all privacy URLs for parallel validation (both SPs and IdPs)
     if validate_urls:
         print("Collecting privacy statement URLs for validation...", file=sys.stderr)
         urls_to_validate = []
         seen_urls = set()
         for record in records:
-            if record.is_sp and record.has_privacy and record.privacy_url:
+            if record.has_privacy and record.privacy_url:
                 if record.privacy_url not in seen_urls:
                     urls_to_validate.append(record.privacy_url)
                     seen_urls.add(record.privacy_url)
@@ -164,13 +166,13 @@ def analyze_privacy_security(
     else:
         url_validation_results = {}
 
-    # Collect and run content validation
+    # Collect and run content validation (both SPs and IdPs)
     if validate_content:
         print("Analysing privacy page content quality...", file=sys.stderr)
         content_urls = []
         seen_content_urls: set[str] = set()
         for record in records:
-            if record.is_sp and record.has_privacy and record.privacy_url:
+            if record.has_privacy and record.privacy_url:
                 if record.privacy_url not in seen_content_urls:
                     content_urls.append(record.privacy_url)
                     seen_content_urls.add(record.privacy_url)
@@ -206,6 +208,10 @@ def analyze_privacy_security(
                 stats["sps_missing_privacy"] += 1
         elif is_idp:
             stats["total_idps"] += 1
+            if record.has_privacy:
+                stats["idps_has_privacy"] += 1
+            else:
+                stats["idps_missing_privacy"] += 1
 
         if record.has_security:
             stats["total_has_security"] += 1
@@ -241,17 +247,12 @@ def analyze_privacy_security(
             elif not record.has_privacy and not record.has_security:
                 stats["sps_missing_both"] += 1
 
-        has_privacy_display = (
-            "Yes" if record.has_privacy else ("N/A" if not is_sp else "No")
-        )
-        privacy_url_display = (
-            record.privacy_url if record.has_privacy else ("N/A" if not is_sp else "")
-        )
+        has_privacy_display = "Yes" if record.has_privacy else "No"
+        privacy_url_display = record.privacy_url if record.has_privacy else ""
 
         url_validation_result = None
         if (
             validate_urls
-            and is_sp
             and record.has_privacy
             and record.privacy_url in url_validation_results
         ):
@@ -286,11 +287,10 @@ def analyze_privacy_security(
                 else:
                     stats["provider_stats"]["retry_failed"] += 1
 
-        # Content quality stats
+        # Content quality stats (both SPs and IdPs)
         content_result = None
         if (
             validate_content
-            and is_sp
             and record.has_privacy
             and record.privacy_url in content_validation_results
         ):
@@ -314,6 +314,8 @@ def analyze_privacy_security(
                     "total_idps": 0,
                     "sps_has_privacy": 0,
                     "sps_missing_privacy": 0,
+                    "idps_has_privacy": 0,
+                    "idps_missing_privacy": 0,
                     "sps_has_security": 0,
                     "sps_missing_security": 0,
                     "idps_has_security": 0,
@@ -412,6 +414,11 @@ def analyze_privacy_security(
 
             elif is_idp:
                 fed_stats["total_idps"] += 1
+                if record.has_privacy:
+                    fed_stats["idps_has_privacy"] += 1
+                else:
+                    fed_stats["idps_missing_privacy"] += 1
+
                 if record.has_security:
                     fed_stats["idps_has_security"] += 1
                 else:

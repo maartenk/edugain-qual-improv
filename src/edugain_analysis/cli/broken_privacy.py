@@ -35,7 +35,7 @@ REQUEST_TIMEOUT = 30
 VALIDATION_WORKERS = 10
 HEADERS = [
     "Federation",
-    "SP",
+    "Organization",
     "EntityID",
     "PrivacyLink",
     "ErrorCode",
@@ -124,18 +124,15 @@ def categorize_error(
         return f"Unexpected Status {status_code}"
 
 
-def collect_sp_privacy_urls(root: ET.Element) -> list[tuple[str, str, str, str]]:
+def collect_entity_privacy_urls(root: ET.Element) -> list[tuple[str, str, str, str]]:
     """
-    Collect all SPs with privacy statement URLs.
+    Collect all entities (SPs and IdPs) with privacy statement URLs.
 
     Returns list of (registration_authority, org_name, entity_id, privacy_url)
     """
-    sp_urls = []
+    entity_urls = []
 
     for record in iter_entity_records(root):
-        if not record.is_sp:
-            continue
-
         if not record.registration_authority or not record.has_privacy:
             continue
 
@@ -143,7 +140,7 @@ def collect_sp_privacy_urls(root: ET.Element) -> list[tuple[str, str, str, str]]
         if not privacy_url:
             continue
 
-        sp_urls.append(
+        entity_urls.append(
             (
                 record.registration_authority,
                 record.org_name,
@@ -152,23 +149,23 @@ def collect_sp_privacy_urls(root: ET.Element) -> list[tuple[str, str, str, str]]
             )
         )
 
-    return sp_urls
+    return entity_urls
 
 
 def validate_privacy_urls(
-    sp_data: list[tuple[str, str, str, str]], max_workers: int
+    entity_data: list[tuple[str, str, str, str]], max_workers: int
 ) -> dict[str, dict]:
     """
     Validate privacy URLs in parallel.
 
     Args:
-        sp_data: List of (reg_authority, org_name, entity_id, privacy_url)
+        entity_data: List of (reg_authority, org_name, entity_id, privacy_url)
         max_workers: Number of parallel workers
 
     Returns:
         Dict mapping URL -> validation_result
     """
-    unique_urls = list({url for _, _, _, url in sp_data})
+    unique_urls = list({url for _, _, _, url in entity_data})
     if not unique_urls:
         return {}
 
@@ -178,12 +175,12 @@ def validate_privacy_urls(
 
 
 def analyze_broken_links(
-    sp_data: list[tuple[str, str, str, str]],
+    entity_data: list[tuple[str, str, str, str]],
     validation_results: dict[str, dict],
     federation_mapping: dict[str, str],
 ) -> tuple[list[list[str]], dict[str, int], dict[str, dict]]:
     """
-    Identify SPs with broken privacy links.
+    Identify entities (SPs and IdPs) with broken privacy links.
 
     Returns:
         Tuple of (broken_links, error_breakdown, provider_stats)
@@ -201,7 +198,7 @@ def analyze_broken_links(
         "retry_failed": 0,
     }
 
-    for reg_authority, org_name, entity_id, privacy_url in sp_data:
+    for reg_authority, org_name, entity_id, privacy_url in entity_data:
         # Get validation result
         if privacy_url not in validation_results:
             continue
@@ -268,7 +265,7 @@ def analyze_broken_links(
 def main() -> None:
     """Main function to orchestrate the analysis."""
     parser = argparse.ArgumentParser(
-        description="Analyze eduGAIN metadata for SPs with broken privacy statement URLs (always runs live validation)"
+        description="Analyze eduGAIN metadata for entities with broken privacy statement URLs (always runs live validation)"
     )
     parser.add_argument(
         "--local-file", help="Use local XML file instead of downloading metadata"
@@ -296,22 +293,25 @@ def main() -> None:
         federation_mapping = get_federation_mapping()
         print(f"Loaded {len(federation_mapping)} federation names", file=sys.stderr)
 
-        print("Collecting SPs with privacy statement URLs...", file=sys.stderr)
-        sp_data = collect_sp_privacy_urls(root)
-        print(f"Found {len(sp_data)} SPs with privacy statement URLs", file=sys.stderr)
+        print("Collecting entities with privacy statement URLs...", file=sys.stderr)
+        entity_data = collect_entity_privacy_urls(root)
+        print(
+            f"Found {len(entity_data)} entities with privacy statement URLs",
+            file=sys.stderr,
+        )
 
-        if not sp_data:
-            print("No SPs with privacy URLs found", file=sys.stderr)
+        if not entity_data:
+            print("No entities with privacy URLs found", file=sys.stderr)
             return []
 
-        validation_results = validate_privacy_urls(sp_data, VALIDATION_WORKERS)
+        validation_results = validate_privacy_urls(entity_data, VALIDATION_WORKERS)
 
         print("Analyzing results for broken links...", file=sys.stderr)
         broken_links, error_breakdown, provider_stats = analyze_broken_links(
-            sp_data, validation_results, federation_mapping
+            entity_data, validation_results, federation_mapping
         )
         print(
-            f"Found {len(broken_links)} SPs with broken privacy links",
+            f"Found {len(broken_links)} entities with broken privacy links",
             file=sys.stderr,
         )
 

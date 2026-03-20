@@ -232,7 +232,8 @@ def _build_kpis(
     total_sps = stats.get("total_sps", 0)
     total_idps = stats.get("total_idps", 0)
 
-    privacy_pct = _pct(stats.get("sps_has_privacy", 0), total_sps)
+    sp_privacy_pct = _pct(stats.get("sps_has_privacy", 0), total_sps)
+    idp_privacy_pct = _pct(stats.get("idps_has_privacy", 0), total_idps)
     security_pct = _pct(stats.get("total_has_security", 0), total)
     sirtfi_pct = _pct(stats.get("total_has_sirtfi", 0), total)
 
@@ -244,7 +245,13 @@ def _build_kpis(
             "Privacy Coverage (SPs)",
             "N/A"
             if total_sps == 0
-            else f"{stats.get('sps_has_privacy', 0):,}/{total_sps:,} ({privacy_pct:.1f}%)",
+            else f"{stats.get('sps_has_privacy', 0):,}/{total_sps:,} ({sp_privacy_pct:.1f}%)",
+        ),
+        (
+            "Privacy Coverage (IdPs)",
+            "N/A"
+            if total_idps == 0
+            else f"{stats.get('idps_has_privacy', 0):,}/{total_idps:,} ({idp_privacy_pct:.1f}%)",
         ),
         (
             "Security Coverage",
@@ -277,20 +284,32 @@ def _build_charts(
     total_sps = stats.get("total_sps", 0)
     total_idps = stats.get("total_idps", 0)
 
-    if total_sps > 0:
-        with_privacy = stats.get("sps_has_privacy", 0)
-        missing_privacy = stats.get("sps_missing_privacy", 0)
-        privacy_pct = _pct(with_privacy, total_sps)
-        chart = _pie_chart(
-            [with_privacy, missing_privacy],
-            [f"With ({with_privacy:,})", f"Missing ({missing_privacy:,})"],
-            [PALETTE["green"], PALETTE["red"]],
-            "Privacy Statements (SPs)",
-            donut=True,
-            center_label=f"{privacy_pct:.1f}%",
-        )
-        if chart is not None:
-            charts.append(chart)
+    # Privacy statement comparison: SP vs IdP
+    if total_sps > 0 or total_idps > 0:
+        privacy_labels, privacy_values, privacy_colors = [], [], []
+        if total_sps > 0:
+            sp_privacy_pct = _pct(stats.get("sps_has_privacy", 0), total_sps)
+            privacy_labels.append(
+                f"SPs\n{stats.get('sps_has_privacy', 0):,}/{total_sps:,}"
+            )
+            privacy_values.append(sp_privacy_pct)
+            privacy_colors.append(PALETTE["green"])
+        if total_idps > 0:
+            idp_privacy_pct = _pct(stats.get("idps_has_privacy", 0), total_idps)
+            privacy_labels.append(
+                f"IdPs\n{stats.get('idps_has_privacy', 0):,}/{total_idps:,}"
+            )
+            privacy_values.append(idp_privacy_pct)
+            privacy_colors.append(PALETTE["purple"])
+        if privacy_labels and any(v > 0 for v in privacy_values):
+            charts.append(
+                _bar_chart(
+                    privacy_labels,
+                    privacy_values,
+                    privacy_colors,
+                    "Privacy Statements (by Entity Type)",
+                )
+            )
 
     if total > 0:
         sec_labels, sec_values, sec_colors = [], [], []
