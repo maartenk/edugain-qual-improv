@@ -86,7 +86,7 @@ CSV Columns (entities):
         help=(
             "Export CSV data (includes SIRTFI column). "
             "Choices: entities (all), federations (stats), "
-            "missing-privacy/security/both (filtered), "
+            "missing-privacy/security/both (filtered SPs), "
             "urls (basic list), urls-validated (with validation)"
         ),
     )

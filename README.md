@@ -21,16 +21,19 @@
 
 A comprehensive Python package for analyzing eduGAIN federation metadata quality, privacy statement coverage, security compliance, and SIRTFI certification. Built following modern Python standards with PEP 517/518/621 compliance.
 
+> **Version 3.0 Breaking Changes:** Privacy statement tracking now includes Identity Providers (IdPs) alongside Service Providers (SPs). This affects CSV format, filter behavior, and statistics output. See [Migration Guide](docs/migration-guide-v3.md) and [CHANGELOG](CHANGELOG.md) for details.
+
 ### Key Features
 - 🔰 **SIRTFI Coverage Tracking**: Comprehensive SIRTFI certification tracking across all CLI outputs (summary, CSV, markdown reports)
 - 🔍 **SIRTFI Compliance Tools**: Two specialized CLI tools for security contact and SIRTFI certification validation
-- 🔒 **Privacy Statement Monitoring**: HTTP accessibility validation for privacy statement URLs with dedicated broken links detection tool
+- 🔒 **Privacy Statement Monitoring**: HTTP accessibility validation for privacy statement URLs (both SPs and IdPs) with dedicated broken links detection tool
+- 📊 **Universal Privacy Tracking**: Privacy statements tracked for both Service Providers and Identity Providers (v3.0+)
 - 🌍 **Federation Intelligence**: Automatic mapping from registration authorities to friendly names via eduGAIN API
 - 💾 **XDG-Compliant Caching**: Smart caching system with configurable expiry (metadata: 12h, federations: 30d, URLs: 7d)
-- 📊 **Multiple Output Formats**: Summary statistics, detailed CSV exports, and markdown reports
+- 📈 **Multiple Output Formats**: Summary statistics, detailed CSV exports, markdown reports, and visual PDF reports
 - 🏗️ **Modern Architecture**: Modular design with comprehensive testing (100% for CLI, 90%+ for core modules)
 - ⚡ **Fast Tooling**: Ruff for linting and formatting
-- 📈 **Comprehensive Reporting**: Split statistics for SPs vs IdPs with federation-level breakdowns
+- 📋 **Comprehensive Reporting**: Split statistics for SPs vs IdPs with federation-level breakdowns
 
 ## 🚀 Quick Start
 
@@ -90,7 +93,7 @@ edugain-analyze --validate
 | `edugain-analyze` | Main privacy/security/SIRTFI analysis | `--report`, `--csv <type>`, `--validate`, `--source <file-or-url>` |
 | `edugain-seccon` | Entities with security contacts but no SIRTFI | `--local-file`, `--no-headers` |
 | `edugain-sirtfi` | Entities with SIRTFI but no security contact | `--local-file`, `--no-headers` |
-| `edugain-broken-privacy` | Service Providers with broken privacy links | `--local-file`, `--no-headers`, `--url <metadata-url>` |
+| `edugain-broken-privacy` | Entities (SPs and IdPs) with broken privacy links | `--local-file`, `--no-headers`, `--url <metadata-url>` |
 
 All commands default to the live eduGAIN aggregate metadata. Supply `--source path.xml` or `--source https://custom` to work with alternative metadata files.
 
@@ -131,7 +134,7 @@ edugain-sirtfi --url https://example/federation.xml
 ```
 
 ### `edugain-broken-privacy`
-Targets Service Providers with privacy statement URLs that fail a lightweight accessibility check.
+Identifies entities (both SPs and IdPs) with privacy statement URLs that fail a lightweight accessibility check.
 
 ```bash
 # Default live run with 10 parallel validators
@@ -139,21 +142,25 @@ edugain-broken-privacy
 
 # Skip headers when piping into other tooling
 edugain-broken-privacy --no-headers | tee broken-urls.csv
+
+# Filter to SPs only if needed
+edugain-broken-privacy | grep ',SP,' > sp-broken-privacy.csv
 ```
 
 ## 📤 CSV & Report Exports
 
 `edugain-analyze --csv` supports the following types (all include SIRTFI columns):
 
-- `entities` – complete view of all entities
-- `federations` – per-federation roll-up
-- `missing-privacy`, `missing-security`, `missing-both`
-- `urls` – privacy statement URLs for SPs
+- `entities` – complete view of all entities (both SPs and IdPs with privacy data)
+- `federations` – per-federation roll-up (includes IdP privacy statistics)
+- `missing-privacy` – entities without privacy statements (both SPs and IdPs)
+- `missing-security`, `missing-both` – security-focused exports
+- `urls` – privacy statement URLs for all entities (SPs and IdPs)
 - `urls-validated` – includes HTTP status data (enables live validation)
 
 Markdown reports are produced with `--report` (or `--report-with-validation` to perform live URL checks while generating the report).
 
-**CSV Columns**
+**CSV Columns (Entity Export)**
 
 | Column | Description |
 | --- | --- |
@@ -161,11 +168,21 @@ Markdown reports are produced with `--report` (or `--report-with-validation` to 
 | `EntityType` | `SP` or `IdP` |
 | `OrganizationName` | Display name from metadata |
 | `EntityID` | SAML entity identifier |
-| `HasPrivacyStatement` | `Yes`/`No` (SPs only) |
-| `PrivacyStatementURL` | Declared privacy URL (SPs) |
+| `HasPrivacyStatement` | `Yes`/`No` (both SPs and IdPs) |
+| `PrivacyStatementURL` | Declared privacy URL (both SPs and IdPs) |
 | `HasSecurityContact` | `Yes`/`No` |
 | `HasSIRTFI` | `Yes`/`No` |
 | *(with validation)* `URLStatusCode`, `FinalURL`, `URLAccessible`, `RedirectCount`, `ValidationError` |
+
+**CSV Columns (Federation Export)**
+
+Federation-level statistics include:
+- Basic counts: `TotalEntities`, `TotalSPs`, `TotalIdPs`
+- SP privacy: `SPsWithPrivacy`, `SPsMissingPrivacy`
+- **IdP privacy (v3.0+)**: `IdPsWithPrivacy`, `IdPsMissingPrivacy`
+- Security contacts: `EntitiesWithSecurity`, `SPsWithSecurity`, `IdPsWithSecurity` (and `Missing` variants)
+- SIRTFI: `EntitiesWithSIRTFI`, `SPsWithSIRTFI`, `IdPsWithSIRTFI` (and `Missing` variants)
+- Combined SP metrics: `SPsWithBoth`, `SPsWithAtLeastOne`, `SPsMissingBoth`
 
 ## 🔗 URL Validation (optional)
 
@@ -331,11 +348,11 @@ src/edugain_analysis/
 
 ## 🔍 Privacy Statement URL Validation
 
-The package includes a fast privacy statement URL validation system that checks link accessibility across eduGAIN federations. This helps identify broken privacy statement links that need attention.
+The package includes a fast privacy statement URL validation system that checks link accessibility across eduGAIN federations for both SPs and IdPs. This helps identify broken privacy statement links that need attention.
 
 ### How It Works
 
-1. **URL Collection**: Extracts privacy statement URLs from Service Provider (SP) metadata
+1. **URL Collection**: Extracts privacy statement URLs from entity metadata (both SPs and IdPs)
 2. **Parallel Checking**: Tests URLs concurrently using 16 threads for fast processing
 3. **HTTP Status Validation**: Simple status code check:
    - **200-399**: Accessible (working link) ✅
@@ -467,40 +484,57 @@ rm -rf ~/.cache/edugain-analysis/metadata.xml           # Linux
 
 ## 📊 Output Examples
 
-### Summary Statistics
+### Summary Statistics (v3.0+)
 ```
-eduGAIN Metadata Analysis Results
-================================
+=== eduGAIN Quality Analysis: Privacy, Security & SIRTFI Coverage ===
+Total entities analyzed: 8,234 (SPs: 3,849, IdPs: 4,385)
 
-📊 Entity Overview:
-   Total Entities: 8,234
-   Service Providers (SPs): 3,849
-   Identity Providers (IdPs): 4,385
+📊 Privacy Statement URL Coverage: 🟡 3,720/8,234 (45.2%)
+  ├─ SPs: 🟡 2,681/3,849 (69.7%)
+  └─ IdPs: 🔴 1,039/4,385 (23.7%)
+❌ Missing: 4,514/8,234 (54.8%)
 
-🔒 Privacy Statement Coverage (SPs only):
-   SPs with Privacy Statements: 2,681 out of 3,849 (69.7%)
+🛡️  Security Contact Coverage: 🟡 4,096/8,234 (49.8%)
+  ├─ SPs: 🟢 1,205/3,849 (31.3%)
+  └─ IdPs: 🟢 2,891/4,385 (65.9%)
 
-🛡️  Security Contact Coverage:
-   SPs with Security Contacts: 1,205 out of 3,849 (31.3%)
-   IdPs with Security Contacts: 2,891 out of 4,385 (65.9%)
+🔰 SIRTFI Certification Coverage: 🟡 3,715/8,234 (45.1%)
+  ├─ SPs: 🟡 1,732/3,849 (45.0%)
+  └─ IdPs: 🟡 1,983/4,385 (45.2%)
 
 🌍 Federation Coverage: 73 federations analyzed
 ```
 
+**Note:** Privacy coverage now includes both SPs and IdPs. Previously (v2.x) only SPs were tracked.
+
 ### CSV Export Formats
-- **entities**: All entities with privacy/security status
-- **federations**: Federation-level statistics
-- **missing-privacy**: SPs without privacy statements
+- **entities**: All entities with privacy/security status (IdPs include privacy data)
+- **federations**: Federation-level statistics (includes IdP privacy columns)
+- **missing-privacy**: Entities without privacy statements (both SPs and IdPs)
 - **missing-security**: Entities without security contacts
 - **missing-both**: SPs missing both privacy and security
-- **urls**: URL validation results (with `--validate`)
+- **urls**: URL validation results (with `--validate`) for all entity types
 
-## 🏗️ Recent Improvements (v2.4.3)
+## 🚨 Version History Highlights
 
-**CLI & Tooling:**
-- 🧭 `make help` now guides everyday CLI users vs. contributors with tone-matched sections (“Run the CLI”, “Develop or extend the app”, “Maintenance”).
-- 🧹 Maintenance scripts live under `scripts/maintenance/`, dev helpers under `scripts/dev/`, and app wrappers under `scripts/app/`, so you can run CLIs without installing and keep automation clean.
-- 🧪 `scripts/dev/local-ci.sh` mirrors CI locally (lint, tests, coverage, Docker) and respects `SKIP_COVERAGE` / `SKIP_DOCKER` toggles.
+### v3.0 (Unreleased) - IdP Privacy Tracking
+**Breaking Changes:**
+- Privacy statement tracking extended to IdPs (previously SP-only)
+- CSV format changes: IdP rows now show `Yes`/`No` instead of `N/A` for privacy
+- Federation CSV adds `IdPsWithPrivacy` and `IdPsMissingPrivacy` columns
+- Filter `--csv missing-privacy` now returns both SPs and IdPs
+- See [Migration Guide](docs/migration-guide-v3.md) for upgrade instructions
+
+**New Features:**
+- Universal privacy tracking across all entity types
+- PDF reports include IdP privacy KPI and comparative charts
+- Enhanced statistics with SP vs IdP breakdown
+- `edugain-broken-privacy` validates IdP privacy URLs
+
+### v2.4.3 - Reorganization & Developer Experience
+- Reorganized script structure for clarity
+- Enhanced Makefile with user-focused guidance
+- Local CI script for offline quality checks
 
 ## 🐳 Run via Docker
 

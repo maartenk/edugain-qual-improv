@@ -29,6 +29,8 @@ class TestPrintSummary:
             "total_idps": 40,
             "sps_has_privacy": 45,
             "sps_missing_privacy": 15,
+            "idps_has_privacy": 30,
+            "idps_missing_privacy": 10,
             "sps_has_security": 30,
             "sps_missing_security": 30,
             "idps_has_security": 35,
@@ -54,7 +56,9 @@ class TestPrintSummary:
         assert "eduGAIN Quality Analysis: Privacy, Security & SIRTFI Coverage" in result
         assert "Total entities analyzed: 100" in result
         assert "SPs: 60, IdPs: 40" in result
-        assert "45 out of 60 (75.0%)" in result
+        # Privacy now shows combined stats
+        assert "45/60 (75.0%)" in result  # SP privacy
+        assert "30/40 (75.0%)" in result  # IdP privacy
 
     def test_print_summary_with_validation(self):
         """Test summary printing with URL validation enabled."""
@@ -64,6 +68,8 @@ class TestPrintSummary:
             "total_idps": 20,
             "sps_has_privacy": 25,
             "sps_missing_privacy": 5,
+            "idps_has_privacy": 15,
+            "idps_missing_privacy": 5,
             "sps_has_security": 20,
             "sps_missing_security": 10,
             "idps_has_security": 18,
@@ -99,6 +105,8 @@ class TestPrintSummary:
             "total_idps": 0,
             "sps_has_privacy": 0,
             "sps_missing_privacy": 0,
+            "idps_has_privacy": 0,
+            "idps_missing_privacy": 0,
             "sps_has_security": 0,
             "sps_missing_security": 0,
             "idps_has_security": 0,
@@ -128,6 +136,8 @@ class TestPrintSummaryMarkdown:
             "total_idps": 40,
             "sps_has_privacy": 45,
             "sps_missing_privacy": 15,
+            "idps_has_privacy": 30,
+            "idps_missing_privacy": 10,
             "sps_has_security": 30,
             "sps_missing_security": 30,
             "idps_has_security": 35,
@@ -161,6 +171,8 @@ class TestPrintSummaryMarkdown:
             "total_idps": 0,
             "sps_has_privacy": 0,
             "sps_missing_privacy": 0,
+            "idps_has_privacy": 0,
+            "idps_missing_privacy": 0,
             "sps_has_security": 0,
             "sps_missing_security": 0,
             "idps_has_security": 0,
@@ -187,6 +199,8 @@ class TestPrintSummaryMarkdown:
             "total_idps": 20,
             "sps_has_privacy": 25,
             "sps_missing_privacy": 5,
+            "idps_has_privacy": 15,
+            "idps_missing_privacy": 5,
             "sps_has_security": 20,
             "sps_missing_security": 10,
             "idps_has_security": 18,
@@ -228,6 +242,8 @@ class TestPrintFederationSummary:
                 "total_idps": 20,
                 "sps_has_privacy": 25,
                 "sps_missing_privacy": 5,
+                "idps_has_privacy": 15,
+                "idps_missing_privacy": 5,
                 "sps_has_security": 20,
                 "sps_missing_security": 10,
                 "idps_has_security": 18,
@@ -277,6 +293,8 @@ class TestExportFederationCSV:
                 "total_idps": 20,
                 "sps_has_privacy": 25,
                 "sps_missing_privacy": 5,
+                "idps_has_privacy": 15,
+                "idps_missing_privacy": 5,
                 "sps_has_security": 20,
                 "sps_missing_security": 10,
                 "idps_has_security": 18,
@@ -316,6 +334,8 @@ class TestExportFederationCSV:
                 "total_idps": 20,
                 "sps_has_privacy": 25,
                 "sps_missing_privacy": 5,
+                "idps_has_privacy": 15,
+                "idps_missing_privacy": 5,
                 "sps_has_security": 20,
                 "sps_missing_security": 10,
                 "idps_has_security": 18,
@@ -364,6 +384,8 @@ class TestPrintSummaryContentQuality:
             "total_idps": 40,
             "sps_has_privacy": 45,
             "sps_missing_privacy": 15,
+            "idps_has_privacy": 30,
+            "idps_missing_privacy": 10,
             "sps_has_security": 30,
             "sps_missing_security": 30,
             "idps_has_security": 35,
@@ -432,6 +454,161 @@ class TestPrintSummaryContentQuality:
         assert "non-https" in result
 
 
+class TestIdPPrivacyFormatters:
+    """Test IdP privacy statement display in formatters."""
+
+    def test_print_summary_includes_idp_privacy(self):
+        """Verify IdP privacy statistics in terminal summary."""
+        stats = {
+            "total_entities": 100,
+            "total_sps": 60,
+            "total_idps": 40,
+            "sps_has_privacy": 45,
+            "sps_missing_privacy": 15,
+            "idps_has_privacy": 30,
+            "idps_missing_privacy": 10,
+            "sps_has_security": 30,
+            "sps_missing_security": 30,
+            "idps_has_security": 35,
+            "idps_missing_security": 5,
+            "total_has_security": 65,
+            "total_missing_security": 35,
+            "sps_has_both": 25,
+            "sps_missing_both": 10,
+            "total_has_sirtfi": 50,
+            "sps_has_sirtfi": 27,
+            "idps_has_sirtfi": 23,
+            "total_missing_sirtfi": 50,
+            "sps_missing_sirtfi": 33,
+            "idps_missing_sirtfi": 17,
+            "validation_enabled": False,
+        }
+
+        with patch("sys.stderr", new_callable=StringIO) as mock_stderr:
+            print_summary(stats)
+            result = mock_stderr.getvalue()
+
+        # Verify IdP privacy is shown
+        assert "IdPs:" in result
+        assert "30/40" in result  # IdP privacy count
+
+    def test_print_summary_markdown_includes_idp_privacy(self):
+        """Verify IdP privacy in markdown summary."""
+        stats = {
+            "total_entities": 100,
+            "total_sps": 60,
+            "total_idps": 40,
+            "sps_has_privacy": 45,
+            "sps_missing_privacy": 15,
+            "idps_has_privacy": 30,
+            "idps_missing_privacy": 10,
+            "sps_has_security": 30,
+            "sps_missing_security": 30,
+            "idps_has_security": 35,
+            "idps_missing_security": 5,
+            "total_has_security": 65,
+            "total_missing_security": 35,
+            "sps_has_both": 25,
+            "sps_missing_both": 10,
+            "total_has_sirtfi": 50,
+            "sps_has_sirtfi": 27,
+            "idps_has_sirtfi": 23,
+            "total_missing_sirtfi": 50,
+            "sps_missing_sirtfi": 33,
+            "idps_missing_sirtfi": 17,
+            "validation_enabled": False,
+        }
+
+        output = StringIO()
+        print_summary_markdown(stats, output_file=output)
+        result = output.getvalue()
+
+        # Verify IdP privacy in markdown
+        assert "IdPs:" in result
+        assert "30/40" in result
+        assert "75.0%" in result  # IdP privacy percentage
+
+    def test_export_federation_csv_has_idp_columns(self):
+        """Verify IdP privacy columns in federation CSV."""
+        federation_stats = {
+            "Test Federation": {
+                "total_entities": 50,
+                "total_sps": 30,
+                "total_idps": 20,
+                "sps_has_privacy": 25,
+                "sps_missing_privacy": 5,
+                "idps_has_privacy": 15,
+                "idps_missing_privacy": 5,
+                "sps_has_security": 20,
+                "sps_missing_security": 10,
+                "idps_has_security": 18,
+                "idps_missing_security": 2,
+                "total_has_security": 38,
+                "total_missing_security": 12,
+                "sps_has_both": 18,
+                "sps_missing_both": 2,
+                "total_has_sirtfi": 24,
+                "sps_has_sirtfi": 13,
+                "idps_has_sirtfi": 11,
+                "total_missing_sirtfi": 26,
+                "sps_missing_sirtfi": 17,
+                "idps_missing_sirtfi": 9,
+                "urls_checked": 0,
+                "urls_accessible": 0,
+                "urls_broken": 0,
+            }
+        }
+
+        with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
+            export_federation_csv(federation_stats, include_headers=True)
+            result = mock_stdout.getvalue()
+
+        # Check headers include IdP privacy columns
+        assert "IdPsWithPrivacy" in result
+        assert "IdPsMissingPrivacy" in result
+
+        # Check data row includes IdP privacy values
+        lines = result.strip().split("\n")
+        data_line = lines[1]  # Second line is data
+        assert "15" in data_line  # IdPs with privacy
+        assert "5" in data_line  # IdPs missing privacy
+
+    def test_idp_privacy_tree_structure(self):
+        """Verify tree display format for IdP privacy."""
+        stats = {
+            "total_entities": 100,
+            "total_sps": 60,
+            "total_idps": 40,
+            "sps_has_privacy": 45,
+            "sps_missing_privacy": 15,
+            "idps_has_privacy": 30,
+            "idps_missing_privacy": 10,
+            "sps_has_security": 30,
+            "sps_missing_security": 30,
+            "idps_has_security": 35,
+            "idps_missing_security": 5,
+            "total_has_security": 65,
+            "total_missing_security": 35,
+            "sps_has_both": 25,
+            "sps_missing_both": 10,
+            "total_has_sirtfi": 50,
+            "sps_has_sirtfi": 27,
+            "idps_has_sirtfi": 23,
+            "total_missing_sirtfi": 50,
+            "sps_missing_sirtfi": 33,
+            "idps_missing_sirtfi": 17,
+            "validation_enabled": False,
+        }
+
+        with patch("sys.stderr", new_callable=StringIO) as mock_stderr:
+            print_summary(stats)
+            result = mock_stderr.getvalue()
+
+        # Verify tree structure with box-drawing characters
+        assert "├─ SPs:" in result
+        assert "└─ IdPs:" in result
+
+
 # ---------------------------------------------------------------------------
 # TestGeneratePdfReportContentQuality
 # ---------------------------------------------------------------------------
@@ -447,6 +624,8 @@ class TestGeneratePdfReportContentQuality:
             "total_idps": 20,
             "sps_has_privacy": 20,
             "sps_missing_privacy": 10,
+            "idps_has_privacy": 15,
+            "idps_missing_privacy": 5,
             "sps_has_security": 15,
             "sps_missing_security": 15,
             "idps_has_security": 18,
