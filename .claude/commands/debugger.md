@@ -16,7 +16,7 @@ Two forms:
 
 ## PLAN
 
-1. Read `.claude/plugins/edugain-agents/pdca-logs/debugger.md` if it exists — apply any learned instructions.
+1. Read `.claude/pdca-logs/debugger.md` if it exists — apply any learned instructions.
 2. Use TodoWrite: run/parse error → identify root cause → fix → verify.
 3. State in one sentence: what you think is failing and your first hypothesis.
 
@@ -58,7 +58,7 @@ Two forms:
 ## ACT
 
 - If ⚠️ or ❌: form a new hypothesis, try a different fix, retry up to 2 more times. If still failing after 3 attempts, report the root cause clearly with a `# TODO: manual intervention needed` comment at the site.
-- Always append one entry to `.claude/plugins/edugain-agents/pdca-logs/debugger.md`:
+- Always append one entry to `.claude/pdca-logs/debugger.md`:
 
 ```
 ## <date> — <brief error description>

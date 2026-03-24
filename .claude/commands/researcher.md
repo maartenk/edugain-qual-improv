@@ -12,7 +12,7 @@ Answer this question about the codebase: $ARGUMENTS
 
 ## PLAN
 
-1. Read `.claude/plugins/edugain-agents/pdca-logs/researcher.md` if it exists — apply any learned instructions from past runs.
+1. Read `.claude/pdca-logs/researcher.md` if it exists — apply any learned instructions from past runs.
 2. Use TodoWrite to create a task list: identify what files likely hold the answer, then read/grep them.
 3. State your search strategy in one sentence before starting.
 
@@ -40,7 +40,7 @@ Answer this question about the codebase: $ARGUMENTS
 ## ACT
 
 - If ❌ or ⚠️: try a different Grep pattern or look in test files for usage examples, then re-answer.
-- Always append one entry to `.claude/plugins/edugain-agents/pdca-logs/researcher.md`:
+- Always append one entry to `.claude/pdca-logs/researcher.md`:
 
 ```
 ## <date> — "<question (first 60 chars)>"

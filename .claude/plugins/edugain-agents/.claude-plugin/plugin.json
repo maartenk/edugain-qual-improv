@@ -1,4 +1,0 @@
-{
-  "name": "edugain-agents",
-  "description": "Slash commands for Claude Agent SDK scripts: researcher, test-writer, code-gen, doc-gen, code-review, debugger, coordinator"
-}

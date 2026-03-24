@@ -16,7 +16,7 @@ Optional skip flags: `--skip-research`, `--skip-codegen`, `--skip-tests`, `--ski
 
 ## PLAN
 
-1. Read `.claude/plugins/edugain-agents/pdca-logs/coordinator.md` if it exists — apply any learned instructions.
+1. Read `.claude/pdca-logs/coordinator.md` if it exists — apply any learned instructions.
 2. Parse the description and any skip flags from `$ARGUMENTS`.
 3. Use TodoWrite to create one task per active phase: Research → Implement → Test → Document → Review.
 4. State in one sentence what will be built and which phases will run.
@@ -66,7 +66,7 @@ After the review agent returns, display its findings to the user.
 
 - If ❌ tests failing: spawn another Test agent with the failure output as context — fix and re-run.
 - If ⚠️ critical review findings: fix them directly (Edit), then re-run ruff to confirm.
-- Always append one entry to `.claude/plugins/edugain-agents/pdca-logs/coordinator.md`:
+- Always append one entry to `.claude/pdca-logs/coordinator.md`:
 
 ```
 ## <date> — "<feature description (first 60 chars)>"

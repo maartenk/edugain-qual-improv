@@ -15,7 +15,7 @@ With `--fix`: apply fixes directly (adds Write and Edit access implicitly — as
 
 ## PLAN
 
-1. Read `.claude/plugins/edugain-agents/pdca-logs/code-review.md` if it exists — apply any learned instructions.
+1. Read `.claude/pdca-logs/code-review.md` if it exists — apply any learned instructions.
 2. Use TodoWrite: list files → run ruff → read each file → compile findings → (fix if --fix).
 3. State in one sentence: read-only or fix mode, and what directory/file is being reviewed.
 
@@ -57,7 +57,7 @@ With `--fix`: apply fixes directly (adds Write and Edit access implicitly — as
 ## ACT
 
 - If ❌ in fix mode: explain what blocked the fix and leave a `# TODO:` comment at the location.
-- Always append one entry to `.claude/plugins/edugain-agents/pdca-logs/code-review.md`:
+- Always append one entry to `.claude/pdca-logs/code-review.md`:
 
 ```
 ## <date> — <path> [read-only | fix]

@@ -15,7 +15,7 @@ Otherwise: write new comprehensive unit tests.
 
 ## PLAN
 
-1. Read `.claude/plugins/edugain-agents/pdca-logs/test-writer.md` if it exists — apply any learned instructions.
+1. Read `.claude/pdca-logs/test-writer.md` if it exists — apply any learned instructions.
 2. Use TodoWrite to plan: read module → read existing tests → write/fix → verify.
 3. State in one sentence: new tests or fix mode, and which test file will be created/modified.
 
@@ -53,7 +53,7 @@ Otherwise: write new comprehensive unit tests.
 ## ACT
 
 - If ⚠️ or ❌: read the failure output carefully, fix the specific failing test, re-run. Up to 2 retries.
-- Always append one entry to `.claude/plugins/edugain-agents/pdca-logs/test-writer.md`:
+- Always append one entry to `.claude/pdca-logs/test-writer.md`:
 
 ```
 ## <date> — <module_path>

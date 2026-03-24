@@ -14,7 +14,7 @@ Valid targets: `edugain-analyze`, `edugain-seccon`, `edugain-sirtfi`, `edugain-b
 
 ## PLAN
 
-1. Read `.claude/plugins/edugain-agents/pdca-logs/integration-test-writer.md` if it exists — apply any learned instructions.
+1. Read `.claude/pdca-logs/integration-test-writer.md` if it exists — apply any learned instructions.
 2. Use TodoWrite: identify CLI source → list fixtures → write subprocess tests → run.
 3. State in one sentence which commands will be tested and which fixture file will be used.
 
@@ -53,7 +53,7 @@ Valid targets: `edugain-analyze`, `edugain-seccon`, `edugain-sirtfi`, `edugain-b
 ## ACT
 
 - If ⚠️ or ❌: read the failure, adjust (wrong fixture path, missing venv activation, wrong output assertion), retry up to 2 times.
-- Always append one entry to `.claude/plugins/edugain-agents/pdca-logs/integration-test-writer.md`:
+- Always append one entry to `.claude/pdca-logs/integration-test-writer.md`:
 
 ```
 ## <date> — <commands tested>

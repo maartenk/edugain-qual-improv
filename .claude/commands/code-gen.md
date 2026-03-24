@@ -15,7 +15,7 @@ Optional flag: `--with-tests` — also write a unit test stub in `tests/unit/`.
 
 ## PLAN
 
-1. Read `.claude/plugins/edugain-agents/pdca-logs/code-gen.md` if it exists — apply any learned instructions.
+1. Read `.claude/pdca-logs/code-gen.md` if it exists — apply any learned instructions.
 2. Determine the layer from the output path: `cli/` = orchestration, `core/` = business logic, `formatters/` = output, `config/` = constants.
 3. Use TodoWrite: read similar module → write → lint → format → (optionally write tests).
 4. State which existing file you will read for style reference.
@@ -58,7 +58,7 @@ Optional flag: `--with-tests` — also write a unit test stub in `tests/unit/`.
 ## ACT
 
 - If ⚠️ or ❌: fix the specific issues and re-run ruff. Retry up to 2 times.
-- Always append one entry to `.claude/plugins/edugain-agents/pdca-logs/code-gen.md`:
+- Always append one entry to `.claude/pdca-logs/code-gen.md`:
 
 ```
 ## <date> — <output_path>

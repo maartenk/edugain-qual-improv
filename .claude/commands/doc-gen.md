@@ -14,7 +14,7 @@ Required flag: `--output <path>` — the destination Markdown file.
 
 ## PLAN
 
-1. Read `.claude/plugins/edugain-agents/pdca-logs/doc-gen.md` if it exists — apply any learned instructions.
+1. Read `.claude/pdca-logs/doc-gen.md` if it exists — apply any learned instructions.
 2. Use TodoWrite: list source files → read each → write doc → review doc.
 3. State in one sentence: is the source a single file or a directory, and what the output file will be named.
 
@@ -51,7 +51,7 @@ Required flag: `--output <path>` — the destination Markdown file.
 ## ACT
 
 - If ⚠️: fill missing sections or expand thin prose, then re-read.
-- Always append one entry to `.claude/plugins/edugain-agents/pdca-logs/doc-gen.md`:
+- Always append one entry to `.claude/pdca-logs/doc-gen.md`:
 
 ```
 ## <date> — <source_path>
