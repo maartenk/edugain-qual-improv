@@ -153,7 +153,11 @@ pyvenv.cfg
 pip-selfcheck.json
 
 # Project-specific
-.claude/
+# Claude Code - exclude runtime files but track plugins
+.claude/**
+!.claude/plugins/
+!.claude/plugins/**
+
 *.xml
 *.gz
 metadata_cache/
