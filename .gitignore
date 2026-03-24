@@ -161,8 +161,6 @@ pip-selfcheck.json
 !.claude/commands/**
 !.claude/skills/
 !.claude/skills/**
-!.claude/pdca-logs/
-!.claude/pdca-logs/**
 
 *.xml
 *.gz
